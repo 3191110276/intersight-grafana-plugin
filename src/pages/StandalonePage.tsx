@@ -2263,7 +2263,7 @@ function getNetworkErrorsTab() {
     .setOption('showHeader', true)
     .setOverrides((builder) => {
       // Wrap text for all cells
-      builder.matchFieldsByQuery('.*')
+      builder.matchFieldsWithNameByRegex('.*')
         .overrideCustomFieldConfig('filterable', false)
         .overrideCustomFieldConfig('wrapText', true);
 
@@ -3071,7 +3071,7 @@ function getTemperatureTab() {
     .setData(temperatureDataTransformer)
     .setOption('cellHeight', 'lg')
     .setOverrides((builder) => {
-      builder.matchFieldsByQuery('/Temperature|Processor/')
+      builder.matchFieldsWithNameByRegex('/Temperature|Processor/')
         .overrideUnit('celsius')
         .overrideDecimals(1);
     })
@@ -3377,7 +3377,7 @@ function getCoolingBudgetTab() {
     .setData(coolingBudgetDataTransformer)
     .setOption('cellHeight', 'lg')
     .setOverrides((builder) => {
-      builder.matchFieldsByQuery('/Temperature|Processor/')
+      builder.matchFieldsWithNameByRegex('/Temperature|Processor/')
         .overrideUnit('celsius')
         .overrideDecimals(1);
     })
@@ -3670,7 +3670,7 @@ function getCPUUtilizationTab() {
         .overrideCustomFieldConfig('width', 240);
 
       // Temperature columns - celsius unit
-      builder.matchFieldsByQuery('/CPU.*Temperature/')
+      builder.matchFieldsWithNameByRegex('/CPU.*Temperature/')
         .overrideUnit('celsius')
         .overrideDecimals(1);
     })

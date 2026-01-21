@@ -13,9 +13,6 @@ import {
   VariableDependencyConfig,
   sceneGraph,
   EmbeddedScene,
-  SceneGridLayout,
-  SceneGridRow,
-  SceneGridItem,
 } from '@grafana/scenes';
 import { TableCellDisplayMode } from '@grafana/schema';
 import { TabbedScene } from '../components/TabbedScene';
@@ -2673,764 +2670,1173 @@ function getNetworkUtilizationTab() {
   });
 }
 
-// ============================================================================
-// NETWORK UTILIZATION TAB - COMPLETE IMPLEMENTATION
-// All 5 rows with nested tabs for Percentage (%) and Absolute (bps)
-// ============================================================================
-
-// Helper function to create network utilization panels
-interface NetworkUtilPanelConfig {
-  fabric?: 'A' | 'B' | null;  // null for combined (FI Downlinks, IFM panels)
-  direction: 'transmit' | 'receive';
-  title: string;
-  portRoles: string[];
-  portType?: string;
-  identifierExpression?: string;
-  includeHostFilter?: boolean;
-  isPercentage: boolean;  // true for %, false for bps
-  isPortChannel?: boolean;  // true for port channels (converts roles to _pc suffix)
-}
-
-function createNetworkUtilizationPanel(config: NetworkUtilPanelConfig) {
-  const {
-    fabric,
-    direction,
-    title,
-    portRoles,
-    portType,
-    identifierExpression,
-    includeHostFilter = true,
-    isPercentage,
-    isPortChannel = false,
-  } = config;
-
-  // Determine field name based on type and direction
-  const fieldName = isPercentage
-    ? (direction === 'transmit'
-        ? 'hw.network.bandwidth.utilization_transmit_max'
-        : 'hw.network.bandwidth.utilization_receive_max')
-    : (direction === 'transmit'
-        ? 'hw.network.io_transmit_max'
-        : 'hw.network.io_receive_max');
-
-  const valueName = isPercentage ? 'utilization' : 'throughput';
-  const columnName = isPercentage ? 'Utilization' : 'Throughput';
-  const baseValueName = isPercentage ? 'utilization' : 'base_throughput';
-
-  // Default identifier expression
-  const defaultIdentifier = "concat(domain_name + ' (' + name + ')')";
-  const identifier = identifierExpression || defaultIdentifier;
-
-  // Convert port roles to port channel roles if needed
-  const effectivePortRoles = isPortChannel
-    ? portRoles.map(role => `${role}_pc`)
-    : portRoles;
-
-  // Build filter fields
-  const filterFields: any[] = [
-    {
-      type: 'in',
-      dimension: 'intersight.domain.name',
-      values: ['${DomainName:doublequote}'],
-    },
-  ];
-
-  // Add fabric filter if specified
-  if (fabric && includeHostFilter) {
-    filterFields.push({
-      type: 'search',
-      dimension: 'host.name',
-      query: {
-        type: 'insensitive_contains',
-        value: ` FI-${fabric}`,
-      },
-    });
-  }
-
-  // Add port role filter
-  filterFields.push({
-    type: 'in',
-    dimension: 'hw.network.port.role',
-    values: effectivePortRoles,
-  });
-
-  // Add port type filter if specified
-  if (portType) {
-    filterFields.push({
-      type: 'selector',
-      dimension: 'hw.network.port.type',
-      value: portType,
-    });
-  }
-
-  // Add instrument name filter
-  filterFields.push({
-    type: 'selector',
-    dimension: 'instrument.name',
-    value: 'hw.network',
-  });
-
-  // Build query body
-  const queryBody = {
-    queryType: 'groupBy',
-    dataSource: 'NetworkInterfaces',
-    granularity: {
-      type: 'duration',
-      duration: '$__interval_ms',
-      timeZone: '$__timezone',
-    },
-    intervals: ['${__from:date}/${__to:date}'],
-    dimensions: ['Identifier'],
-    virtualColumns: [
-      {
-        type: 'nested-field',
-        columnName: 'intersight.domain.name',
-        outputName: 'domain_name',
-        expectedType: 'STRING',
-        path: '$',
-      },
-      {
-        type: 'expression',
-        name: 'Identifier',
-        expression: identifier,
-        outputType: 'STRING',
-      },
-    ],
-    filter: {
-      type: 'and',
-      fields: filterFields,
-    },
-    aggregations: [
-      {
-        type: 'doubleMax',
-        name: baseValueName,
-        fieldName: fieldName,
-      },
-    ],
-    ...(isPercentage
-      ? {}
-      : {
-          postAggregations: [
-            {
-              type: 'expression',
-              name: valueName,
-              expression: `(${baseValueName} * 8)`,
-            },
-          ],
-        }),
-  };
-
-  const queryRunner = new SceneQueryRunner({
-    datasource: { uid: '${Account}' },
-    queries: [
-      {
-        refId: 'A',
-        queryType: 'infinity',
-        type: 'json',
-        source: 'url',
-        parser: 'backend',
-        format: 'table',
-        url: '/api/v1/telemetry/TimeSeries',
-        root_selector: '',
-        columns: [
-          { selector: 'timestamp', text: 'Time', type: 'timestamp' },
-          { selector: 'event.Identifier', text: 'Name', type: 'string' },
-          { selector: `event.${valueName}`, text: columnName, type: 'number' },
-        ],
-        url_options: {
-          method: 'POST',
-          body_type: 'raw',
-          body_content_type: 'application/json',
-          data: JSON.stringify(queryBody, null, 2)
-            .replace('"$__interval_ms"', '$__interval_ms')
-            .replace('"$__timezone"', '"$__timezone"')
-            .replace('"${__from:date}/${__to:date}"', '"${__from:date}/${__to:date}"')
-            .replace('"${DomainName:doublequote}"', '${DomainName:doublequote}'),
-        },
-      } as any,
-    ],
-  });
-
-  const panelBuilder = PanelBuilders.timeseries()
-    .setTitle(title)
-    .setData(
-      new SceneDataTransformer({
-        $data: queryRunner,
-        transformations: [
-          {
-            id: 'groupingToMatrix',
-            options: {
-              columnField: 'Name',
-              rowField: 'Time',
-              valueField: columnName,
-            },
-          },
-          {
-            id: 'renameByRegex',
-            options: {
-              regex: '(.*)Ethernet(.*)',
-              renamePattern: '$1$2',
-            },
-          },
-        ],
-      })
-    )
-    .setDecimals(1)
-    .setMin(0);
-
-  if (isPercentage) {
-    panelBuilder
-      .setUnit('percentunit')
-      .setMax(1)
-      .setThresholds({
-        mode: 'percentage',
-        steps: [
-          { value: 0, color: 'green' },
-          { value: 70, color: '#EAB839' },
-          { value: 90, color: 'red' },
-        ],
-      });
-  } else {
-    panelBuilder.setUnit('bps');
-  }
-
-  return panelBuilder.build();
-}
-
-// ============================================================================
-// ROW 1: Fabric Interconnect Storage Uplinks
-// ============================================================================
-
-function getFIStorageUplinksRow(isPercentage: boolean) {
-  // Ports Tab (4 panels)
-  const portsTab = new SceneFlexLayout({
-    direction: 'column',
-    children: [
-      new SceneFlexItem({
-        height: 600,
-        body: new SceneFlexLayout({
-          direction: 'row',
-          children: [
-            new SceneFlexItem({
-              width: '50%',
-              body: createNetworkUtilizationPanel({
-                fabric: 'A',
-                direction: 'transmit',
-                title: 'FI-A: Transmit utilization per uplink port (Max)',
-                portRoles: ['fc_uplink', 'fc_storage', 'fcoe_uplink', 'fcoe_storage', 'appliance'],
-                isPercentage,
-              }),
-            }),
-            new SceneFlexItem({
-              width: '50%',
-              body: createNetworkUtilizationPanel({
-                fabric: 'B',
-                direction: 'transmit',
-                title: 'FI-B: Transmit utilization per uplink port (Max)',
-                portRoles: ['fc_uplink', 'fc_storage', 'fcoe_uplink', 'fcoe_storage', 'appliance'],
-                isPercentage,
-              }),
-            }),
-          ],
-        }),
-      }),
-      new SceneFlexItem({
-        height: 600,
-        body: new SceneFlexLayout({
-          direction: 'row',
-          children: [
-            new SceneFlexItem({
-              width: '50%',
-              body: createNetworkUtilizationPanel({
-                fabric: 'A',
-                direction: 'receive',
-                title: 'FI-A: Receive utilization per uplink port (Max)',
-                portRoles: ['fc_uplink', 'fc_storage', 'fcoe_uplink', 'fcoe_storage', 'appliance'],
-                isPercentage,
-              }),
-            }),
-            new SceneFlexItem({
-              width: '50%',
-              body: createNetworkUtilizationPanel({
-                fabric: 'B',
-                direction: 'receive',
-                title: 'FI-B: Receive utilization per uplink port (Max)',
-                portRoles: ['fc_uplink', 'fc_storage', 'fcoe_uplink', 'fcoe_storage', 'appliance'],
-                isPercentage,
-              }),
-            }),
-          ],
-        }),
-      }),
-    ],
-  });
-
-  // Port Channels Tab (4 panels)
-  const portChannelsTab = new SceneFlexLayout({
-    direction: 'column',
-    children: [
-      new SceneFlexItem({
-        height: 600,
-        body: new SceneFlexLayout({
-          direction: 'row',
-          children: [
-            new SceneFlexItem({
-              width: '50%',
-              body: createNetworkUtilizationPanel({
-                fabric: 'A',
-                direction: 'transmit',
-                title: 'FI-A: Transmit utilization per uplink PC (Max)',
-                portRoles: ['fc_uplink', 'fc_storage', 'fcoe_uplink', 'fcoe_storage', 'appliance'],
-                isPortChannel: true,
-                isPercentage,
-              }),
-            }),
-            new SceneFlexItem({
-              width: '50%',
-              body: createNetworkUtilizationPanel({
-                fabric: 'B',
-                direction: 'transmit',
-                title: 'FI-B: Transmit utilization per uplink PC (Max)',
-                portRoles: ['fc_uplink', 'fc_storage', 'fcoe_uplink', 'fcoe_storage', 'appliance'],
-                isPortChannel: true,
-                isPercentage,
-              }),
-            }),
-          ],
-        }),
-      }),
-      new SceneFlexItem({
-        height: 600,
-        body: new SceneFlexLayout({
-          direction: 'row',
-          children: [
-            new SceneFlexItem({
-              width: '50%',
-              body: createNetworkUtilizationPanel({
-                fabric: 'A',
-                direction: 'receive',
-                title: 'FI-A: Receive utilization per uplink PC (Max)',
-                portRoles: ['fc_uplink', 'fc_storage', 'fcoe_uplink', 'fcoe_storage', 'appliance'],
-                isPortChannel: true,
-                isPercentage,
-              }),
-            }),
-            new SceneFlexItem({
-              width: '50%',
-              body: createNetworkUtilizationPanel({
-                fabric: 'B',
-                direction: 'receive',
-                title: 'FI-B: Receive utilization per uplink PC (Max)',
-                portRoles: ['fc_uplink', 'fc_storage', 'fcoe_uplink', 'fcoe_storage', 'appliance'],
-                isPortChannel: true,
-                isPercentage,
-              }),
-            }),
-          ],
-        }),
-      }),
-    ],
-  });
-
-  // Create nested tabs
-  const nestedTabs = new TabbedScene({
-    tabs: [
-      { id: 'ports', label: 'Ports', getBody: () => portsTab },
-      { id: 'port-channels', label: 'Port Channels', getBody: () => portChannelsTab },
-    ],
-    activeTab: 'ports',
-    body: portsTab,
-  });
-
-  return new SceneFlexItem({
-    height: 1200,
-    body: nestedTabs,
-  });
-}
-
-// ============================================================================
-// ROW 2: Fabric Interconnect Ethernet Uplinks
-// ============================================================================
-
-function getFIEthernetUplinksRow(isPercentage: boolean) {
-  // Ports Tab (4 panels)
-  const portsTab = new SceneFlexLayout({
-    direction: 'column',
-    children: [
-      new SceneFlexItem({
-        height: 600,
-        body: new SceneFlexLayout({
-          direction: 'row',
-          children: [
-            new SceneFlexItem({
-              width: '50%',
-              body: createNetworkUtilizationPanel({
-                fabric: 'A',
-                direction: 'transmit',
-                title: 'FI-A: Transmit utilization per uplink port (Max)',
-                portRoles: ['eth_uplink'],
-                isPercentage,
-              }),
-            }),
-            new SceneFlexItem({
-              width: '50%',
-              body: createNetworkUtilizationPanel({
-                fabric: 'B',
-                direction: 'transmit',
-                title: 'FI-B: Transmit utilization per uplink port (Max)',
-                portRoles: ['eth_uplink'],
-                isPercentage,
-              }),
-            }),
-          ],
-        }),
-      }),
-      new SceneFlexItem({
-        height: 600,
-        body: new SceneFlexLayout({
-          direction: 'row',
-          children: [
-            new SceneFlexItem({
-              width: '50%',
-              body: createNetworkUtilizationPanel({
-                fabric: 'A',
-                direction: 'receive',
-                title: 'FI-A: Receive utilization per uplink port (Max)',
-                portRoles: ['eth_uplink'],
-                isPercentage,
-              }),
-            }),
-            new SceneFlexItem({
-              width: '50%',
-              body: createNetworkUtilizationPanel({
-                fabric: 'B',
-                direction: 'receive',
-                title: 'FI-B: Receive utilization per uplink port (Max)',
-                portRoles: ['eth_uplink'],
-                isPercentage,
-              }),
-            }),
-          ],
-        }),
-      }),
-    ],
-  });
-
-  // Port Channels Tab (4 panels)
-  const portChannelsTab = new SceneFlexLayout({
-    direction: 'column',
-    children: [
-      new SceneFlexItem({
-        height: 600,
-        body: new SceneFlexLayout({
-          direction: 'row',
-          children: [
-            new SceneFlexItem({
-              width: '50%',
-              body: createNetworkUtilizationPanel({
-                fabric: 'A',
-                direction: 'transmit',
-                title: 'FI-A: Transmit utilization per uplink PC (Max)',
-                portRoles: ['eth_uplink'],
-                isPortChannel: true,
-                isPercentage,
-              }),
-            }),
-            new SceneFlexItem({
-              width: '50%',
-              body: createNetworkUtilizationPanel({
-                fabric: 'B',
-                direction: 'transmit',
-                title: 'FI-B: Transmit utilization per uplink PC (Max)',
-                portRoles: ['eth_uplink'],
-                isPortChannel: true,
-                isPercentage,
-              }),
-            }),
-          ],
-        }),
-      }),
-      new SceneFlexItem({
-        height: 600,
-        body: new SceneFlexLayout({
-          direction: 'row',
-          children: [
-            new SceneFlexItem({
-              width: '50%',
-              body: createNetworkUtilizationPanel({
-                fabric: 'A',
-                direction: 'receive',
-                title: 'FI-A: Receive utilization per uplink PC (Max)',
-                portRoles: ['eth_uplink'],
-                isPortChannel: true,
-                isPercentage,
-              }),
-            }),
-            new SceneFlexItem({
-              width: '50%',
-              body: createNetworkUtilizationPanel({
-                fabric: 'B',
-                direction: 'receive',
-                title: 'FI-B: Receive utilization per uplink PC (Max)',
-                portRoles: ['eth_uplink'],
-                isPortChannel: true,
-                isPercentage,
-              }),
-            }),
-          ],
-        }),
-      }),
-    ],
-  });
-
-  // Create nested tabs
-  const nestedTabs = new TabbedScene({
-    tabs: [
-      { id: 'ports', label: 'Ports', getBody: () => portsTab },
-      { id: 'port-channels', label: 'Port Channels', getBody: () => portChannelsTab },
-    ],
-    activeTab: 'ports',
-    body: portsTab,
-  });
-
-  return new SceneFlexItem({
-    height: 1200,
-    body: nestedTabs,
-  });
-}
-
-// ============================================================================
-// ROW 3: Fabric Interconnect Downlinks
-// ============================================================================
-
-function getFIDownlinksRow(isPercentage: boolean) {
-  return new SceneFlexItem({
-    height: 400,
-    body: new SceneFlexLayout({
-      direction: 'row',
-      children: [
-        new SceneFlexItem({
-          width: '50%',
-          body: createNetworkUtilizationPanel({
-            fabric: null,
-            direction: 'transmit',
-            title: 'Transmit utilization per FI downlink port',
-            portRoles: ['server'],
-            identifierExpression: "concat(domain_name + ' - ' + host_name + ' (' + name + ')')",
-            includeHostFilter: false,
-            isPercentage,
-          }),
-        }),
-        new SceneFlexItem({
-          width: '50%',
-          body: createNetworkUtilizationPanel({
-            fabric: null,
-            direction: 'receive',
-            title: 'Receive utilization per FI downlink port',
-            portRoles: ['server'],
-            identifierExpression: "concat(domain_name + ' - ' + host_name + ' (' + name + ')')",
-            includeHostFilter: false,
-            isPercentage,
-          }),
-        }),
-      ],
-    }),
-  });
-}
-
-// ============================================================================
-// ROW 4: IFM Uplinks
-// ============================================================================
-
-function getIFMUplinksRow(isPercentage: boolean) {
-  return new SceneFlexItem({
-    height: 400,
-    body: new SceneFlexLayout({
-      direction: 'row',
-      children: [
-        new SceneFlexItem({
-          width: '50%',
-          body: createNetworkUtilizationPanel({
-            fabric: null,
-            direction: 'transmit',
-            title: 'Transmit utilization per IFM uplink port',
-            portRoles: ['network'],
-            portType: 'backplane_port',
-            identifierExpression: "concat(domain_name + ' - ' + host_name + ' (G' + chassis_number + '/' + name + ')')",
-            includeHostFilter: false,
-            isPercentage,
-          }),
-        }),
-        new SceneFlexItem({
-          width: '50%',
-          body: createNetworkUtilizationPanel({
-            fabric: null,
-            direction: 'receive',
-            title: 'Receive utilization per IFM uplink port',
-            portRoles: ['network'],
-            portType: 'backplane_port',
-            identifierExpression: "concat(domain_name + ' - ' + host_name + ' (G' + chassis_number + '/' + name + ')')",
-            includeHostFilter: false,
-            isPercentage,
-          }),
-        }),
-      ],
-    }),
-  });
-}
-
-// ============================================================================
-// ROW 5: IFM Downlinks
-// ============================================================================
-
-function getIFMDownlinksRow(isPercentage: boolean) {
-  return new SceneFlexItem({
-    height: 400,
-    body: new SceneFlexLayout({
-      direction: 'row',
-      children: [
-        new SceneFlexItem({
-          width: '50%',
-          body: createNetworkUtilizationPanel({
-            fabric: null,
-            direction: 'transmit',
-            title: 'Transmit utilization per IFM downlink port',
-            portRoles: ['host_port'],
-            portType: 'backplane_port',
-            identifierExpression: "concat(domain_name + ' - ' + host_name + ' (G' + chassis_number + '/' + name + ')')",
-            includeHostFilter: false,
-            isPercentage,
-          }),
-        }),
-        new SceneFlexItem({
-          width: '50%',
-          body: createNetworkUtilizationPanel({
-            fabric: null,
-            direction: 'receive',
-            title: 'Receive utilization per IFM downlink port',
-            portRoles: ['host_port'],
-            portType: 'backplane_port',
-            identifierExpression: "concat(domain_name + ' - ' + host_name + ' (G' + chassis_number + '/' + name + ')')",
-            includeHostFilter: false,
-            isPercentage,
-          }),
-        }),
-      ],
-    }),
-  });
-}
-
-// ============================================================================
-// MAIN TAB FUNCTIONS
-// ============================================================================
-
+// Helper function for Percentage (%) tab - Fabric Interconnect Storage Uplinks
 function getNetworkUtilizationPercentageTab() {
+  // Panel 115: FI-A Transmit utilization in % per uplink port
+  const fiATransmitQuery = new SceneQueryRunner({
+    datasource: { uid: '${Account}' },
+    queries: [{
+      refId: 'A',
+      queryType: 'infinity',
+      type: 'json',
+      source: 'url',
+      parser: 'backend',
+      format: 'table',
+      url: '/api/v1/telemetry/TimeSeries',
+      root_selector: '',
+      columns: [
+        { selector: 'timestamp', text: 'Time', type: 'timestamp' },
+        { selector: 'event.Identifier', text: 'Name', type: 'string' },
+        { selector: 'event.utilization', text: 'Utilization', type: 'number' },
+      ],
+      url_options: {
+        method: 'POST',
+        body_type: 'raw',
+        body_content_type: 'application/json',
+        data: `  {
+    "queryType": "groupBy",
+    "dataSource": "NetworkInterfaces",
+    "granularity": {
+       "type": "duration",
+       "duration": $__interval_ms,
+       "timeZone": "$__timezone"
+    },
+    "intervals": ["\${__from:date}/\${__to:date}"],
+    "dimensions": [
+      "Identifier"
+    ],
+    "virtualColumns": [{
+      "type": "nested-field",
+      "columnName": "intersight.domain.name",
+      "outputName": "domain_name",
+      "expectedType": "STRING",
+      "path": "$"
+    },{
+      "type": "expression",
+      "name": "Identifier",
+      "expression": "concat(domain_name + ' (' + name + ')')",
+      "outputType": "STRING"
+    }],
+    "filter": {
+      "type": "and",
+      "fields": [
+        {
+          "type": "in",
+          "dimension": "intersight.domain.name",
+          "values": [\${DomainName:doublequote}]
+        },
+        {
+          "type": "search",
+          "dimension": "host.name",
+          "query": {
+            "type": "insensitive_contains",
+            "value": " FI-A"
+          }
+        },
+        {
+          "type": "in",
+          "dimension": "hw.network.port.role",
+          "values": [
+            "fc_uplink",
+            "fc_storage",
+            "fcoe_uplink",
+            "fcoe_storage",
+            "appliance"
+          ]
+        },
+        {
+          "type": "selector",
+          "dimension": "instrument.name",
+          "value": "hw.network"
+        }
+      ]
+    },
+    "aggregations": [
+      {
+        "type": "doubleMax",
+        "name": "utilization",
+        "fieldName": "hw.network.bandwidth.utilization_transmit_max"
+      }
+    ]
+  }`,
+      },
+    } as any],
+  });
+
+  const fiATransmitPanel = PanelBuilders.timeseries()
+    .setTitle('FI-A: Transmit utilization in % per uplink port (Max)')
+    .setData(new SceneDataTransformer({
+      $data: fiATransmitQuery,
+      transformations: [
+        {
+          id: 'groupingToMatrix',
+          options: {
+            columnField: 'Name',
+            rowField: 'Time',
+            valueField: 'Utilization',
+          },
+        },
+        {
+          id: 'renameByRegex',
+          options: {
+            regex: '(.*)Ethernet(.*)',
+            renamePattern: '$1$2',
+          },
+        },
+      ],
+    }))
+    .setUnit('percentunit')
+    .setDecimals(1)
+    .setMin(0)
+    .setMax(1)
+    .setThresholds({
+      mode: 'percentage',
+      steps: [
+        { value: 0, color: 'green' },
+        { value: 70, color: '#EAB839' },
+        { value: 90, color: 'red' },
+      ],
+    })
+    .build();
+
+  // Panel 119: FI-B Transmit utilization in % per uplink port
+  const fiBTransmitQuery = new SceneQueryRunner({
+    datasource: { uid: '${Account}' },
+    queries: [{
+      refId: 'A',
+      queryType: 'infinity',
+      type: 'json',
+      source: 'url',
+      parser: 'backend',
+      format: 'table',
+      url: '/api/v1/telemetry/TimeSeries',
+      root_selector: '',
+      columns: [
+        { selector: 'timestamp', text: 'Time', type: 'timestamp' },
+        { selector: 'event.Identifier', text: 'Name', type: 'string' },
+        { selector: 'event.utilization', text: 'Utilization', type: 'number' },
+      ],
+      url_options: {
+        method: 'POST',
+        body_type: 'raw',
+        body_content_type: 'application/json',
+        data: `  {
+    "queryType": "groupBy",
+    "dataSource": "NetworkInterfaces",
+    "granularity": {
+       "type": "duration",
+       "duration": $__interval_ms,
+       "timeZone": "$__timezone"
+    },
+    "intervals": ["\${__from:date}/\${__to:date}"],
+    "dimensions": [
+      "Identifier"
+    ],
+    "virtualColumns": [{
+      "type": "nested-field",
+      "columnName": "intersight.domain.name",
+      "outputName": "domain_name",
+      "expectedType": "STRING",
+      "path": "$"
+    },{
+      "type": "expression",
+      "name": "Identifier",
+      "expression": "concat(domain_name + ' (' + name + ')')",
+      "outputType": "STRING"
+    }],
+    "filter": {
+      "type": "and",
+      "fields": [
+        {
+          "type": "in",
+          "dimension": "intersight.domain.name",
+          "values": [\${DomainName:doublequote}]
+        },
+        {
+          "type": "search",
+          "dimension": "host.name",
+          "query": {
+            "type": "insensitive_contains",
+            "value": " FI-B"
+          }
+        },
+        {
+          "type": "in",
+          "dimension": "hw.network.port.role",
+          "values": [
+            "fc_uplink",
+            "fc_storage",
+            "fcoe_uplink",
+            "fcoe_storage",
+            "appliance"
+          ]
+        },
+        {
+          "type": "selector",
+          "dimension": "instrument.name",
+          "value": "hw.network"
+        }
+      ]
+    },
+    "aggregations": [
+      {
+        "type": "doubleMax",
+        "name": "utilization",
+        "fieldName": "hw.network.bandwidth.utilization_transmit_max"
+      }
+    ]
+  }`,
+      },
+    } as any],
+  });
+
+  const fiBTransmitPanel = PanelBuilders.timeseries()
+    .setTitle('FI-B: Transmit utilization in % per uplink port (Max)')
+    .setData(new SceneDataTransformer({
+      $data: fiBTransmitQuery,
+      transformations: [
+        {
+          id: 'groupingToMatrix',
+          options: {
+            columnField: 'Name',
+            rowField: 'Time',
+            valueField: 'Utilization',
+          },
+        },
+        {
+          id: 'renameByRegex',
+          options: {
+            regex: '(.*)Ethernet(.*)',
+            renamePattern: '$1$2',
+          },
+        },
+      ],
+    }))
+    .setUnit('percentunit')
+    .setDecimals(1)
+    .setMin(0)
+    .setMax(1)
+    .setThresholds({
+      mode: 'percentage',
+      steps: [
+        { value: 0, color: 'green' },
+        { value: 70, color: '#EAB839' },
+        { value: 90, color: 'red' },
+      ],
+    })
+    .build();
+
+  // Panel 121: FI-A Receive utilization in % per uplink port
+  const fiAReceiveQuery = new SceneQueryRunner({
+    datasource: { uid: '${Account}' },
+    queries: [{
+      refId: 'A',
+      queryType: 'infinity',
+      type: 'json',
+      source: 'url',
+      parser: 'backend',
+      format: 'table',
+      url: '/api/v1/telemetry/TimeSeries',
+      root_selector: '',
+      columns: [
+        { selector: 'timestamp', text: 'Time', type: 'timestamp' },
+        { selector: 'event.Identifier', text: 'Name', type: 'string' },
+        { selector: 'event.utilization', text: 'Utilization', type: 'number' },
+      ],
+      url_options: {
+        method: 'POST',
+        body_type: 'raw',
+        body_content_type: 'application/json',
+        data: `  {
+    "queryType": "groupBy",
+    "dataSource": "NetworkInterfaces",
+    "granularity": {
+       "type": "duration",
+       "duration": $__interval_ms,
+       "timeZone": "$__timezone"
+    },
+    "intervals": ["\${__from:date}/\${__to:date}"],
+    "dimensions": [
+      "Identifier"
+    ],
+    "virtualColumns": [{
+      "type": "nested-field",
+      "columnName": "intersight.domain.name",
+      "outputName": "domain_name",
+      "expectedType": "STRING",
+      "path": "$"
+    },{
+      "type": "expression",
+      "name": "Identifier",
+      "expression": "concat(domain_name + ' (' + name + ')')",
+      "outputType": "STRING"
+    }],
+    "filter": {
+      "type": "and",
+      "fields": [
+        {
+          "type": "in",
+          "dimension": "intersight.domain.name",
+          "values": [\${DomainName:doublequote}]
+        },
+        {
+          "type": "search",
+          "dimension": "host.name",
+          "query": {
+            "type": "insensitive_contains",
+            "value": " FI-A"
+          }
+        },
+        {
+          "type": "in",
+          "dimension": "hw.network.port.role",
+          "values": [
+            "fc_uplink",
+            "fc_storage",
+            "fcoe_uplink",
+            "fcoe_storage",
+            "appliance"
+          ]
+        },
+        {
+          "type": "selector",
+          "dimension": "instrument.name",
+          "value": "hw.network"
+        }
+      ]
+    },
+    "aggregations": [
+      {
+        "type": "doubleMax",
+        "name": "utilization",
+        "fieldName": "hw.network.bandwidth.utilization_receive_max"
+      }
+    ]
+  }`,
+      },
+    } as any],
+  });
+
+  const fiAReceivePanel = PanelBuilders.timeseries()
+    .setTitle('FI-A: Receive utilization in % per uplink port (Max)')
+    .setData(new SceneDataTransformer({
+      $data: fiAReceiveQuery,
+      transformations: [
+        {
+          id: 'groupingToMatrix',
+          options: {
+            columnField: 'Name',
+            rowField: 'Time',
+            valueField: 'Utilization',
+          },
+        },
+        {
+          id: 'renameByRegex',
+          options: {
+            regex: '(.*)Ethernet(.*)',
+            renamePattern: '$1$2',
+          },
+        },
+      ],
+    }))
+    .setUnit('percentunit')
+    .setDecimals(1)
+    .setMin(0)
+    .setMax(1)
+    .setThresholds({
+      mode: 'percentage',
+      steps: [
+        { value: 0, color: 'green' },
+        { value: 70, color: '#EAB839' },
+        { value: 90, color: 'red' },
+      ],
+    })
+    .build();
+
+  // Panel 122: FI-B Receive utilization in % per uplink port
+  const fiBReceiveQuery = new SceneQueryRunner({
+    datasource: { uid: '${Account}' },
+    queries: [{
+      refId: 'A',
+      queryType: 'infinity',
+      type: 'json',
+      source: 'url',
+      parser: 'backend',
+      format: 'table',
+      url: '/api/v1/telemetry/TimeSeries',
+      root_selector: '',
+      columns: [
+        { selector: 'timestamp', text: 'Time', type: 'timestamp' },
+        { selector: 'event.Identifier', text: 'Name', type: 'string' },
+        { selector: 'event.utilization', text: 'Utilization', type: 'number' },
+      ],
+      url_options: {
+        method: 'POST',
+        body_type: 'raw',
+        body_content_type: 'application/json',
+        data: `  {
+    "queryType": "groupBy",
+    "dataSource": "NetworkInterfaces",
+    "granularity": {
+       "type": "duration",
+       "duration": $__interval_ms,
+       "timeZone": "$__timezone"
+    },
+    "intervals": ["\${__from:date}/\${__to:date}"],
+    "dimensions": [
+      "Identifier"
+    ],
+    "virtualColumns": [{
+      "type": "nested-field",
+      "columnName": "intersight.domain.name",
+      "outputName": "domain_name",
+      "expectedType": "STRING",
+      "path": "$"
+    },{
+      "type": "expression",
+      "name": "Identifier",
+      "expression": "concat(domain_name + ' (' + name + ')')",
+      "outputType": "STRING"
+    }],
+    "filter": {
+      "type": "and",
+      "fields": [
+        {
+          "type": "in",
+          "dimension": "intersight.domain.name",
+          "values": [\${DomainName:doublequote}]
+        },
+        {
+          "type": "search",
+          "dimension": "host.name",
+          "query": {
+            "type": "insensitive_contains",
+            "value": " FI-B"
+          }
+        },
+        {
+          "type": "in",
+          "dimension": "hw.network.port.role",
+          "values": [
+            "fc_uplink",
+            "fc_storage",
+            "fcoe_uplink",
+            "fcoe_storage",
+            "appliance"
+          ]
+        },
+        {
+          "type": "selector",
+          "dimension": "instrument.name",
+          "value": "hw.network"
+        }
+      ]
+    },
+    "aggregations": [
+      {
+        "type": "doubleMax",
+        "name": "utilization",
+        "fieldName": "hw.network.bandwidth.utilization_receive_max"
+      }
+    ]
+  }`,
+      },
+    } as any],
+  });
+
+  const fiBReceivePanel = PanelBuilders.timeseries()
+    .setTitle('FI-B: Receive utilization in % per uplink port (Max)')
+    .setData(new SceneDataTransformer({
+      $data: fiBReceiveQuery,
+      transformations: [
+        {
+          id: 'groupingToMatrix',
+          options: {
+            columnField: 'Name',
+            rowField: 'Time',
+            valueField: 'Utilization',
+          },
+        },
+        {
+          id: 'renameByRegex',
+          options: {
+            regex: '(.*)Ethernet(.*)',
+            renamePattern: '$1$2',
+          },
+        },
+      ],
+    }))
+    .setUnit('percentunit')
+    .setDecimals(1)
+    .setMin(0)
+    .setMax(1)
+    .setThresholds({
+      mode: 'percentage',
+      steps: [
+        { value: 0, color: 'green' },
+        { value: 70, color: '#EAB839' },
+        { value: 90, color: 'red' },
+      ],
+    })
+    .build();
+
   return new SceneFlexLayout({
     direction: 'column',
     children: [
-      getFIStorageUplinksRow(true),
-      getFIEthernetUplinksRow(true),
-      getFIDownlinksRow(true),
-      getIFMUplinksRow(true),
-      getIFMDownlinksRow(true),
+      new SceneFlexItem({
+        height: 300,
+        body: new SceneFlexLayout({
+          direction: 'row',
+          children: [
+            new SceneFlexItem({ width: '50%', body: fiATransmitPanel }),
+            new SceneFlexItem({ width: '50%', body: fiBTransmitPanel }),
+          ],
+        }),
+      }),
+      new SceneFlexItem({
+        height: 300,
+        body: new SceneFlexLayout({
+          direction: 'row',
+          children: [
+            new SceneFlexItem({ width: '50%', body: fiAReceivePanel }),
+            new SceneFlexItem({ width: '50%', body: fiBReceivePanel }),
+          ],
+        }),
+      }),
     ],
   });
 }
 
+// Helper function for Absolute (bps) tab - Fabric Interconnect Storage Uplinks
 function getNetworkUtilizationAbsoluteTab() {
+  // FI-A Transmit utilization in bps per uplink port
+  const fiATransmitQuery = new SceneQueryRunner({
+    datasource: { uid: '${Account}' },
+    queries: [{
+      refId: 'A',
+      queryType: 'infinity',
+      type: 'json',
+      source: 'url',
+      parser: 'backend',
+      format: 'table',
+      url: '/api/v1/telemetry/TimeSeries',
+      root_selector: '',
+      columns: [
+        { selector: 'timestamp', text: 'Time', type: 'timestamp' },
+        { selector: 'event.Identifier', text: 'Name', type: 'string' },
+        { selector: 'event.throughput', text: 'Throughput', type: 'number' },
+      ],
+      url_options: {
+        method: 'POST',
+        body_type: 'raw',
+        body_content_type: 'application/json',
+        data: `  {
+    "queryType": "groupBy",
+    "dataSource": "NetworkInterfaces",
+    "granularity": {
+       "type": "duration",
+       "duration": $__interval_ms,
+       "timeZone": "$__timezone"
+    },
+    "intervals": ["\${__from:date}/\${__to:date}"],
+    "dimensions": [
+      "Identifier"
+    ],
+    "virtualColumns": [{
+      "type": "nested-field",
+      "columnName": "intersight.domain.name",
+      "outputName": "domain_name",
+      "expectedType": "STRING",
+      "path": "$"
+    },{
+      "type": "expression",
+      "name": "Identifier",
+      "expression": "concat(domain_name + ' (' + name + ')')",
+      "outputType": "STRING"
+    }],
+    "filter": {
+      "type": "and",
+      "fields": [
+        {
+          "type": "in",
+          "dimension": "intersight.domain.name",
+          "values": [\${DomainName:doublequote}]
+        },
+        {
+          "type": "search",
+          "dimension": "host.name",
+          "query": {
+            "type": "insensitive_contains",
+            "value": " FI-A"
+          }
+        },
+        {
+          "type": "in",
+          "dimension": "hw.network.port.role",
+          "values": [
+            "fc_uplink",
+            "fc_storage",
+            "fcoe_uplink",
+            "fcoe_storage",
+            "appliance"
+          ]
+        },
+        {
+          "type": "selector",
+          "dimension": "instrument.name",
+          "value": "hw.network"
+        }
+      ]
+    },
+    "aggregations": [
+      {
+        "type": "doubleMax",
+        "name": "throughput",
+        "fieldName": "hw.network.io_transmit_max"
+      }
+    ],
+    "postAggregations": [
+      {
+        "type": "expression",
+        "name": "throughput",
+        "expression": "\\"throughput\\" * 8"
+      }
+    ]
+  }`,
+      },
+    } as any],
+  });
+
+  const fiATransmitPanel = PanelBuilders.timeseries()
+    .setTitle('FI-A: Transmit utilization in bps per uplink port (Max)')
+    .setData(new SceneDataTransformer({
+      $data: fiATransmitQuery,
+      transformations: [
+        {
+          id: 'groupingToMatrix',
+          options: {
+            columnField: 'Name',
+            rowField: 'Time',
+            valueField: 'Throughput',
+          },
+        },
+        {
+          id: 'renameByRegex',
+          options: {
+            regex: '(.*)Ethernet(.*)',
+            renamePattern: '$1$2',
+          },
+        },
+      ],
+    }))
+    .setUnit('bps')
+    .setDecimals(1)
+    .setMin(0)
+    .build();
+
+  // FI-B Transmit utilization in bps per uplink port
+  const fiBTransmitQuery = new SceneQueryRunner({
+    datasource: { uid: '${Account}' },
+    queries: [{
+      refId: 'A',
+      queryType: 'infinity',
+      type: 'json',
+      source: 'url',
+      parser: 'backend',
+      format: 'table',
+      url: '/api/v1/telemetry/TimeSeries',
+      root_selector: '',
+      columns: [
+        { selector: 'timestamp', text: 'Time', type: 'timestamp' },
+        { selector: 'event.Identifier', text: 'Name', type: 'string' },
+        { selector: 'event.throughput', text: 'Throughput', type: 'number' },
+      ],
+      url_options: {
+        method: 'POST',
+        body_type: 'raw',
+        body_content_type: 'application/json',
+        data: `  {
+    "queryType": "groupBy",
+    "dataSource": "NetworkInterfaces",
+    "granularity": {
+       "type": "duration",
+       "duration": $__interval_ms,
+       "timeZone": "$__timezone"
+    },
+    "intervals": ["\${__from:date}/\${__to:date}"],
+    "dimensions": [
+      "Identifier"
+    ],
+    "virtualColumns": [{
+      "type": "nested-field",
+      "columnName": "intersight.domain.name",
+      "outputName": "domain_name",
+      "expectedType": "STRING",
+      "path": "$"
+    },{
+      "type": "expression",
+      "name": "Identifier",
+      "expression": "concat(domain_name + ' (' + name + ')')",
+      "outputType": "STRING"
+    }],
+    "filter": {
+      "type": "and",
+      "fields": [
+        {
+          "type": "in",
+          "dimension": "intersight.domain.name",
+          "values": [\${DomainName:doublequote}]
+        },
+        {
+          "type": "search",
+          "dimension": "host.name",
+          "query": {
+            "type": "insensitive_contains",
+            "value": " FI-B"
+          }
+        },
+        {
+          "type": "in",
+          "dimension": "hw.network.port.role",
+          "values": [
+            "fc_uplink",
+            "fc_storage",
+            "fcoe_uplink",
+            "fcoe_storage",
+            "appliance"
+          ]
+        },
+        {
+          "type": "selector",
+          "dimension": "instrument.name",
+          "value": "hw.network"
+        }
+      ]
+    },
+    "aggregations": [
+      {
+        "type": "doubleMax",
+        "name": "throughput",
+        "fieldName": "hw.network.io_transmit_max"
+      }
+    ],
+    "postAggregations": [
+      {
+        "type": "expression",
+        "name": "throughput",
+        "expression": "\\"throughput\\" * 8"
+      }
+    ]
+  }`,
+      },
+    } as any],
+  });
+
+  const fiBTransmitPanel = PanelBuilders.timeseries()
+    .setTitle('FI-B: Transmit utilization in bps per uplink port (Max)')
+    .setData(new SceneDataTransformer({
+      $data: fiBTransmitQuery,
+      transformations: [
+        {
+          id: 'groupingToMatrix',
+          options: {
+            columnField: 'Name',
+            rowField: 'Time',
+            valueField: 'Throughput',
+          },
+        },
+        {
+          id: 'renameByRegex',
+          options: {
+            regex: '(.*)Ethernet(.*)',
+            renamePattern: '$1$2',
+          },
+        },
+      ],
+    }))
+    .setUnit('bps')
+    .setDecimals(1)
+    .setMin(0)
+    .build();
+
+  // FI-A Receive utilization in bps per uplink port
+  const fiAReceiveQuery = new SceneQueryRunner({
+    datasource: { uid: '${Account}' },
+    queries: [{
+      refId: 'A',
+      queryType: 'infinity',
+      type: 'json',
+      source: 'url',
+      parser: 'backend',
+      format: 'table',
+      url: '/api/v1/telemetry/TimeSeries',
+      root_selector: '',
+      columns: [
+        { selector: 'timestamp', text: 'Time', type: 'timestamp' },
+        { selector: 'event.Identifier', text: 'Name', type: 'string' },
+        { selector: 'event.throughput', text: 'Throughput', type: 'number' },
+      ],
+      url_options: {
+        method: 'POST',
+        body_type: 'raw',
+        body_content_type: 'application/json',
+        data: `  {
+    "queryType": "groupBy",
+    "dataSource": "NetworkInterfaces",
+    "granularity": {
+       "type": "duration",
+       "duration": $__interval_ms,
+       "timeZone": "$__timezone"
+    },
+    "intervals": ["\${__from:date}/\${__to:date}"],
+    "dimensions": [
+      "Identifier"
+    ],
+    "virtualColumns": [{
+      "type": "nested-field",
+      "columnName": "intersight.domain.name",
+      "outputName": "domain_name",
+      "expectedType": "STRING",
+      "path": "$"
+    },{
+      "type": "expression",
+      "name": "Identifier",
+      "expression": "concat(domain_name + ' (' + name + ')')",
+      "outputType": "STRING"
+    }],
+    "filter": {
+      "type": "and",
+      "fields": [
+        {
+          "type": "in",
+          "dimension": "intersight.domain.name",
+          "values": [\${DomainName:doublequote}]
+        },
+        {
+          "type": "search",
+          "dimension": "host.name",
+          "query": {
+            "type": "insensitive_contains",
+            "value": " FI-A"
+          }
+        },
+        {
+          "type": "in",
+          "dimension": "hw.network.port.role",
+          "values": [
+            "fc_uplink",
+            "fc_storage",
+            "fcoe_uplink",
+            "fcoe_storage",
+            "appliance"
+          ]
+        },
+        {
+          "type": "selector",
+          "dimension": "instrument.name",
+          "value": "hw.network"
+        }
+      ]
+    },
+    "aggregations": [
+      {
+        "type": "doubleMax",
+        "name": "throughput",
+        "fieldName": "hw.network.io_receive_max"
+      }
+    ],
+    "postAggregations": [
+      {
+        "type": "expression",
+        "name": "throughput",
+        "expression": "\\"throughput\\" * 8"
+      }
+    ]
+  }`,
+      },
+    } as any],
+  });
+
+  const fiAReceivePanel = PanelBuilders.timeseries()
+    .setTitle('FI-A: Receive utilization in bps per uplink port (Max)')
+    .setData(new SceneDataTransformer({
+      $data: fiAReceiveQuery,
+      transformations: [
+        {
+          id: 'groupingToMatrix',
+          options: {
+            columnField: 'Name',
+            rowField: 'Time',
+            valueField: 'Throughput',
+          },
+        },
+        {
+          id: 'renameByRegex',
+          options: {
+            regex: '(.*)Ethernet(.*)',
+            renamePattern: '$1$2',
+          },
+        },
+      ],
+    }))
+    .setUnit('bps')
+    .setDecimals(1)
+    .setMin(0)
+    .build();
+
+  // FI-B Receive utilization in bps per uplink port
+  const fiBReceiveQuery = new SceneQueryRunner({
+    datasource: { uid: '${Account}' },
+    queries: [{
+      refId: 'A',
+      queryType: 'infinity',
+      type: 'json',
+      source: 'url',
+      parser: 'backend',
+      format: 'table',
+      url: '/api/v1/telemetry/TimeSeries',
+      root_selector: '',
+      columns: [
+        { selector: 'timestamp', text: 'Time', type: 'timestamp' },
+        { selector: 'event.Identifier', text: 'Name', type: 'string' },
+        { selector: 'event.throughput', text: 'Throughput', type: 'number' },
+      ],
+      url_options: {
+        method: 'POST',
+        body_type: 'raw',
+        body_content_type: 'application/json',
+        data: `  {
+    "queryType": "groupBy",
+    "dataSource": "NetworkInterfaces",
+    "granularity": {
+       "type": "duration",
+       "duration": $__interval_ms,
+       "timeZone": "$__timezone"
+    },
+    "intervals": ["\${__from:date}/\${__to:date}"],
+    "dimensions": [
+      "Identifier"
+    ],
+    "virtualColumns": [{
+      "type": "nested-field",
+      "columnName": "intersight.domain.name",
+      "outputName": "domain_name",
+      "expectedType": "STRING",
+      "path": "$"
+    },{
+      "type": "expression",
+      "name": "Identifier",
+      "expression": "concat(domain_name + ' (' + name + ')')",
+      "outputType": "STRING"
+    }],
+    "filter": {
+      "type": "and",
+      "fields": [
+        {
+          "type": "in",
+          "dimension": "intersight.domain.name",
+          "values": [\${DomainName:doublequote}]
+        },
+        {
+          "type": "search",
+          "dimension": "host.name",
+          "query": {
+            "type": "insensitive_contains",
+            "value": " FI-B"
+          }
+        },
+        {
+          "type": "in",
+          "dimension": "hw.network.port.role",
+          "values": [
+            "fc_uplink",
+            "fc_storage",
+            "fcoe_uplink",
+            "fcoe_storage",
+            "appliance"
+          ]
+        },
+        {
+          "type": "selector",
+          "dimension": "instrument.name",
+          "value": "hw.network"
+        }
+      ]
+    },
+    "aggregations": [
+      {
+        "type": "doubleMax",
+        "name": "throughput",
+        "fieldName": "hw.network.io_receive_max"
+      }
+    ],
+    "postAggregations": [
+      {
+        "type": "expression",
+        "name": "throughput",
+        "expression": "\\"throughput\\" * 8"
+      }
+    ]
+  }`,
+      },
+    } as any],
+  });
+
+  const fiBReceivePanel = PanelBuilders.timeseries()
+    .setTitle('FI-B: Receive utilization in bps per uplink port (Max)')
+    .setData(new SceneDataTransformer({
+      $data: fiBReceiveQuery,
+      transformations: [
+        {
+          id: 'groupingToMatrix',
+          options: {
+            columnField: 'Name',
+            rowField: 'Time',
+            valueField: 'Throughput',
+          },
+        },
+        {
+          id: 'renameByRegex',
+          options: {
+            regex: '(.*)Ethernet(.*)',
+            renamePattern: '$1$2',
+          },
+        },
+      ],
+    }))
+    .setUnit('bps')
+    .setDecimals(1)
+    .setMin(0)
+    .build();
+
   return new SceneFlexLayout({
     direction: 'column',
     children: [
-      getFIStorageUplinksRow(false),
-      getFIEthernetUplinksRow(false),
-      getFIDownlinksRow(false),
-      getIFMUplinksRow(false),
-      getIFMDownlinksRow(false),
+      new SceneFlexItem({
+        height: 300,
+        body: new SceneFlexLayout({
+          direction: 'row',
+          children: [
+            new SceneFlexItem({ width: '50%', body: fiATransmitPanel }),
+            new SceneFlexItem({ width: '50%', body: fiBTransmitPanel }),
+          ],
+        }),
+      }),
+      new SceneFlexItem({
+        height: 300,
+        body: new SceneFlexLayout({
+          direction: 'row',
+          children: [
+            new SceneFlexItem({ width: '50%', body: fiAReceivePanel }),
+            new SceneFlexItem({ width: '50%', body: fiBReceivePanel }),
+          ],
+        }),
+      }),
     ],
   });
 }
-
 
 function getTrafficBalanceTab() {
+  // Helper function to create a row header
+  const createRowHeader = (title: string) => {
+    return PanelBuilders.text()
+      .setTitle('')
+      .setOption('content', `## ${title}`)
+      .setOption('mode', 'markdown')
+      .build();
+  };
+
   // Row 1: Ethernet Overview (4 panels - aggregate traffic)
-  const ethernetOverviewRow = new SceneGridRow({
-    title: 'Ethernet Overview',
-    isCollapsible: true,
-    isCollapsed: false,
+  const ethernetOverviewHeader = createRowHeader('Ethernet Overview');
+  const ethernetOverviewRow = new SceneFlexLayout({
+    direction: 'row',
     children: [
-      new SceneGridItem({ x: 0, y: 0, width: 6, height: 8, body: getPanel185_EthTransmitTrafficA() }),
-      new SceneGridItem({ x: 6, y: 0, width: 6, height: 8, body: getPanel186_EthTransmitTrafficB() }),
-      new SceneGridItem({ x: 12, y: 0, width: 6, height: 8, body: getPanel187_EthReceiveTrafficA() }),
-      new SceneGridItem({ x: 18, y: 0, width: 6, height: 8, body: getPanel188_EthReceiveTrafficB() }),
+      new SceneFlexItem({ width: '25%', body: getPanel185_EthTransmitTrafficA() }),
+      new SceneFlexItem({ width: '25%', body: getPanel186_EthTransmitTrafficB() }),
+      new SceneFlexItem({ width: '25%', body: getPanel187_EthReceiveTrafficA() }),
+      new SceneFlexItem({ width: '25%', body: getPanel188_EthReceiveTrafficB() }),
     ],
   });
 
   // Row 2: Ethernet Transmit Details (2 panels - per domain)
-  const ethernetTransmitDetailsRow = new SceneGridRow({
-    title: 'Ethernet Transmit Details',
-    isCollapsible: true,
-    isCollapsed: false,
+  const ethernetTransmitDetailsHeader = createRowHeader('Ethernet Transmit Details');
+  const ethernetTransmitDetailsRow = new SceneFlexLayout({
+    direction: 'row',
     children: [
-      new SceneGridItem({ x: 0, y: 0, width: 12, height: 12, body: getPanel189_EthTransmitUtilPerDomainA() }),
-      new SceneGridItem({ x: 12, y: 0, width: 12, height: 12, body: getPanel190_EthTransmitUtilPerDomainB() }),
+      new SceneFlexItem({ width: '50%', body: getPanel189_EthTransmitUtilPerDomainA() }),
+      new SceneFlexItem({ width: '50%', body: getPanel190_EthTransmitUtilPerDomainB() }),
     ],
   });
 
   // Row 3: Ethernet Receive Details (2 panels - per domain)
-  const ethernetReceiveDetailsRow = new SceneGridRow({
-    title: 'Ethernet Receive Details',
-    isCollapsible: true,
-    isCollapsed: false,
+  const ethernetReceiveDetailsHeader = createRowHeader('Ethernet Receive Details');
+  const ethernetReceiveDetailsRow = new SceneFlexLayout({
+    direction: 'row',
     children: [
-      new SceneGridItem({ x: 0, y: 0, width: 12, height: 12, body: getPanel191_EthReceiveUtilPerDomainA() }),
-      new SceneGridItem({ x: 12, y: 0, width: 12, height: 12, body: getPanel192_EthReceiveUtilPerDomainB() }),
+      new SceneFlexItem({ width: '50%', body: getPanel191_EthReceiveUtilPerDomainA() }),
+      new SceneFlexItem({ width: '50%', body: getPanel192_EthReceiveUtilPerDomainB() }),
     ],
   });
 
   // Row 4: Fibre Channel Overview (4 panels - aggregate traffic)
-  const fcOverviewRow = new SceneGridRow({
-    title: 'Fibre Channel Overview',
-    isCollapsible: true,
-    isCollapsed: false,
+  const fcOverviewHeader = createRowHeader('Fibre Channel Overview');
+  const fcOverviewRow = new SceneFlexLayout({
+    direction: 'row',
     children: [
-      new SceneGridItem({ x: 0, y: 0, width: 6, height: 8, body: getPanel193_StorageTransmitTrafficA() }),
-      new SceneGridItem({ x: 6, y: 0, width: 6, height: 8, body: getPanel194_StorageTransmitTrafficB() }),
-      new SceneGridItem({ x: 12, y: 0, width: 6, height: 8, body: getPanel195_StorageReceiveTrafficA() }),
-      new SceneGridItem({ x: 18, y: 0, width: 6, height: 8, body: getPanel196_StorageReceiveTrafficB() }),
+      new SceneFlexItem({ width: '25%', body: getPanel193_StorageTransmitTrafficA() }),
+      new SceneFlexItem({ width: '25%', body: getPanel194_StorageTransmitTrafficB() }),
+      new SceneFlexItem({ width: '25%', body: getPanel195_StorageReceiveTrafficA() }),
+      new SceneFlexItem({ width: '25%', body: getPanel196_StorageReceiveTrafficB() }),
     ],
   });
 
   // Row 5: Fibre Channel Transmit Details (2 panels - per domain)
-  const fcTransmitDetailsRow = new SceneGridRow({
-    title: 'Fibre Channel Transmit Details',
-    isCollapsible: true,
-    isCollapsed: false,
+  const fcTransmitDetailsHeader = createRowHeader('Fibre Channel Transmit Details');
+  const fcTransmitDetailsRow = new SceneFlexLayout({
+    direction: 'row',
     children: [
-      new SceneGridItem({ x: 0, y: 0, width: 12, height: 12, body: getPanel197_StorageTransmitUtilPerDomainA() }),
-      new SceneGridItem({ x: 12, y: 0, width: 12, height: 12, body: getPanel198_StorageTransmitUtilPerDomainB() }),
+      new SceneFlexItem({ width: '50%', body: getPanel197_StorageTransmitUtilPerDomainA() }),
+      new SceneFlexItem({ width: '50%', body: getPanel198_StorageTransmitUtilPerDomainB() }),
     ],
   });
 
   // Row 6: Fibre Channel Receive Details (2 panels - per domain)
-  const fcReceiveDetailsRow = new SceneGridRow({
-    title: 'Fibre Channel Receive Details',
-    isCollapsible: true,
-    isCollapsed: false,
+  const fcReceiveDetailsHeader = createRowHeader('Fibre Channel Receive Details');
+  const fcReceiveDetailsRow = new SceneFlexLayout({
+    direction: 'row',
     children: [
-      new SceneGridItem({ x: 0, y: 0, width: 12, height: 12, body: getPanel199_StorageReceiveUtilPerDomainA() }),
-      new SceneGridItem({ x: 12, y: 0, width: 12, height: 12, body: getPanel200_StorageReceiveUtilPerDomainB() }),
+      new SceneFlexItem({ width: '50%', body: getPanel199_StorageReceiveUtilPerDomainA() }),
+      new SceneFlexItem({ width: '50%', body: getPanel200_StorageReceiveUtilPerDomainB() }),
     ],
   });
 
-  // Main layout with all collapsible rows
-  return new SceneGridLayout({
+  // Main layout with all rows and their headers
+  return new SceneFlexLayout({
+    direction: 'column',
     children: [
-      ethernetOverviewRow,
-      ethernetTransmitDetailsRow,
-      ethernetReceiveDetailsRow,
-      fcOverviewRow,
-      fcTransmitDetailsRow,
-      fcReceiveDetailsRow,
+      // Row 1: Ethernet Overview (short height: 200)
+      new SceneFlexItem({ height: 40, body: ethernetOverviewHeader }),
+      new SceneFlexItem({ height: 200, body: ethernetOverviewRow }),
+
+      // Row 2: Ethernet Transmit Details (standard height: 300)
+      new SceneFlexItem({ height: 40, body: ethernetTransmitDetailsHeader }),
+      new SceneFlexItem({ height: 300, body: ethernetTransmitDetailsRow }),
+
+      // Row 3: Ethernet Receive Details (standard height: 300)
+      new SceneFlexItem({ height: 40, body: ethernetReceiveDetailsHeader }),
+      new SceneFlexItem({ height: 300, body: ethernetReceiveDetailsRow }),
+
+      // Row 4: Fibre Channel Overview (short height: 200)
+      new SceneFlexItem({ height: 40, body: fcOverviewHeader }),
+      new SceneFlexItem({ height: 200, body: fcOverviewRow }),
+
+      // Row 5: Fibre Channel Transmit Details (standard height: 300)
+      new SceneFlexItem({ height: 40, body: fcTransmitDetailsHeader }),
+      new SceneFlexItem({ height: 300, body: fcTransmitDetailsRow }),
+
+      // Row 6: Fibre Channel Receive Details (standard height: 300)
+      new SceneFlexItem({ height: 40, body: fcReceiveDetailsHeader }),
+      new SceneFlexItem({ height: 300, body: fcReceiveDetailsRow }),
     ],
   });
 }
@@ -5287,8 +5693,8 @@ function getCongestionTransmitPanel() {
           indexByName: {
             Chassis: 2,
             Domain: 0,
-            Ethernet: 7,
-            FC: 8,
+            'Ethernet Congestion': 7,
+            'FC Congestion': 8,
             Fabric: 1,
             Port: 3,
             Role: 4,
@@ -5296,8 +5702,8 @@ function getCongestionTransmitPanel() {
             Total: 6,
           },
           renameByName: {
-            Ethernet: 'Ethernet Congestion',
-            FC: 'FC Congestion',
+            'Eth Pause': '',
+            FC: '',
           },
         },
       },
@@ -5657,8 +6063,8 @@ function getCongestionReceivePanel() {
           indexByName: {
             Chassis: 2,
             Domain: 0,
-            Ethernet: 7,
-            FC: 8,
+            'Ethernet Congestion': 7,
+            'FC Congestion': 8,
             Fabric: 1,
             Port: 3,
             Role: 4,
@@ -5666,8 +6072,8 @@ function getCongestionReceivePanel() {
             Total: 6,
           },
           renameByName: {
-            Ethernet: 'Ethernet Congestion',
-            FC: 'FC Congestion',
+            'Eth Pause': '',
+            FC: '',
           },
         },
       },
@@ -6281,955 +6687,43 @@ function getFIEthernetUplinkPortChannelDetailTable() {
     .build();
 }
 
-// ============================================================================
-// Network Errors Tab - Base Query and Panel Implementations
-// ============================================================================
-
-// Base query runner for Network Errors - shared by multiple panels (panel-25 equivalent)
-// This query fetches all network error metrics from the NetworkInterfaces dataSource
-function createNetworkErrorsBaseQueryRunner() {
-  return new SceneQueryRunner({
-    datasource: { uid: '${Account}' },
-    queries: [
-      {
-        refId: 'A',
-        queryType: 'infinity',
-        type: 'json',
-        source: 'url',
-        parser: 'backend',
-        format: 'table',
-        url: '/api/v1/telemetry/TimeSeries',
-        root_selector: '',
-        columns: [
-          { selector: 'event.domain_name', text: 'Domain', type: 'string' },
-          { selector: 'event.host_name', text: 'Hostname', type: 'string' },
-          { selector: 'event.name', text: 'Port', type: 'string' },
-          { selector: 'event.runt', text: 'Runt', type: 'number' },
-          { selector: 'event.too_long', text: 'Too Long', type: 'number' },
-          { selector: 'event.crc', text: 'CRC', type: 'number' },
-          { selector: 'event.no_buffer', text: 'No Buffer', type: 'number' },
-          { selector: 'event.too_short', text: 'Too Short', type: 'number' },
-          { selector: 'event.rx_discard', text: 'RX Discard', type: 'number' },
-          { selector: 'event.deferred', text: 'Deferred', type: 'number' },
-          { selector: 'event.late_collisions', text: 'Late Collisions', type: 'number' },
-          { selector: 'event.carrier_sense', text: 'Carrier Sense', type: 'number' },
-          { selector: 'event.tx_discard', text: 'TX Discard', type: 'number' },
-          { selector: 'event.jabber', text: 'Jabber', type: 'number' },
-          { selector: 'event.port_type', text: 'Port Type', type: 'string' },
-          { selector: 'event.port_role', text: 'Port Role', type: 'string' },
-          { selector: 'event.chassis_number', text: 'Chassis', type: 'string' },
-        ],
-        url_options: {
-          method: 'POST',
-          body_content_type: 'application/json',
-          body_type: 'raw',
-          data: `  {
-    "queryType": "groupBy",
-    "dataSource": "NetworkInterfaces",
-    "granularity": "all",
-    "intervals": ["\${__from:date}/\${__to:date}"],
-    "dimensions": [
-      "domain_name",
-      "host_name",
-      "name",
-      "port_type",
-      "port_role",
-      "chassis_number"
-    ],
-    "virtualColumns": [{
-      "type": "nested-field",
-      "columnName": "intersight.domain.name",
-      "outputName": "domain_name",
-      "expectedType": "STRING",
-      "path": "$"
-    },{
-      "type": "nested-field",
-      "columnName": "host.name",
-      "outputName": "host_name",
-      "expectedType": "STRING",
-      "path": "$"
-    },{
-      "type": "nested-field",
-      "columnName": "hw.network.port.type",
-      "outputName": "port_type",
-      "expectedType": "STRING",
-      "path": "$"
-    },{
-      "type": "nested-field",
-      "columnName": "hw.network.port.role",
-      "outputName": "port_role",
-      "expectedType": "STRING",
-      "path": "$"
-    },{
-      "type": "nested-field",
-      "columnName": "hw.chassis.number",
-      "outputName": "chassis_number",
-      "expectedType": "STRING",
-      "path": "$"
-    }],
-    "filter": {
-      "type": "and",
-      "fields": [
-        {
-          "type": "in",
-          "dimension": "intersight.domain.name",
-          "values": [\${DomainName:doublequote}]
-        },
-        {
-          "type": "selector",
-          "dimension": "instrument.name",
-          "value": "hw.network"
-        }
-      ]
-    },
-    "aggregations": [
-      {
-        "type": "longSum",
-        "name": "runt",
-        "fieldName": "hw.errors_network_receive_runt"
-      },
-      {
-        "type": "longSum",
-        "name": "too_long",
-        "fieldName": "hw.errors_network_receive_too_long"
-      },
-      {
-        "type": "longSum",
-        "name": "crc",
-        "fieldName": "hw.errors_network_receive_crc"
-      },
-      {
-        "type": "longSum",
-        "name": "no_buffer",
-        "fieldName": "hw.errors_network_receive_no_buffer"
-      },
-      {
-        "type": "longSum",
-        "name": "too_short",
-        "fieldName": "hw.errors_network_receive_too_short"
-      },
-      {
-        "type": "longSum",
-        "name": "rx_discard",
-        "fieldName": "hw.errors_network_receive_discard"
-      },
-      {
-        "type": "longSum",
-        "name": "deferred",
-        "fieldName": "hw.errors_network_transmit_deferred"
-      },
-      {
-        "type": "longSum",
-        "name": "late_collisions",
-        "fieldName": "hw.errors_network_late_collisions"
-      },
-      {
-        "type": "longSum",
-        "name": "carrier_sense",
-        "fieldName": "hw.errors_network_carrier_sense"
-      },
-      {
-        "type": "longSum",
-        "name": "tx_discard",
-        "fieldName": "hw.errors_network_transmit_discard"
-      },
-      {
-        "type": "longSum",
-        "name": "jabber",
-        "fieldName": "hw.errors_network_transmit_jabber"
-      }
-    ]
-  }`,
-        },
-      } as any,
-    ],
-  });
-}
-
-// Panel 26: FI Downlinks Panel (Fabric Interconnect Downlinks - server ports)
-// Filters for Port Type='ethernet' AND Port Role='server'
+// Panel 26: FI Downlinks Panel
 function getFIDownlinksPanel() {
-  const queryRunner = createNetworkErrorsBaseQueryRunner();
-
-  const transformer = new SceneDataTransformer({
-    $data: queryRunner,
-    transformations: [
-      {
-        id: 'filterByValue',
-        options: {
-          filters: [
-            {
-              config: { id: 'equal', options: { value: 'ethernet' } },
-              fieldName: 'Port Type',
-            },
-            {
-              config: { id: 'equal', options: { value: 'server' } },
-              fieldName: 'Port Role',
-            },
-          ],
-          match: 'all',
-          type: 'include',
-        },
-      },
-      {
-        id: 'calculateField',
-        options: {
-          alias: 'RX Total',
-          mode: 'reduceRow',
-          reduce: {
-            include: ['Runt', 'Too Long', 'CRC', 'No Buffer', 'Too Short', 'RX Discard'],
-            reducer: 'sum',
-          },
-        },
-      },
-      {
-        id: 'calculateField',
-        options: {
-          alias: 'TX Total',
-          mode: 'reduceRow',
-          reduce: {
-            include: ['Carrier Sense', 'Deferred', 'Late Collisions', 'TX Discard', 'Jabber'],
-            reducer: 'sum',
-          },
-        },
-      },
-      {
-        id: 'calculateField',
-        options: {
-          alias: 'Total',
-          mode: 'reduceRow',
-          reduce: {
-            include: ['RX Total', 'TX Total'],
-            reducer: 'sum',
-          },
-        },
-      },
-      {
-        id: 'organize',
-        options: {
-          excludeByName: {
-            'Chassis': true,
-            'Chassis Number': true,
-            'Port Role': true,
-            'Port Type': true,
-          },
-          indexByName: {
-            'CRC': 7,
-            'Carrier Sense': 14,
-            'Deferred': 12,
-            'Domain': 0,
-            'Hostname': 1,
-            'Jabber': 16,
-            'Late Collisions': 13,
-            'No Buffer': 8,
-            'Port': 2,
-            'Port Role': 17,
-            'Port Type': 18,
-            'RX Discard': 10,
-            'RX Total': 4,
-            'Runt': 5,
-            'TX Discard': 15,
-            'TX Total': 11,
-            'Too Long': 6,
-            'Too Short': 9,
-            'Total': 3,
-          },
-          renameByName: {
-            'Hostname': 'FI',
-          },
-        },
-      },
-      {
-        id: 'filterByValue',
-        options: {
-          filters: [
-            {
-              config: { id: 'isNull', options: {} },
-              fieldName: 'Total',
-            },
-          ],
-          match: 'all',
-          type: 'exclude',
-        },
-      },
-    ],
-  });
-
   return PanelBuilders.table()
     .setTitle('')
-    .setData(transformer)
+    .setData(createNetworkErrorsQueryRunner('eth_downlink'))
     .setOption('cellHeight', 'sm')
     .setOption('showHeader', true)
-    .setOption('sortBy', [{ desc: true, displayName: 'Total' }])
-    .setFieldConfig({
-      defaults: {
-        color: { mode: 'thresholds' },
-        custom: {
-          align: 'auto',
-          cellOptions: { type: 'auto' },
-          filterable: true,
-          inspect: false,
-          wrapText: false,
-        },
-        min: 0,
-        thresholds: {
-          mode: 'percentage',
-          steps: [
-            { color: 'transparent', value: 0 },
-            { color: '#EAB839', value: 10 },
-            { color: 'dark-red', value: 80 },
-          ],
-        },
-        unit: 'none',
-      },
-      overrides: [
-        {
-          matcher: { id: 'byName', options: 'FI' },
-          properties: [
-            { id: 'custom.width', value: 50 },
-            { id: 'custom.align', value: 'center' },
-          ],
-        },
-        {
-          matcher: { id: 'byName', options: 'Port' },
-          properties: [
-            { id: 'custom.width', value: 80 },
-            { id: 'custom.align', value: 'center' },
-            {
-              id: 'mappings',
-              value: [
-                {
-                  options: {
-                    pattern: '^.*Ethernet([0-9]+/[0-9]+).*$',
-                    result: { index: 0, text: '$1' },
-                  },
-                  type: 'regex',
-                },
-              ],
-            },
-          ],
-        },
-        {
-          matcher: { id: 'byType', options: 'number' },
-          properties: [
-            {
-              id: 'custom.cellOptions',
-              value: { applyToRow: false, mode: 'basic', type: 'color-background' },
-            },
-            { id: 'custom.wrapText', value: false },
-            { id: 'custom.width', value: 120 },
-          ],
-        },
-      ],
-    })
     .build();
 }
 
 // Panel 27: IFM Uplinks Panel
-// Filters for Port Type='ethernet' AND Port Role='iom_uplink'
 function getIFMUplinksPanel() {
-  const queryRunner = createNetworkErrorsBaseQueryRunner();
-
-  const transformer = new SceneDataTransformer({
-    $data: queryRunner,
-    transformations: [
-      {
-        id: 'filterByValue',
-        options: {
-          filters: [
-            {
-              config: { id: 'equal', options: { value: 'ethernet' } },
-              fieldName: 'Port Type',
-            },
-            {
-              config: { id: 'equal', options: { value: 'iom_uplink' } },
-              fieldName: 'Port Role',
-            },
-          ],
-          match: 'all',
-          type: 'include',
-        },
-      },
-      {
-        id: 'calculateField',
-        options: {
-          alias: 'RX Total',
-          mode: 'reduceRow',
-          reduce: {
-            include: ['Runt', 'Too Long', 'CRC', 'No Buffer', 'Too Short', 'RX Discard'],
-            reducer: 'sum',
-          },
-        },
-      },
-      {
-        id: 'calculateField',
-        options: {
-          alias: 'TX Total',
-          mode: 'reduceRow',
-          reduce: {
-            include: ['Carrier Sense', 'Deferred', 'Late Collisions', 'TX Discard', 'Jabber'],
-            reducer: 'sum',
-          },
-        },
-      },
-      {
-        id: 'calculateField',
-        options: {
-          alias: 'Total',
-          mode: 'reduceRow',
-          reduce: {
-            include: ['RX Total', 'TX Total'],
-            reducer: 'sum',
-          },
-        },
-      },
-      {
-        id: 'organize',
-        options: {
-          excludeByName: {
-            'Carrier Sense': true,
-            'Chassis': true,
-            'Chassis Number': true,
-            'Deferred': true,
-            'Jabber': true,
-            'Late Collisions': true,
-            'No Buffer': true,
-            'Port Role': true,
-            'Port Type': true,
-            'RX Discard': true,
-            'Runt': true,
-            'TX Discard': true,
-          },
-          indexByName: {
-            'CRC': 7,
-            'Carrier Sense': 14,
-            'Deferred': 12,
-            'Domain': 0,
-            'Hostname': 1,
-            'Jabber': 16,
-            'Late Collisions': 13,
-            'No Buffer': 8,
-            'Port': 2,
-            'Port Role': 17,
-            'Port Type': 18,
-            'RX Discard': 10,
-            'RX Total': 4,
-            'Runt': 5,
-            'TX Discard': 15,
-            'TX Total': 11,
-            'Too Long': 6,
-            'Too Short': 9,
-            'Total': 3,
-          },
-          renameByName: {
-            'Hostname': 'FI',
-          },
-        },
-      },
-      {
-        id: 'filterByValue',
-        options: {
-          filters: [
-            {
-              config: { id: 'isNull', options: {} },
-              fieldName: 'Total',
-            },
-          ],
-          match: 'all',
-          type: 'exclude',
-        },
-      },
-    ],
-  });
-
   return PanelBuilders.table()
     .setTitle('')
-    .setData(transformer)
+    .setData(createNetworkErrorsQueryRunner('iom_uplink'))
     .setOption('cellHeight', 'sm')
     .setOption('showHeader', true)
-    .setOption('sortBy', [{ desc: true, displayName: 'Total' }])
-    .setFieldConfig({
-      defaults: {
-        color: { mode: 'thresholds' },
-        custom: {
-          align: 'auto',
-          cellOptions: { type: 'auto' },
-          filterable: true,
-          inspect: false,
-          wrapText: false,
-        },
-        min: 0,
-        thresholds: {
-          mode: 'percentage',
-          steps: [
-            { color: 'transparent', value: 0 },
-            { color: '#EAB839', value: 10 },
-            { color: 'dark-red', value: 80 },
-          ],
-        },
-        unit: 'none',
-      },
-      overrides: [
-        {
-          matcher: { id: 'byName', options: 'FI' },
-          properties: [
-            { id: 'custom.width', value: 50 },
-            { id: 'custom.align', value: 'center' },
-          ],
-        },
-        {
-          matcher: { id: 'byName', options: 'Port' },
-          properties: [
-            { id: 'custom.width', value: 80 },
-            { id: 'custom.align', value: 'center' },
-            {
-              id: 'mappings',
-              value: [
-                {
-                  options: {
-                    pattern: '^.*Ethernet([0-9]+/[0-9]+).*$',
-                    result: { index: 0, text: '$1' },
-                  },
-                  type: 'regex',
-                },
-              ],
-            },
-          ],
-        },
-        {
-          matcher: { id: 'byType', options: 'number' },
-          properties: [
-            {
-              id: 'custom.cellOptions',
-              value: { applyToRow: false, mode: 'basic', type: 'color-background' },
-            },
-            { id: 'custom.wrapText', value: false },
-            { id: 'custom.width', value: 120 },
-          ],
-        },
-      ],
-    })
     .build();
 }
 
-// Panel 28: IFM Downlinks Panel (backplane_port + host_port)
-// Filters for Port Type='backplane_port' AND Port Role='host_port'
+// Panel 28: IFM Downlinks Panel
 function getIFMDownlinksPanel() {
-  const queryRunner = createNetworkErrorsBaseQueryRunner();
-
-  const transformer = new SceneDataTransformer({
-    $data: queryRunner,
-    transformations: [
-      {
-        id: 'filterByValue',
-        options: {
-          filters: [
-            {
-              config: { id: 'equal', options: { value: 'backplane_port' } },
-              fieldName: 'Port Type',
-            },
-            {
-              config: { id: 'equal', options: { value: 'host_port' } },
-              fieldName: 'Port Role',
-            },
-          ],
-          match: 'all',
-          type: 'include',
-        },
-      },
-      {
-        id: 'calculateField',
-        options: {
-          alias: 'RX Total',
-          mode: 'reduceRow',
-          reduce: {
-            include: ['Runt', 'Too Long', 'CRC', 'No Buffer', 'Too Short', 'RX Discard'],
-            reducer: 'sum',
-          },
-        },
-      },
-      {
-        id: 'calculateField',
-        options: {
-          alias: 'TX Total',
-          mode: 'reduceRow',
-          reduce: {
-            include: ['Carrier Sense', 'Deferred', 'Late Collisions', 'TX Discard', 'Jabber'],
-            reducer: 'sum',
-          },
-        },
-      },
-      {
-        id: 'calculateField',
-        options: {
-          alias: 'Total',
-          mode: 'reduceRow',
-          reduce: {
-            include: ['RX Total', 'TX Total'],
-            reducer: 'sum',
-          },
-        },
-      },
-      {
-        id: 'organize',
-        options: {
-          excludeByName: {
-            'Port Role': true,
-            'Port Type': true,
-          },
-          indexByName: {
-            'CRC': 8,
-            'Carrier Sense': 15,
-            'Chassis': 2,
-            'Deferred': 13,
-            'Domain': 0,
-            'Hostname': 1,
-            'Jabber': 17,
-            'Late Collisions': 14,
-            'No Buffer': 9,
-            'Port': 3,
-            'Port Role': 18,
-            'Port Type': 19,
-            'RX Discard': 11,
-            'RX Total': 5,
-            'Runt': 6,
-            'TX Discard': 16,
-            'TX Total': 12,
-            'Too Long': 7,
-            'Too Short': 10,
-            'Total': 4,
-          },
-          renameByName: {
-            'Hostname': 'FI',
-          },
-        },
-      },
-      {
-        id: 'filterByValue',
-        options: {
-          filters: [
-            {
-              config: { id: 'isNull', options: {} },
-              fieldName: 'Runt',
-            },
-            {
-              config: { id: 'isNull', options: {} },
-              fieldName: 'Deferred',
-            },
-          ],
-          match: 'all',
-          type: 'exclude',
-        },
-      },
-    ],
-  });
-
   return PanelBuilders.table()
     .setTitle('')
-    .setData(transformer)
+    .setData(createNetworkErrorsQueryRunner('iom_downlink'))
     .setOption('cellHeight', 'sm')
     .setOption('showHeader', true)
-    .setOption('sortBy', [{ desc: true, displayName: 'Total' }])
-    .setFieldConfig({
-      defaults: {
-        color: { mode: 'thresholds' },
-        custom: {
-          align: 'auto',
-          cellOptions: { type: 'auto' },
-          filterable: true,
-          inspect: false,
-          wrapText: false,
-        },
-        min: 0,
-        thresholds: {
-          mode: 'percentage',
-          steps: [
-            { color: 'transparent', value: 0 },
-            { color: '#EAB839', value: 10 },
-            { color: 'dark-red', value: 80 },
-          ],
-        },
-        unit: 'none',
-      },
-      overrides: [
-        {
-          matcher: { id: 'byName', options: 'FI' },
-          properties: [
-            { id: 'custom.width', value: 50 },
-            { id: 'custom.align', value: 'center' },
-          ],
-        },
-        {
-          matcher: { id: 'byName', options: 'Port' },
-          properties: [
-            { id: 'custom.align', value: 'center' },
-            { id: 'custom.width', value: 105 },
-            {
-              id: 'mappings',
-              value: [
-                {
-                  options: {
-                    pattern: '^.*Ethernet([0-9]+/1/[1-4])$',
-                    result: { index: 0, text: 'Slot 1 ($1)' },
-                  },
-                  type: 'regex',
-                },
-                {
-                  options: {
-                    pattern: '^.*Ethernet([0-9]+/1/[5-8])$',
-                    result: { index: 1, text: 'Slot 2 ($1)' },
-                  },
-                  type: 'regex',
-                },
-                {
-                  options: {
-                    pattern: '^.*Ethernet([0-9]+/1/([9]|1[0-2]))$',
-                    result: { index: 2, text: 'Slot 3 ($1)' },
-                  },
-                  type: 'regex',
-                },
-                {
-                  options: {
-                    pattern: '^.*Ethernet([0-9]+/1/1[3-6])$',
-                    result: { index: 3, text: 'Slot 4 ($1)' },
-                  },
-                  type: 'regex',
-                },
-                {
-                  options: {
-                    pattern: '^.*Ethernet([0-9]+/1/(1[7-9]|20))$',
-                    result: { index: 4, text: 'Slot 5 ($1)' },
-                  },
-                  type: 'regex',
-                },
-                {
-                  options: {
-                    pattern: '^.*Ethernet([0-9]+/1/2[1-4])$',
-                    result: { index: 5, text: 'Slot 6 ($1)' },
-                  },
-                  type: 'regex',
-                },
-                {
-                  options: {
-                    pattern: '^.*Ethernet([0-9]+/1/2[5-8])$',
-                    result: { index: 6, text: 'Slot 7 ($1)' },
-                  },
-                  type: 'regex',
-                },
-                {
-                  options: {
-                    pattern: '^.*Ethernet([0-9]+/1/(29|3[0-2]))$',
-                    result: { index: 7, text: 'Slot 8 ($1)' },
-                  },
-                  type: 'regex',
-                },
-              ],
-            },
-          ],
-        },
-        {
-          matcher: { id: 'byType', options: 'number' },
-          properties: [
-            {
-              id: 'custom.cellOptions',
-              value: { applyToRow: false, mode: 'basic', type: 'color-background' },
-            },
-            { id: 'custom.wrapText', value: false },
-            { id: 'custom.width', value: 120 },
-          ],
-        },
-        {
-          matcher: { id: 'byName', options: 'Chassis' },
-          properties: [
-            { id: 'custom.width', value: 90 },
-            { id: 'custom.align', value: 'center' },
-          ],
-        },
-      ],
-    })
     .build();
 }
 
 // Panel 29: vNIC/vHBA Panel
-// Filters for Port Role='vnic' OR Port Role='vhba'
 function getVNICVHBAPanel() {
-  const queryRunner = createNetworkErrorsBaseQueryRunner();
-
-  const transformer = new SceneDataTransformer({
-    $data: queryRunner,
-    transformations: [
-      {
-        id: 'filterByValue',
-        options: {
-          filters: [
-            {
-              config: { id: 'equal', options: { value: 'vnic' } },
-              fieldName: 'Port Role',
-            },
-            {
-              config: { id: 'equal', options: { value: 'vhba' } },
-              fieldName: 'Port Role',
-            },
-          ],
-          match: 'any',
-          type: 'include',
-        },
-      },
-      {
-        id: 'calculateField',
-        options: {
-          alias: 'RX Total',
-          mode: 'reduceRow',
-          reduce: {
-            include: ['Runt', 'Too Long', 'CRC', 'No Buffer', 'Too Short', 'RX Discard'],
-            reducer: 'sum',
-          },
-        },
-      },
-      {
-        id: 'calculateField',
-        options: {
-          alias: 'TX Total',
-          mode: 'reduceRow',
-          reduce: {
-            include: ['Carrier Sense', 'Deferred', 'Late Collisions', 'TX Discard', 'Jabber'],
-            reducer: 'sum',
-          },
-        },
-      },
-      {
-        id: 'calculateField',
-        options: {
-          alias: 'Total',
-          mode: 'reduceRow',
-          reduce: {
-            include: ['RX Total', 'TX Total'],
-            reducer: 'sum',
-          },
-        },
-      },
-      {
-        id: 'organize',
-        options: {
-          excludeByName: {
-            'Carrier Sense': true,
-            'Chassis': false,
-            'Chassis Number': true,
-            'Deferred': true,
-            'Jabber': true,
-            'Late Collisions': true,
-            'Port Role': true,
-            'Port Type': true,
-            'RX Discard': true,
-            'Runt': true,
-            'TX Discard': true,
-            'Too Long': true,
-            'Too Short': true,
-          },
-          indexByName: {
-            'CRC': 8,
-            'Carrier Sense': 15,
-            'Chassis': 1,
-            'Deferred': 13,
-            'Domain': 0,
-            'Hostname': 2,
-            'Jabber': 17,
-            'Late Collisions': 14,
-            'No Buffer': 9,
-            'Port': 3,
-            'Port Role': 18,
-            'Port Type': 19,
-            'RX Discard': 11,
-            'RX Total': 5,
-            'Runt': 6,
-            'TX Discard': 16,
-            'TX Total': 12,
-            'Too Long': 7,
-            'Too Short': 10,
-            'Total': 4,
-          },
-          renameByName: {
-            'Hostname': 'Server',
-            'Port': 'vNIC/vHBA',
-          },
-        },
-      },
-      {
-        id: 'filterByValue',
-        options: {
-          filters: [
-            {
-              config: { id: 'isNull', options: {} },
-              fieldName: 'Total',
-            },
-          ],
-          match: 'all',
-          type: 'exclude',
-        },
-      },
-    ],
-  });
-
   return PanelBuilders.table()
     .setTitle('')
-    .setData(transformer)
+    .setData(createNetworkErrorsQueryRunner('vnic_vhba', 'type'))
     .setOption('cellHeight', 'sm')
     .setOption('showHeader', true)
-    .setOption('sortBy', [{ desc: true, displayName: 'Total' }])
-    .setFieldConfig({
-      defaults: {
-        color: { mode: 'thresholds' },
-        custom: {
-          align: 'auto',
-          cellOptions: { type: 'auto' },
-          filterable: true,
-          inspect: false,
-          wrapText: false,
-        },
-        min: 0,
-        thresholds: {
-          mode: 'percentage',
-          steps: [
-            { color: 'transparent', value: 0 },
-            { color: '#EAB839', value: 10 },
-            { color: 'dark-red', value: 80 },
-          ],
-        },
-        unit: 'none',
-      },
-      overrides: [
-        {
-          matcher: { id: 'byType', options: 'number' },
-          properties: [
-            {
-              id: 'custom.cellOptions',
-              value: { applyToRow: false, mode: 'basic', type: 'color-background' },
-            },
-            { id: 'custom.wrapText', value: false },
-            { id: 'custom.width', value: 120 },
-          ],
-        },
-        {
-          matcher: { id: 'byName', options: 'Chassis' },
-          properties: [
-            { id: 'custom.width', value: 100 },
-            { id: 'custom.align', value: 'center' },
-          ],
-        },
-        {
-          matcher: { id: 'byName', options: 'Server' },
-          properties: [
-            { id: 'custom.align', value: 'center' },
-          ],
-        },
-        {
-          matcher: { id: 'byName', options: 'vNIC/vHBA' },
-          properties: [
-            { id: 'custom.align', value: 'center' },
-          ],
-        },
-      ],
-    })
     .build();
 }
 
