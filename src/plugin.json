@@ -1,0 +1,35 @@
+{
+  "$schema": "https://raw.githubusercontent.com/grafana/grafana/main/docs/sources/developers/plugins/plugin.schema.json",
+  "type": "app",
+  "name": "Intersight",
+  "id": "intersight-app",
+  "info": {
+    "keywords": ["intersight", "cisco", "infrastructure"],
+    "description": "Cisco Intersight Dashboard App",
+    "author": {
+      "name": "myorg"
+    },
+    "logos": {
+      "small": "img/logo.svg",
+      "large": "img/logo.svg"
+    },
+    "screenshots": [],
+    "version": "1.0.0",
+    "updated": "2026-01-21"
+  },
+  "dependencies": {
+    "grafanaDependency": ">=12.0.0",
+    "plugins": []
+  },
+  "includes": [
+    {
+      "type": "page",
+      "name": "Intersight",
+      "path": "/a/intersight-app",
+      "role": "Viewer",
+      "addToNav": true,
+      "defaultNav": true,
+      "icon": "dashboard"
+    }
+  ]
+}

@@ -1,0 +1,382 @@
+import {
+  SceneFlexLayout,
+  SceneFlexItem,
+  PanelBuilders,
+  QueryVariable,
+  SceneVariableSet,
+  VariableValueSelectors,
+  SceneQueryRunner,
+  SceneDataTransformer,
+} from '@grafana/scenes';
+import { TabbedScene } from '../components/TabbedScene';
+
+// Placeholder functions for each tab - will be implemented in phases
+function getOverviewTab() {
+  return new SceneFlexLayout({
+    direction: 'column',
+    children: [
+      new SceneFlexItem({
+        height: 300,
+        body: PanelBuilders.text()
+          .setTitle('Overview')
+          .setOption('content', 'Overview tab - to be implemented')
+          .setOption('mode', 'markdown' as any)
+          .build(),
+      }),
+    ],
+  });
+}
+
+function getInventoryTab() {
+  // Create query runner for Physical Summaries
+  const baseQueryRunner = new SceneQueryRunner({
+    datasource: { uid: '${Account}' },
+    queries: [
+      {
+        refId: 'A',
+        queryType: 'infinity',
+        type: 'json',
+        source: 'url',
+        parser: 'backend',
+        format: 'table',
+        url: '/api/v1/compute/PhysicalSummaries?$filter=Name in (${ServerName:singlequote})',
+        root_selector: '$.Results',
+        columns: [
+          // Helper columns for computed columns (will be hidden)
+          { selector: 'ChassisId', text: 'ChassisId', type: 'string' },
+          { selector: 'SlotId', text: 'SlotId', type: 'string' },
+          { selector: 'ServerId', text: 'ServerId', type: 'string' },
+          { selector: 'OperPowerState', text: 'OperPowerState', type: 'string' },
+          { selector: 'BiosPostComplete', text: 'BiosPostComplete', type: 'string' },
+          { selector: 'Presence', text: 'Presence', type: 'string' },
+          { selector: 'Lifecycle', text: 'Lifecycle', type: 'string' },
+          { selector: 'NumCpus', text: 'NumCpus', type: 'string' },
+          { selector: 'NumCpuCores', text: 'NumCpuCores', type: 'string' },
+          { selector: 'NumEthHostInterfaces', text: 'NumEthHostInterfaces', type: 'string' },
+          { selector: 'NumFcHostInterfaces', text: 'NumFcHostInterfaces', type: 'string' },
+          // Visible columns in display order
+          { selector: 'Name', text: 'Name', type: 'string' },
+          { selector: 'UserLabel', text: 'User Label', type: 'string' },
+          { selector: 'Serial', text: 'Serial', type: 'string' },
+          { selector: 'Model', text: 'Model', type: 'string' },
+          { selector: 'PlatformType', text: 'Platform', type: 'string' },
+          { selector: 'AlarmSummary.Critical', text: 'Critical', type: 'number' },
+          { selector: 'AlarmSummary.Warning', text: 'Warning', type: 'number' },
+          { selector: 'Firmware', text: 'Firmware', type: 'string' },
+          { selector: 'MgmtIpAddress', text: 'Mgmt IP', type: 'string' },
+          { selector: 'Moid', text: 'Moid', type: 'string' },
+          { selector: 'AvailableMemory', text: 'Memory', type: 'number' },
+        ],
+        computed_columns: [
+          // Computed columns - these will be appended after regular columns
+          {
+            selector: "ChassisId + '/' + SlotId + '#' + ServerId",
+            text: 'ID',
+            type: 'string',
+          },
+          {
+            selector: "OperPowerState + '#' + BiosPostComplete",
+            text: 'Power',
+            type: 'string',
+          },
+          {
+            selector: "Presence + '#' + Lifecycle",
+            text: 'State',
+            type: 'string',
+          },
+          {
+            selector: "NumCpus + 'x ' + NumCpuCores + 'C'",
+            text: 'CPU',
+            type: 'string',
+          },
+          {
+            selector: "NumEthHostInterfaces + ' Eth + ' + NumFcHostInterfaces + ' FC'",
+            text: 'Interfaces',
+            type: 'string',
+          },
+        ],
+        url_options: {
+          method: 'GET',
+          data: '',
+        },
+      } as any,
+    ],
+  });
+
+  // Wrap with transformer to organize columns in correct order
+  const queryRunner = new SceneDataTransformer({
+    $data: baseQueryRunner,
+    transformations: [
+      {
+        id: 'organize',
+        options: {
+          excludeByName: {
+            'ID': true,
+          },
+          indexByName: {
+            'Name': 0,
+            'User Label': 1,
+            'Serial': 2,
+            'Model': 3,
+            'Platform': 4,
+            'Power': 5,
+            'State': 6,
+            'Critical': 7,
+            'Warning': 8,
+            'Firmware': 9,
+            'Mgmt IP': 10,
+            'Interfaces': 11,
+            'CPU': 12,
+            'Memory': 13,
+            'Moid': 14,
+          },
+          renameByName: {},
+        },
+      },
+    ],
+  });
+
+  // Create table panel with field overrides
+  const tablePanel = PanelBuilders.table()
+    .setTitle('')
+    .setData(queryRunner)
+    .setOption('showHeader', true)
+    .setOverrides((builder) => {
+      // Critical column - red background when > 0
+      builder.matchFieldsWithName('Critical')
+        .overrideCustomFieldConfig('width', 75)
+        .overrideCustomFieldConfig('align', 'center')
+        .overrideCustomFieldConfig('cellOptions', {
+          type: 'color-background',
+          mode: 'basic',
+        })
+        .overrideColor({
+          mode: 'thresholds',
+        })
+        .overrideThresholds({
+          mode: 'absolute',
+          steps: [
+            { value: -Infinity, color: 'transparent' },
+            { value: 1, color: 'red' },
+          ],
+        });
+
+      // Warning column - yellow background when > 0
+      builder.matchFieldsWithName('Warning')
+        .overrideCustomFieldConfig('width', 75)
+        .overrideCustomFieldConfig('align', 'center')
+        .overrideCustomFieldConfig('cellOptions', {
+          type: 'color-background',
+          mode: 'basic',
+        })
+        .overrideColor({
+          mode: 'thresholds',
+        })
+        .overrideThresholds({
+          mode: 'absolute',
+          steps: [
+            { value: -Infinity, color: 'transparent' },
+            { value: 1, color: 'yellow' },
+          ],
+        });
+
+      // Power column - colored background based on state
+      builder.matchFieldsWithName('Power')
+        .overrideCustomFieldConfig('width', 60)
+        .overrideCustomFieldConfig('align', 'center')
+        .overrideCustomFieldConfig('cellOptions', {
+          type: 'color-background',
+          mode: 'basic',
+        })
+        .overrideMappings([
+          {
+            type: 'value',
+            options: {
+              'on#true': { text: 'On', color: 'transparent' },
+              'on#false': { text: 'On (BIOS Post incomplete)', color: 'yellow' },
+            },
+          },
+          {
+            type: 'regex',
+            options: {
+              pattern: '.*',
+              result: { text: 'Off', color: 'red' },
+            },
+          },
+        ]);
+
+      // Platform column - value mapping
+      builder.matchFieldsWithName('Platform')
+        .overrideCustomFieldConfig('width', 80)
+        .overrideCustomFieldConfig('align', 'left')
+        .overrideMappings([
+          {
+            type: 'value',
+            options: {
+              'IMCBlade': { text: 'Blade' },
+              'IMCRack': { text: 'Rack' },
+            },
+          },
+        ]);
+
+      // State column - value mapping with color background
+      builder.matchFieldsWithName('State')
+        .overrideCustomFieldConfig('width', 115)
+        .overrideCustomFieldConfig('align', 'center')
+        .overrideCustomFieldConfig('cellOptions', {
+          type: 'color-background',
+          mode: 'basic',
+        })
+        .overrideMappings([
+          {
+            type: 'value',
+            options: {
+              'Enabled#Active': { text: 'Ok', color: 'transparent' },
+              'equipped#Active': { text: 'Ok', color: 'transparent' },
+              'equipped#DiscoveryFailed': { text: 'Discovery Failed', color: 'red' },
+            },
+          },
+          {
+            type: 'regex',
+            options: {
+              pattern: '.*',
+              result: { text: 'Presence or Lifecycle not ok', color: 'red' },
+            },
+          },
+        ]);
+
+      // CPU column
+      builder.matchFieldsWithName('CPU')
+        .overrideCustomFieldConfig('width', 65)
+        .overrideCustomFieldConfig('align', 'center');
+
+      // Interfaces column
+      builder.matchFieldsWithName('Interfaces')
+        .overrideCustomFieldConfig('width', 100)
+        .overrideCustomFieldConfig('align', 'center');
+
+      // Memory column - with unit
+      builder.matchFieldsWithName('Memory')
+        .overrideCustomFieldConfig('width', 75)
+        .overrideCustomFieldConfig('align', 'center')
+        .overrideUnit('decgbytes');
+
+      // Mgmt IP column
+      builder.matchFieldsWithName('Mgmt IP')
+        .overrideCustomFieldConfig('width', 105);
+
+      // Serial column
+      builder.matchFieldsWithName('Serial')
+        .overrideCustomFieldConfig('width', 115)
+        .overrideCustomFieldConfig('align', 'left');
+
+      // Firmware column
+      builder.matchFieldsWithName('Firmware')
+        .overrideCustomFieldConfig('width', 110);
+
+      // Hide helper columns used for computed columns
+      builder.matchFieldsWithName('ChassisId').overrideCustomFieldConfig('hidden', true);
+      builder.matchFieldsWithName('SlotId').overrideCustomFieldConfig('hidden', true);
+      builder.matchFieldsWithName('ServerId').overrideCustomFieldConfig('hidden', true);
+      builder.matchFieldsWithName('OperPowerState').overrideCustomFieldConfig('hidden', true);
+      builder.matchFieldsWithName('BiosPostComplete').overrideCustomFieldConfig('hidden', true);
+      builder.matchFieldsWithName('Presence').overrideCustomFieldConfig('hidden', true);
+      builder.matchFieldsWithName('Lifecycle').overrideCustomFieldConfig('hidden', true);
+      builder.matchFieldsWithName('NumCpus').overrideCustomFieldConfig('hidden', true);
+      builder.matchFieldsWithName('NumCpuCores').overrideCustomFieldConfig('hidden', true);
+      builder.matchFieldsWithName('NumEthHostInterfaces').overrideCustomFieldConfig('hidden', true);
+      builder.matchFieldsWithName('NumFcHostInterfaces').overrideCustomFieldConfig('hidden', true);
+    })
+    .build();
+
+  return new SceneFlexLayout({
+    direction: 'column',
+    children: [
+      new SceneFlexItem({
+        height: 600,
+        body: tablePanel,
+      }),
+    ],
+  });
+}
+
+function getAlarmsTab() {
+  return new SceneFlexLayout({
+    direction: 'column',
+    children: [
+      new SceneFlexItem({
+        height: 300,
+        body: PanelBuilders.text()
+          .setTitle('Alarms')
+          .setOption('content', 'Alarms tab - nested tabs by ServerName - to be implemented')
+          .setOption('mode', 'markdown' as any)
+          .build(),
+      }),
+    ],
+  });
+}
+
+function getActionsTab() {
+  return new SceneFlexLayout({
+    direction: 'column',
+    children: [
+      new SceneFlexItem({
+        height: 300,
+        body: PanelBuilders.text()
+          .setTitle('Actions')
+          .setOption('content', 'Actions tab - nested tabs by ServerName - to be implemented')
+          .setOption('mode', 'markdown' as any)
+          .build(),
+      }),
+    ],
+  });
+}
+
+function getPortsTab() {
+  return new SceneFlexLayout({
+    direction: 'column',
+    children: [
+      new SceneFlexItem({
+        height: 300,
+        body: PanelBuilders.text()
+          .setTitle('Ports')
+          .setOption('content', 'Ports tab - to be implemented')
+          .setOption('mode', 'markdown' as any)
+          .build(),
+      }),
+    ],
+  });
+}
+
+function getNetworkUtilizationTab() {
+  return new SceneFlexLayout({
+    direction: 'column',
+    children: [
+      new SceneFlexItem({
+        height: 300,
+        body: PanelBuilders.text()
+          .setTitle('Network Utilization')
+          .setOption('content', 'Network Utilization tab - nested tabs (Percentage/Absolute) - to be implemented')
+          .setOption('mode', 'markdown' as any)
+          .build(),
+      }),
+    ],
+  });
+}
+
+function getNetworkErrorsTab() {
+  return new SceneFlexLayout({
+    direction: 'column',
+    children: [
+      new SceneFlexItem({
+        height: 300,
+        body: PanelBuilders.text()
+          .setTitle('Network Errors')
+          .setOption('content', 'Network Errors tab - to be implemented')
+          .setOption('mode', 'markdown' as any)
+          .build(),
+      }),
+    ],
+  });
+}
+
