@@ -1917,7 +1917,6 @@ function getAllDomainsAlarmsPanel(domainNames: string[]) {
 
   // Build the alarms table panel
   const alarmsPanel = PanelBuilders.table()
-    .setTitle('')
     .setData(transformedData)
     .setOption('showHeader', true)
     .setOption('cellHeight', 'sm')
