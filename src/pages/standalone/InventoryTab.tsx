@@ -2,32 +2,11 @@ import {
   SceneFlexLayout,
   SceneFlexItem,
   PanelBuilders,
-  QueryVariable,
-  SceneVariableSet,
-  VariableValueSelectors,
   SceneQueryRunner,
   SceneDataTransformer,
 } from '@grafana/scenes';
-import { TabbedScene } from '../components/TabbedScene';
 
-// Placeholder functions for each tab - will be implemented in phases
-function getOverviewTab() {
-  return new SceneFlexLayout({
-    direction: 'column',
-    children: [
-      new SceneFlexItem({
-        height: 300,
-        body: PanelBuilders.text()
-          .setTitle('Overview')
-          .setOption('content', 'Overview tab - to be implemented')
-          .setOption('mode', 'markdown' as any)
-          .build(),
-      }),
-    ],
-  });
-}
-
-function getInventoryTab() {
+export function getInventoryTab() {
   // Create query runner for Physical Summaries
   const baseQueryRunner = new SceneQueryRunner({
     datasource: { uid: '${Account}' },
@@ -299,84 +278,3 @@ function getInventoryTab() {
     ],
   });
 }
-
-function getAlarmsTab() {
-  return new SceneFlexLayout({
-    direction: 'column',
-    children: [
-      new SceneFlexItem({
-        height: 300,
-        body: PanelBuilders.text()
-          .setTitle('Alarms')
-          .setOption('content', 'Alarms tab - nested tabs by ServerName - to be implemented')
-          .setOption('mode', 'markdown' as any)
-          .build(),
-      }),
-    ],
-  });
-}
-
-function getActionsTab() {
-  return new SceneFlexLayout({
-    direction: 'column',
-    children: [
-      new SceneFlexItem({
-        height: 300,
-        body: PanelBuilders.text()
-          .setTitle('Actions')
-          .setOption('content', 'Actions tab - nested tabs by ServerName - to be implemented')
-          .setOption('mode', 'markdown' as any)
-          .build(),
-      }),
-    ],
-  });
-}
-
-function getPortsTab() {
-  return new SceneFlexLayout({
-    direction: 'column',
-    children: [
-      new SceneFlexItem({
-        height: 300,
-        body: PanelBuilders.text()
-          .setTitle('Ports')
-          .setOption('content', 'Ports tab - to be implemented')
-          .setOption('mode', 'markdown' as any)
-          .build(),
-      }),
-    ],
-  });
-}
-
-function getNetworkUtilizationTab() {
-  return new SceneFlexLayout({
-    direction: 'column',
-    children: [
-      new SceneFlexItem({
-        height: 300,
-        body: PanelBuilders.text()
-          .setTitle('Network Utilization')
-          .setOption('content', 'Network Utilization tab - nested tabs (Percentage/Absolute) - to be implemented')
-          .setOption('mode', 'markdown' as any)
-          .build(),
-      }),
-    ],
-  });
-}
-
-function getNetworkErrorsTab() {
-  return new SceneFlexLayout({
-    direction: 'column',
-    children: [
-      new SceneFlexItem({
-        height: 300,
-        body: PanelBuilders.text()
-          .setTitle('Network Errors')
-          .setOption('content', 'Network Errors tab - to be implemented')
-          .setOption('mode', 'markdown' as any)
-          .build(),
-      }),
-    ],
-  });
-}
-

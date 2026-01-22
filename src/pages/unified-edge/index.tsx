@@ -4,16 +4,16 @@ import {
   SceneVariableSet,
   VariableValueSelectors,
 } from '@grafana/scenes';
-import { TabbedScene } from '../components/TabbedScene';
+import { TabbedScene } from '../../components/TabbedScene';
 
-// Import tab functions from unified-edge subdirectory
-import { getOverviewTab } from './unified-edge/OverviewTab';
-import { getInventoryTab } from './unified-edge/InventoryTab';
-import { getAlarmsTab } from './unified-edge/AlarmsTab';
-import { getActionsTab } from './unified-edge/ActionsTab';
-import { getPortsTab } from './unified-edge/PortsTab';
-import { getNetworkUtilizationTab } from './unified-edge/NetworkUtilizationTab';
-import { getCongestionTab } from './unified-edge/CongestionTab';
+// Import tab functions from same directory
+import { getOverviewTab } from './OverviewTab';
+import { getInventoryTab } from './InventoryTab';
+import { getAlarmsTab } from './AlarmsTab';
+import { getActionsTab } from './ActionsTab';
+import { getPortsTab } from './PortsTab';
+import { getNetworkUtilizationTab } from './NetworkUtilizationTab';
+import { getCongestionTab } from './CongestionTab';
 
 // ============================================================================
 // TAB DEFINITIONS

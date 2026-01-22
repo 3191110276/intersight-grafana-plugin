@@ -10,10 +10,10 @@ import {
   VariableValueSelectors,
 } from '@grafana/scenes';
 import { TabbedScene } from './TabbedScene';
-import { getHomeSceneBody } from '../pages/HomePage';
-import { getIMMDomainSceneBody } from '../pages/IMMDomainPage';
-import { getStandaloneSceneBody } from '../pages/StandalonePage';
-import { getUnifiedEdgeSceneBody } from '../pages/UnifiedEdgePage';
+import { getHomeSceneBody } from '../pages/home';
+import { getIMMDomainSceneBody } from '../pages/imm-domain';
+import { getStandaloneSceneBody } from '../pages/standalone';
+import { getUnifiedEdgeSceneBody } from '../pages/unified-edge';
 
 const tabs = [
   { id: 'home', label: 'Home', getBody: getHomeSceneBody },

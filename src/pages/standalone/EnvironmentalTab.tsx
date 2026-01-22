@@ -1,4 +1,13 @@
-function getEnvironmentalTab() {
+import {
+  SceneFlexLayout,
+  SceneFlexItem,
+  PanelBuilders,
+  SceneQueryRunner,
+  SceneDataTransformer,
+} from '@grafana/scenes';
+import { TabbedScene } from '../../components/TabbedScene';
+
+export function getEnvironmentalTab() {
   // Row 1: Power Supply Status Panel (panel-6)
   const powerSupplyQueryRunner = new SceneQueryRunner({
     datasource: { uid: '${Account}' },
@@ -502,7 +511,7 @@ function getEnvironmentalTab() {
 }
 
 // Helper function for Temperature tab (panel-9)
-function getTemperatureTab() {
+export function getTemperatureTab() {
   const temperatureQueryRunner = new SceneQueryRunner({
     datasource: { uid: '${Account}' },
     maxDataPoints: 500,
@@ -752,7 +761,7 @@ function getTemperatureTab() {
     .setData(temperatureDataTransformer)
     .setOption('cellHeight', 'lg')
     .setOverrides((builder) => {
-      builder.matchFieldsByQuery('/Temperature|Processor/')
+      builder.matchFieldsWithNameByRegex('/Temperature|Processor/')
         .overrideUnit('celsius')
         .overrideDecimals(1);
     })
@@ -770,7 +779,7 @@ function getTemperatureTab() {
 }
 
 // Helper function for Cooling Budget tab (panel-21)
-function getCoolingBudgetTab() {
+export function getCoolingBudgetTab() {
   const coolingBudgetQueryRunner = new SceneQueryRunner({
     datasource: { uid: '${Account}' },
     maxDataPoints: 500,
@@ -788,6 +797,8 @@ function getCoolingBudgetTab() {
         columns: [
           { selector: 'timestamp', text: 'Time', type: 'timestamp' },
           { selector: 'event.hostname', text: 'Hostname', type: 'string' },
+          { selector: 'event.max_temp', text: 'Max Temp (DEBUG)', type: 'number' },
+          { selector: 'event.threshold', text: 'Threshold (DEBUG)', type: 'number' },
           { selector: 'event.difference', text: 'Difference', type: 'number' },
         ],
         url_options: {
@@ -1056,7 +1067,7 @@ function getCoolingBudgetTab() {
     .setData(coolingBudgetDataTransformer)
     .setOption('cellHeight', 'lg')
     .setOverrides((builder) => {
-      builder.matchFieldsByQuery('/Temperature|Processor/')
+      builder.matchFieldsWithNameByRegex('/Temperature|Processor/')
         .overrideUnit('celsius')
         .overrideDecimals(1);
     })
@@ -1072,3 +1083,4 @@ function getCoolingBudgetTab() {
     ],
   });
 }
+

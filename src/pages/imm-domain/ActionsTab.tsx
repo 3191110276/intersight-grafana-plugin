@@ -1,0 +1,429 @@
+/**
+ * Actions Tab - IMM Domain Scene
+ *
+ * This module provides the Actions tab functionality for the IMM Domain scene.
+ * Creates tabs dynamically based on DomainName variable selection, showing
+ * workflow actions for each domain.
+ */
+
+import React from 'react';
+import {
+  SceneFlexLayout,
+  SceneFlexItem,
+  PanelBuilders,
+  SceneQueryRunner,
+  SceneDataTransformer,
+  SceneObjectBase,
+  SceneComponentProps,
+  SceneObjectState,
+  VariableDependencyConfig,
+  sceneGraph,
+} from '@grafana/scenes';
+import { TabsBar, Tab } from '@grafana/ui';
+
+// ============================================================================
+// DYNAMIC ACTIONS SCENE - Creates tabs dynamically based on DomainName variable
+// ============================================================================
+
+interface DynamicActionsSceneState extends SceneObjectState {
+  domainTabs: Array<{ id: string; label: string; getBody: () => any }>;
+  activeTab: string;
+  body: any;
+}
+
+/**
+ * DynamicActionsScene - Custom scene that reads the DomainName variable
+ * and creates a tab for each selected domain with domain-specific actions panels.
+ */
+class DynamicActionsScene extends SceneObjectBase<DynamicActionsSceneState> {
+  public static Component = DynamicActionsSceneRenderer;
+
+  protected _variableDependency = new VariableDependencyConfig(this, {
+    variableNames: ['DomainName'],
+    onReferencedVariableValueChanged: () => {
+      // Only rebuild if the scene is still active
+      if (this.isActive) {
+        this.rebuildTabs();
+      }
+    },
+  });
+
+  public constructor(state: Partial<DynamicActionsSceneState>) {
+    super({
+      domainTabs: [],
+      activeTab: '',
+      body: new SceneFlexLayout({ children: [] }),
+      ...state,
+    });
+  }
+
+  public activate() {
+    super.activate();
+    this.rebuildTabs();
+  }
+
+  private rebuildTabs() {
+    // Skip if scene is not active (prevents race conditions during deactivation)
+    if (!this.isActive) {
+      return;
+    }
+
+    // Get the DomainName variable from the scene's variable set
+    const variable = this.getVariable('DomainName');
+
+    if (!variable || variable.state.type !== 'query') {
+      console.warn('DomainName variable not found or not a query variable');
+      return;
+    }
+
+    // Get the current value(s) from the variable
+    const value = variable.state.value;
+    let domainNames: string[] = [];
+
+    if (Array.isArray(value)) {
+      domainNames = value.map(v => String(v));
+    } else if (value && value !== '$__all') {
+      domainNames = [String(value)];
+    }
+
+    // If no domains selected, show a message
+    if (domainNames.length === 0) {
+      const emptyBody = new SceneFlexLayout({
+        direction: 'column',
+        children: [
+          new SceneFlexItem({
+            height: 200,
+            body: PanelBuilders.text()
+              .setTitle('')
+              .setOption('content', '### No Domains Selected\n\nPlease select one or more domains from the Domain filter above.')
+              .setOption('mode', 'markdown' as any)
+              .setDisplayMode('transparent')
+              .build(),
+          }),
+        ],
+      });
+
+      this.setState({
+        domainTabs: [],
+        activeTab: '',
+        body: emptyBody,
+      });
+      return;
+    }
+
+    // Create a tab for each domain
+    const newTabs = domainNames.map((domainName) => ({
+      id: domainName,
+      label: domainName,
+      getBody: () => getActionsPanelForDomain(domainName),
+    }));
+
+    // Set the active tab to the first tab if not already set or if current tab is not in new tabs
+    let newActiveTab = this.state.activeTab;
+    if (!newActiveTab || !newTabs.find(t => t.id === newActiveTab)) {
+      newActiveTab = newTabs[0]?.id || '';
+    }
+
+    // Create the new body
+    const newBody = newTabs.find(t => t.id === newActiveTab)?.getBody() || new SceneFlexLayout({ children: [] });
+
+    // Update state - React will handle component lifecycle via key prop
+    this.setState({
+      domainTabs: newTabs,
+      activeTab: newActiveTab,
+      body: newBody,
+    });
+  }
+
+  public setActiveTab(tabId: string) {
+    const tab = this.state.domainTabs.find((t) => t.id === tabId);
+    if (tab) {
+      const newBody = tab.getBody();
+      if (!newBody) {
+        console.warn('getBody returned null/undefined for tab:', tabId);
+        return;
+      }
+      // Just update state - React will handle unmounting via the key prop
+      this.setState({ activeTab: tabId, body: newBody });
+    }
+  }
+
+  private getVariable(name: string): any {
+    // Use sceneGraph to lookup variable in parent scope
+    return sceneGraph.lookupVariable(name, this);
+  }
+}
+
+/**
+ * Renderer component for DynamicActionsScene
+ */
+function DynamicActionsSceneRenderer({ model }: SceneComponentProps<DynamicActionsScene>) {
+  const { domainTabs, activeTab, body } = model.useState();
+
+  // If no tabs, just render the body (which contains the "no selection" message)
+  if (domainTabs.length === 0) {
+    return (
+      <div style={{ width: '100%', height: '100%', overflow: 'auto' }}>
+        {body && body.Component && <body.Component key="empty-body" model={body} />}
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column' }}>
+      <div style={{
+        display: 'flex',
+        alignItems: 'center',
+        padding: '8px 16px',
+        borderBottom: '1px solid rgba(204, 204, 220, 0.15)',
+        flexShrink: 0,
+        minHeight: '48px',
+      }}>
+        <TabsBar style={{ border: 'none' }}>
+          {domainTabs.map((tab) => (
+            <Tab
+              key={tab.id}
+              label={tab.label}
+              active={activeTab === tab.id}
+              onChangeTab={() => model.setActiveTab(tab.id)}
+            />
+          ))}
+        </TabsBar>
+      </div>
+      <div style={{
+        flexGrow: 1,
+        width: '100%',
+        height: '100%',
+        overflow: 'auto',
+        position: 'relative'
+      }}>
+        {body && body.Component && <body.Component key={activeTab} model={body} />}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Helper function to create Actions panel for a specific domain
+ */
+function getActionsPanelForDomain(domainName: string) {
+  // Build the filter clause with the actual domain name
+  const filterClause = `((startswith(WorkflowCtx.TargetCtxList.TargetName, '${domainName}'))) and ((StartTime ge \${__from:date}) and (StartTime le \${__to:date}) or (EndTime ge \${__from:date}) and (EndTime le \${__to:date}))`;
+
+  const queryRunner = new SceneQueryRunner({
+    datasource: { uid: '${Account}' },
+    queries: [
+      {
+        refId: 'A',
+        queryType: 'infinity',
+        type: 'json',
+        source: 'url',
+        parser: 'backend',
+        format: 'table',
+        url: `/api/v1/workflow/WorkflowInfos?$skip=0&$top=1000&$filter=${filterClause}&$orderby=CreateTime desc`,
+        root_selector: '$.Results',
+        columns: [
+          { selector: 'Action', text: 'Action', type: 'string' },
+          { selector: 'AssociatedObject', text: 'AssociatedObject', type: 'string' },
+          { selector: 'CreateTime', text: 'CreateTime', type: 'timestamp' },
+          { selector: 'Email', text: 'Email', type: 'string' },
+          { selector: 'EndTime', text: 'EndTime', type: 'timestamp' },
+          { selector: 'Input', text: 'Input', type: 'string' },
+          { selector: 'Moid', text: 'Moid', type: 'string' },
+          { selector: 'Name', text: 'Name', type: 'string' },
+          { selector: 'PauseReason', text: 'PauseReason', type: 'string' },
+          { selector: 'Progress', text: 'Progress', type: 'string' },
+          { selector: 'Src', text: 'Src', type: 'string' },
+          { selector: 'StartTime', text: 'StartTime', type: 'timestamp' },
+          { selector: 'TaskInfos', text: 'TaskInfos', type: 'string' },
+          { selector: 'TraceId', text: 'TraceId', type: 'string' },
+          { selector: 'Type', text: 'Type', type: 'string' },
+          { selector: 'UserActionRequired', text: 'UserActionRequired', type: 'string' },
+          { selector: 'UserId', text: 'UserId', type: 'string' },
+          { selector: 'WaitReason', text: 'WaitReason', type: 'string' },
+          { selector: 'WorkflowCtx.InitiatorCtx.InitiatorName', text: 'Initiator Name', type: 'string' },
+          { selector: 'WorkflowDefinition.Moid', text: 'WorkflowDefinition', type: 'string' },
+          { selector: 'WorkflowStatus', text: 'WorkflowStatus', type: 'string' },
+          { selector: 'WorkflowCtx.InitiatorCtx.InitiatorType', text: 'Initiator Type', type: 'string' },
+          { selector: 'Internal', text: 'Internal', type: 'string' },
+        ],
+        url_options: {
+          method: 'GET',
+          data: '',
+        },
+      } as any,
+    ],
+  });
+
+  const dataTransformer = new SceneDataTransformer({
+    $data: queryRunner,
+    transformations: [
+      {
+        id: 'organize',
+        options: {
+          excludeByName: {
+            Action: true,
+            AssociatedObject: true,
+            Input: true,
+            PauseReason: true,
+            StartTime: true,
+            TaskInfos: true,
+            Type: true,
+            UserActionRequired: true,
+            UserId: true,
+            WaitReason: true,
+            WorkflowDefinition: true,
+          },
+          includeByName: {},
+          indexByName: {
+            Action: 8,
+            AssociatedObject: 9,
+            CreateTime: 5,
+            Email: 1,
+            EndTime: 7,
+            'Initiator Name': 17,
+            'Initiator Type': 18,
+            Input: 10,
+            Moid: 19,
+            Name: 0,
+            PauseReason: 11,
+            Progress: 4,
+            Src: 21,
+            StartTime: 6,
+            TaskInfos: 12,
+            TraceId: 20,
+            Type: 13,
+            UserActionRequired: 14,
+            UserId: 2,
+            WaitReason: 15,
+            WorkflowDefinition: 16,
+            WorkflowStatus: 3,
+          },
+          renameByName: {
+            CreateTime: 'Start Time',
+            Email: 'User',
+            EndTime: 'End Time',
+            'Initiator Name': 'Target Name',
+            'Initiator Type': 'Target Type',
+            Src: 'Service',
+            StartTime: '',
+            WorkflowStatus: 'Status',
+          },
+        },
+      },
+    ],
+  });
+
+  const panel = PanelBuilders.table()
+    .setTitle('')
+    .setData(dataTransformer)
+    .setOption('cellHeight', 'sm')
+    .setOption('showHeader', true)
+    .setOption('enablePagination', true)
+    .setOption('sortBy', [{ desc: true, displayName: 'Start Time' }])
+    .setOverrides((builder) => {
+      // User field
+      builder
+        .matchFieldsWithName('User')
+        .overrideMappings([
+          {
+            type: 'value',
+            options: {
+              'system@intersight': { color: 'super-light-blue', index: 0 },
+            },
+          },
+          {
+            type: 'regex',
+            options: {
+              pattern: '(.*)',
+              result: { color: 'super-light-purple', index: 1, text: '$1' },
+            },
+          },
+        ])
+        .overrideCustomFieldConfig('cellOptions', { type: 'color-text' });
+
+      // Status field
+      builder
+        .matchFieldsWithName('Status')
+        .overrideMappings([
+          {
+            type: 'value',
+            options: {
+              Completed: { color: 'green', index: 0, text: 'Completed' },
+              Failed: { color: 'red', index: 1, text: 'Failed' },
+            },
+          },
+        ])
+        .overrideCustomFieldConfig('cellOptions', { type: 'color-text' })
+        .overrideCustomFieldConfig('width', 90);
+
+      // Progress field
+      builder
+        .matchFieldsWithName('Progress')
+        .overrideUnit('percent')
+        .overrideCustomFieldConfig('cellOptions', {
+          type: 'gauge',
+          mode: 'lcd',
+          valueDisplayMode: 'text',
+        })
+        .overrideThresholds({
+          mode: 'percentage',
+          steps: [{ value: 0, color: 'blue' }],
+        });
+
+      // Moid field
+      builder.matchFieldsWithName('Moid').overrideCustomFieldConfig('width', 100);
+
+      // TraceId field
+      builder.matchFieldsWithName('TraceId').overrideCustomFieldConfig('width', 96);
+
+      // Service field
+      builder.matchFieldsWithName('Service').overrideCustomFieldConfig('width', 100);
+
+      // Internal field
+      builder.matchFieldsWithName('Internal').overrideCustomFieldConfig('width', 85);
+
+      // Target Type field
+      builder
+        .matchFieldsWithName('Target Type')
+        .overrideMappings([
+          {
+            type: 'value',
+            options: {
+              'compute.Blade': { index: 2, text: 'Blade Server' },
+              'compute.BladeIdentity': { index: 5, text: 'Blade Server Identity' },
+              'compute.RackUnitIdentity': { index: 6, text: 'Rack Server Identity' },
+              'compute.ServerSetting': { index: 8, text: 'Server Settings' },
+              'equipment.ChassisIdentity': { index: 7, text: 'Chassis Identity' },
+              'equipment.IoCard': { index: 3, text: 'IO Module' },
+              'equipment.SwitchOperation': { index: 9, text: 'Switch Settings' },
+              'fabric.SwitchProfile': { index: 0, text: 'Domain Profile' },
+              'firmware.Upgrade': { index: 4, text: 'Firmware Upgrade' },
+              'server.Profile': { index: 1, text: 'Server Profile' },
+            },
+          },
+        ]);
+
+      return builder.build();
+    })
+    .build();
+
+  return new SceneFlexLayout({
+    direction: 'column',
+    children: [
+      new SceneFlexItem({
+        height: 600,
+        body: panel,
+      }),
+    ],
+  });
+}
+
+/**
+ * Main export function for the Actions tab.
+ * Returns a DynamicActionsScene that creates tabs based on DomainName variable selection.
+ */
+export function getActionsTab() {
+  // Return the dynamic actions scene that creates tabs based on DomainName variable selection
+  return new DynamicActionsScene({});
+}
