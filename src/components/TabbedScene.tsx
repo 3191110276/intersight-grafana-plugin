@@ -1,4 +1,5 @@
-import React from 'react';
+import React, { useEffect } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { SceneObjectBase, SceneComponentProps, SceneObjectState } from '@grafana/scenes';
 import { TabsBar, Tab } from '@grafana/ui';
 import { css } from '@emotion/css';
@@ -14,23 +15,25 @@ interface TabbedSceneState extends SceneObjectState {
   activeTab: string;
   body: any;
   controls?: any[];
+  urlSync?: boolean; // Enable URL synchronization
+  isTopLevel?: boolean; // True for main navigation, false for sub-tabs
 }
 
 export class TabbedScene extends SceneObjectBase<TabbedSceneState> {
   public static Component = TabbedSceneRenderer;
 
-  public setActiveTab(tabId: string) {
+  public setActiveTab(tabId: string, updateUrl: boolean = true) {
     const tab = this.state.tabs.find((t) => t.id === tabId);
     if (tab) {
       const newBody = tab.getBody();
-      // Just update state - React will handle unmounting via the key prop
-      // and Grafana scenes will handle activation through component lifecycle
       this.setState({ activeTab: tabId, body: newBody });
     }
   }
 
   public activate() {
     super.activate();
+    // Return empty cleanup function to satisfy type requirements
+    return () => {};
   }
 }
 
@@ -46,7 +49,67 @@ const controlsContainerFix = css`
 `;
 
 function TabbedSceneRenderer({ model }: SceneComponentProps<TabbedScene>) {
-  const { tabs, activeTab, body, controls } = model.useState();
+  const { tabs, activeTab, body, controls, urlSync, isTopLevel } = model.useState();
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  // Sync URL to state on mount and location changes
+  useEffect(() => {
+    if (!urlSync) return;
+
+    // BrowserRouter basename strips '/a/intersight-app', so:
+    // URL '/a/intersight-app/standalone/alarms' becomes location.pathname '/standalone/alarms'
+    const pathParts = location.pathname.split('/').filter(Boolean);
+    // pathParts[0] = section (e.g., 'standalone', 'imm-domain')
+    // pathParts[1] = sub-tab (e.g., 'alarms', 'overview')
+
+    if (isTopLevel) {
+      // Top-level navigation (Home, IMM Domain, Standalone, Unified Edge)
+      const sectionFromUrl = pathParts[0]; // e.g., 'standalone', 'imm-domain'
+
+      if (sectionFromUrl && sectionFromUrl !== activeTab) {
+        const matchingTab = tabs.find(t => t.id === sectionFromUrl);
+        if (matchingTab) {
+          model.setActiveTab(sectionFromUrl, false);
+        }
+      } else if (!sectionFromUrl && activeTab !== 'home') {
+        // If no section in URL, default to home
+        model.setActiveTab('home', false);
+      }
+    } else {
+      // Sub-tab navigation (Overview, Alarms, etc.)
+      const subTabFromUrl = pathParts[1]; // e.g., 'alarms', 'overview'
+
+      if (subTabFromUrl && subTabFromUrl !== activeTab) {
+        const matchingTab = tabs.find(t => t.id === subTabFromUrl);
+        if (matchingTab) {
+          model.setActiveTab(subTabFromUrl, false);
+        }
+      } else if (!subTabFromUrl && activeTab !== 'overview') {
+        // Default to overview if no sub-tab specified
+        model.setActiveTab('overview', false);
+      }
+    }
+  }, [location.pathname, urlSync, tabs, activeTab, model, isTopLevel]);
+
+  const handleTabChange = (tabId: string) => {
+    if (urlSync) {
+      if (isTopLevel) {
+        // Update URL for top-level tab
+        if (tabId === 'home') {
+          navigate('/');
+        } else {
+          navigate(`/${tabId}`);
+        }
+      } else {
+        // Update URL for sub-tab (preserve parent section)
+        const pathParts = location.pathname.split('/').filter(Boolean);
+        const section = pathParts[0]; // e.g., 'standalone'
+        navigate(`/${section}/${tabId}`);
+      }
+    }
+    model.setActiveTab(tabId, false);
+  };
 
   return (
     <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column' }}>
@@ -60,16 +123,18 @@ function TabbedSceneRenderer({ model }: SceneComponentProps<TabbedScene>) {
         minHeight: '48px',
         overflow: 'visible'
       }}>
-        <TabsBar style={{ border: 'none', flexShrink: 0 }}>
-          {tabs.map((tab) => (
-            <Tab
-              key={tab.id}
-              label={tab.label}
-              active={activeTab === tab.id}
-              onChangeTab={() => model.setActiveTab(tab.id)}
-            />
-          ))}
-        </TabsBar>
+        <div style={{ border: 'none', flexShrink: 0 }}>
+          <TabsBar>
+            {tabs.map((tab) => (
+              <Tab
+                key={tab.id}
+                label={tab.label}
+                active={activeTab === tab.id}
+                onChangeTab={() => handleTabChange(tab.id)}
+              />
+            ))}
+          </TabsBar>
+        </div>
         {controls && controls.length > 0 && (
           <div className={controlsContainerFix} style={{ display: 'flex', gap: '8px', alignItems: 'center', flexShrink: 1, flexGrow: 0, minWidth: 0 }}>
             {controls.map((control, index) => (

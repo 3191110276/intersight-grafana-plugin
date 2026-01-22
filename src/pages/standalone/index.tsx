@@ -102,6 +102,8 @@ export function getStandaloneSceneBody() {
     tabs: standaloneTabs,
     activeTab: 'overview',
     body: getOverviewTab(),
+    urlSync: true,
+    isTopLevel: false,
     controls: [new VariableValueSelectors({})],
   });
 }

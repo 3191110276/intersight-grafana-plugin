@@ -30,6 +30,8 @@ const unifiedEdgeTabs = [
 ];
 
 // ============================================================================
+// SCENEAPP TABS EXPORT
+// ============================================================================
 // MAIN EXPORT FUNCTION
 // ============================================================================
 
@@ -138,6 +140,8 @@ export function getUnifiedEdgeSceneBody() {
     tabs: unifiedEdgeTabs,
     activeTab: 'overview',
     body: getOverviewTab(),
+    urlSync: true,
+    isTopLevel: false,
     controls: [new VariableValueSelectors({})],
   });
 }

@@ -1,4 +1,5 @@
 import React, { useMemo } from 'react';
+import { BrowserRouter } from 'react-router-dom';
 import { AppRootProps } from '@grafana/data';
 import {
   EmbeddedScene,
@@ -43,6 +44,8 @@ export function App(props: AppRootProps) {
       tabs: tabs,
       activeTab: 'home',
       body: getHomeSceneBody(),
+      urlSync: true,
+      isTopLevel: true,
       controls: [
         new VariableValueSelectors({}),
         new SceneTimePicker({}),
@@ -59,8 +62,10 @@ export function App(props: AppRootProps) {
   }, []);
 
   return (
-    <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column' }}>
-      <scene.Component model={scene} />
-    </div>
+    <BrowserRouter basename="/a/intersight-app">
+      <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column' }}>
+        <scene.Component model={scene} />
+      </div>
+    </BrowserRouter>
   );
 }

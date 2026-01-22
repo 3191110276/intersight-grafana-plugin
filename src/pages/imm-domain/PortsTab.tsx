@@ -111,6 +111,18 @@ class DynamicPortsScene extends SceneObjectBase<DynamicPortsSceneState> {
       return;
     }
 
+    // If only 1 domain, show table directly without tabs
+    if (domainNames.length === 1) {
+      const singleDomainBody = createDomainPortsBody(domainNames[0]);
+
+      this.setState({
+        domainTabs: [],
+        activeTab: '',
+        body: singleDomainBody,
+      });
+      return;
+    }
+
     // Create a tab for each domain
     const newTabs = domainNames.map((domainName) => ({
       id: domainName,
@@ -238,14 +250,10 @@ function getPortsPanelForDomain(domainName: string) {
         root_selector: '$.event',
         columns: [
           { selector: 'port', text: 'port', type: 'string' },
-          { selector: 'link_status', text: 'link_status', type: 'number' },
-          { selector: 'link_speed', text: 'link_speed', type: 'number' },
-          { selector: 'port_role', text: 'port_role', type: 'string' },
-          { selector: 'physical_address', text: 'physical_address', type: 'string' },
-        ],
-        computed_columns: [
-          { selector: "port_role + link_status", text: 'a_link_status', type: 'string' },
-          { selector: "port_role + '/'", text: 'port_role_slash', type: 'string' },
+          { selector: 'link_status', text: 'a_link_status', type: 'number' },
+          { selector: 'link_speed', text: 'a_link_speed', type: 'number' },
+          { selector: 'port_role', text: 'a_port_role', type: 'string' },
+          { selector: 'physical_address', text: 'a_physical_address', type: 'string' },
         ],
         url_options: {
           method: 'POST',
@@ -378,13 +386,10 @@ function getPortsPanelForDomain(domainName: string) {
         root_selector: '$.event',
         columns: [
           { selector: 'port', text: 'port', type: 'string' },
-          { selector: 'link_status', text: 'link_status', type: 'number' },
-          { selector: 'link_speed', text: 'link_speed', type: 'number' },
-          { selector: 'port_role', text: 'port_role', type: 'string' },
-          { selector: 'physical_address', text: 'physical_address', type: 'string' },
-        ],
-        computed_columns: [
-          { selector: "port_role + link_status", text: 'b_link_status', type: 'string' },
+          { selector: 'link_status', text: 'b_link_status', type: 'number' },
+          { selector: 'link_speed', text: 'b_link_speed', type: 'number' },
+          { selector: 'port_role', text: 'b_port_role', type: 'string' },
+          { selector: 'physical_address', text: 'b_physical_address', type: 'string' },
         ],
         url_options: {
           method: 'POST',
@@ -508,7 +513,7 @@ function getPortsPanelForDomain(domainName: string) {
     ],
   });
 
-  // Using transformations to merge FI-A and FI-B data instead of SQL expression (which has compatibility issues in Scenes)
+  // Using transformations to merge FI-A and FI-B data and create computed columns
   const queryRunner = new SceneDataTransformer({
     $data: baseQueryRunner,
     transformations: [
@@ -520,25 +525,7 @@ function getPortsPanelForDomain(domainName: string) {
           mode: 'outer',
         },
       },
-      // Transformation 2: Rename joined fields to have proper prefixes
-      {
-        id: 'organize',
-        options: {
-          excludeByName: {},
-          includeByName: {},
-          indexByName: {},
-          renameByName: {
-            'link_speed': 'a_link_speed',
-            'port_role': 'a_port_role',
-            'physical_address': 'a_physical_address',
-            'port_role_slash': 'a_port_role_slash',
-            'link_speed 1': 'b_link_speed',
-            'port_role 1': 'b_port_role',
-            'physical_address 1': 'b_physical_address',
-          },
-        },
-      },
-      // Transformation 3: Calculate a_link_speed_8 (a_link_speed * 8)
+      // Transformation 2: Calculate a_link_speed_8 (a_link_speed * 8)
       {
         id: 'calculateField',
         options: {
@@ -554,7 +541,7 @@ function getPortsPanelForDomain(domainName: string) {
           },
         },
       },
-      // Transformation 4: Calculate b_link_speed_8 (b_link_speed * 8)
+      // Transformation 3: Calculate b_link_speed_8 (b_link_speed * 8)
       {
         id: 'calculateField',
         options: {
@@ -570,14 +557,14 @@ function getPortsPanelForDomain(domainName: string) {
           },
         },
       },
-      // Transformation 5: Create port_role sync field (concatenate a_port_role_slash + b_port_role to get "role_a/role_b")
+      // Transformation 4: Create role_sync field by concatenating a_port_role and b_port_role
       {
         id: 'calculateField',
         options: {
           mode: 'binary',
-          alias: 'port_role',
+          alias: 'role_sync',
           binary: {
-            left: { matcher: { id: 'byName', options: 'a_port_role_slash' } },
+            left: { matcher: { id: 'byName', options: 'a_port_role' } },
             operator: '+',
             right: { field: 'b_port_role' },
           },
@@ -587,45 +574,74 @@ function getPortsPanelForDomain(domainName: string) {
           replaceFields: false,
         },
       },
-      // Transformation 6: Organize and rename all columns to final display names
+      // Transformation 5: Create link_status fields with port_role prefix for proper status display
+      {
+        id: 'calculateField',
+        options: {
+          mode: 'binary',
+          alias: 'a_link_status_combined',
+          binary: {
+            left: { matcher: { id: 'byName', options: 'a_port_role' } },
+            operator: '+',
+            right: { field: 'a_link_status' },
+          },
+          reduce: {
+            reducer: 'sum',
+          },
+          replaceFields: false,
+        },
+      },
+      // Transformation 6: Create b_link_status combined field
+      {
+        id: 'calculateField',
+        options: {
+          mode: 'binary',
+          alias: 'b_link_status_combined',
+          binary: {
+            left: { matcher: { id: 'byName', options: 'b_port_role' } },
+            operator: '+',
+            right: { field: 'b_link_status' },
+          },
+          reduce: {
+            reducer: 'sum',
+          },
+          replaceFields: false,
+        },
+      },
+      // Transformation 7: Final organization and renaming
       {
         id: 'organize',
         options: {
           excludeByName: {
             'a_link_speed': true,
             'b_link_speed': true,
-            'link_status': true,
-            'link_status 1': true,
-            'a_port_role_slash': true,
+            'a_link_status': true,
+            'b_link_status': true,
           },
           includeByName: {},
           indexByName: {
             'port': 0,
-            'port_role': 1,
+            'role_sync': 1,
             'a_port_role': 2,
             'b_port_role': 3,
-            'a_link_status': 4,
-            'b_link_status': 5,
-            'a_link_speed': 6,
-            'a_link_speed_8': 7,
-            'b_link_speed': 8,
-            'b_link_speed_8': 9,
-            'a_physical_address': 10,
-            'b_physical_address': 11,
+            'a_link_status_combined': 4,
+            'b_link_status_combined': 5,
+            'a_link_speed_8': 6,
+            'b_link_speed_8': 7,
+            'a_physical_address': 8,
+            'b_physical_address': 9,
           },
           renameByName: {
-            'a_link_speed': '',
             'a_link_speed_8': 'Link Speed - A',
-            'a_link_status': 'Link Status - A',
+            'a_link_status_combined': 'Link Status - A',
             'a_physical_address': 'MAC - A',
             'a_port_role': 'Port Role - A',
-            'b_link_speed': '',
             'b_link_speed_8': 'Link Speed - B',
-            'b_link_status': 'Link Status - B',
+            'b_link_status_combined': 'Link Status - B',
             'b_physical_address': 'MAC - B',
             'b_port_role': 'Port Role - B',
             'port': 'Port',
-            'port_role': 'Role Sync',
+            'role_sync': 'Role Sync',
           },
         },
       },
@@ -634,7 +650,7 @@ function getPortsPanelForDomain(domainName: string) {
 
   // Create table panel with field overrides
   const tablePanel = PanelBuilders.table()
-    .setTitle('')
+    .setTitle(`Fabric Interconnect ports of ${domainName}`)
     .setData(queryRunner)
     .setOption('showHeader', true)
     .setOption('cellHeight', 'sm')
@@ -702,7 +718,8 @@ function getPortsPanelForDomain(domainName: string) {
 
       // Role Sync column
       builder.matchFieldsWithName('Role Sync')
-        .overrideCustomFieldConfig('width', 85)
+        .overrideCustomFieldConfig('width', 105)
+        .overrideCustomFieldConfig('align', 'center')
         .overrideCustomFieldConfig('cellOptions', { type: 'color-text' })
         .overrideMappings([
           {

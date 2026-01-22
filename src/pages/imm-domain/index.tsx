@@ -122,6 +122,8 @@ export function getIMMDomainSceneBody() {
     tabs: immDomainTabs,
     activeTab: 'overview',
     body: getOverviewTab(),
+    urlSync: true,
+    isTopLevel: false,
     controls: [new VariableValueSelectors({})],
   });
 }
