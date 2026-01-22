@@ -210,7 +210,7 @@ function getAllDomainsAlarmsPanel(domainNames: string[]) {
   // Add queries E and F for Suppressed and Acknowledged stat counts
   const domainFilters = domainNames.map(name => `startswith(AffectedMoDisplayName, '${name}')`).join(' or ');
 
-  // Query E: Suppressed alarms (excluding Cleared)
+  // Query E: Suppressed alarms count (using $count with $top=0 - optimized)
   queries.push({
     refId: 'E',
     queryType: 'infinity',
@@ -218,39 +218,16 @@ function getAllDomainsAlarmsPanel(domainNames: string[]) {
     source: 'url',
     parser: 'backend',
     format: 'table',
-    url: `/api/v1/cond/Alarms?$top=1000&$filter=(${domainFilters}) and (Suppressed eq 'true') and (Severity ne 'Cleared')`,
-    root_selector: '$.Results',
-    columns: [
-      { selector: 'Acknowledge', text: 'Acknowledge', type: 'string' },
-      { selector: 'AcknowledgeBy', text: 'AcknowledgeBy', type: 'string' },
-      { selector: 'AcknowledgeTime', text: 'AcknowledgeTime', type: 'string' },
-      { selector: 'AffectedMo', text: 'AffectedMo', type: 'string' },
-      { selector: 'AffectedMoDisplayName', text: 'AffectedMoDisplayName', type: 'string' },
-      { selector: 'AffectedMoType', text: 'AffectedMoType', type: 'string' },
-      { selector: 'AlarmSummaryAggregators', text: 'AlarmSummaryAggregators', type: 'string' },
-      { selector: 'AncestorMoType', text: 'AncestorMoType', type: 'string' },
-      { selector: 'Code', text: 'Code', type: 'string' },
-      { selector: 'CreateTime', text: 'CreateTime', type: 'timestamp' },
-      { selector: 'Definition', text: 'Definition', type: 'string' },
-      { selector: 'Description', text: 'Description', type: 'string' },
-      { selector: 'Flapping', text: 'Flap', type: 'string' },
-      { selector: 'FlappingCount', text: 'FlappingCount', type: 'string' },
-      { selector: 'MsAffectedObject', text: 'MsAffectedObject', type: 'string' },
-      { selector: 'Name', text: 'Name', type: 'string' },
-      { selector: 'OrigSeverity', text: 'OrigSeverity', type: 'string' },
-      { selector: 'Owners', text: 'Owners', type: 'string' },
-      { selector: 'RegisteredDevice', text: 'RegisteredDevice', type: 'string' },
-      { selector: 'Severity', text: 'Severity', type: 'string' },
-      { selector: 'Suppressed', text: 'Suppressed', type: 'string' },
-      { selector: 'LastTransitionTime', text: 'LastTransitionTime', type: 'timestamp' },
-    ],
+    url: `/api/v1/cond/Alarms?$top=0&$count=true&$filter=(${domainFilters}) and (Suppressed eq 'true') and (Severity ne 'Cleared')`,
+    root_selector: '$.Count',
+    columns: [],
     url_options: {
       method: 'GET',
       data: '',
     },
   });
 
-  // Query F: Acknowledged alarms (excluding Cleared)
+  // Query F: Acknowledged alarms count (using $count with $top=0 - optimized)
   queries.push({
     refId: 'F',
     queryType: 'infinity',
@@ -258,32 +235,9 @@ function getAllDomainsAlarmsPanel(domainNames: string[]) {
     source: 'url',
     parser: 'backend',
     format: 'table',
-    url: `/api/v1/cond/Alarms?$top=1000&$filter=(${domainFilters}) and (Acknowledge eq 'Acknowledge') and (Severity ne 'Cleared')`,
-    root_selector: '$.Results',
-    columns: [
-      { selector: 'Acknowledge', text: 'Acknowledge', type: 'string' },
-      { selector: 'AcknowledgeBy', text: 'AcknowledgeBy', type: 'string' },
-      { selector: 'AcknowledgeTime', text: 'AcknowledgeTime', type: 'string' },
-      { selector: 'AffectedMo', text: 'AffectedMo', type: 'string' },
-      { selector: 'AffectedMoDisplayName', text: 'AffectedMoDisplayName', type: 'string' },
-      { selector: 'AffectedMoType', text: 'AffectedMoType', type: 'string' },
-      { selector: 'AlarmSummaryAggregators', text: 'AlarmSummaryAggregators', type: 'string' },
-      { selector: 'AncestorMoType', text: 'AncestorMoType', type: 'string' },
-      { selector: 'Code', text: 'Code', type: 'string' },
-      { selector: 'CreateTime', text: 'CreateTime', type: 'timestamp' },
-      { selector: 'Definition', text: 'Definition', type: 'string' },
-      { selector: 'Description', text: 'Description', type: 'string' },
-      { selector: 'Flapping', text: 'Flap', type: 'string' },
-      { selector: 'FlappingCount', text: 'FlappingCount', type: 'string' },
-      { selector: 'MsAffectedObject', text: 'MsAffectedObject', type: 'string' },
-      { selector: 'Name', text: 'Name', type: 'string' },
-      { selector: 'OrigSeverity', text: 'OrigSeverity', type: 'string' },
-      { selector: 'Owners', text: 'Owners', type: 'string' },
-      { selector: 'RegisteredDevice', text: 'RegisteredDevice', type: 'string' },
-      { selector: 'Severity', text: 'Severity', type: 'string' },
-      { selector: 'Suppressed', text: 'Suppressed', type: 'string' },
-      { selector: 'LastTransitionTime', text: 'LastTransitionTime', type: 'timestamp' },
-    ],
+    url: `/api/v1/cond/Alarms?$top=0&$count=true&$filter=(${domainFilters}) and (Acknowledge eq 'Acknowledge') and (Severity ne 'Cleared')`,
+    root_selector: '$.Count',
+    columns: [],
     url_options: {
       method: 'GET',
       data: '',
@@ -591,23 +545,11 @@ function getAllDomainsAlarmsPanel(domainNames: string[]) {
     })
     .build();
 
-  // Suppressed stat (Query E)
-  const suppressedTransformedData = new SceneDataTransformer({
-    $data: suppressedQueryRunner,
-    transformations: [
-      {
-        id: 'reduce',
-        options: {
-          reducers: ['count'],
-        },
-      },
-    ],
-  });
-
+  // Suppressed stat (Query E) - uses aggregate count query directly
   const suppressedStat = PanelBuilders.stat()
     .setTitle('Suppressed')
     .setMenu(undefined)
-    .setData(suppressedTransformedData)
+    .setData(suppressedQueryRunner)
     .setOption('graphMode', 'none')
     .setOption('textMode', 'value')
     .setOption('colorMode', 'background')
@@ -635,23 +577,11 @@ function getAllDomainsAlarmsPanel(domainNames: string[]) {
     })
     .build();
 
-  // Acknowledged stat (Query F)
-  const acknowledgedTransformedData = new SceneDataTransformer({
-    $data: acknowledgedQueryRunner,
-    transformations: [
-      {
-        id: 'reduce',
-        options: {
-          reducers: ['count'],
-        },
-      },
-    ],
-  });
-
+  // Acknowledged stat (Query F) - uses aggregate count query directly
   const acknowledgedStat = PanelBuilders.stat()
     .setTitle('Acknowledged')
     .setMenu(undefined)
-    .setData(acknowledgedTransformedData)
+    .setData(acknowledgedQueryRunner)
     .setOption('graphMode', 'none')
     .setOption('textMode', 'value')
     .setOption('colorMode', 'background')

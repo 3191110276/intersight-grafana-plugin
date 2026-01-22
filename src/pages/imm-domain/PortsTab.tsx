@@ -181,7 +181,7 @@ function DynamicPortsSceneRenderer({ model }: SceneComponentProps<DynamicPortsSc
   if (domainTabs.length === 0) {
     return (
       <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column' }}>
-        {body && body.Component && <body.Component key="empty-body" model={body} />}
+        {body && body.Component && <body.Component model={body} />}
       </div>
     );
   }
@@ -208,13 +208,12 @@ function DynamicPortsSceneRenderer({ model }: SceneComponentProps<DynamicPortsSc
         </TabsBar>
       </div>
       <div style={{
-        flexGrow: 1,
-        width: '100%',
-        height: '100%',
-        overflow: 'auto',
-        position: 'relative'
+        flex: 1,
+        minHeight: 0,
+        display: 'flex',
+        flexDirection: 'column'
       }}>
-        {body && body.Component && <body.Component key={activeTab} model={body} />}
+        {body && body.Component && <body.Component model={body} />}
       </div>
     </div>
   );

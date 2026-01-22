@@ -228,6 +228,18 @@ function buildActionsBodyWithQueryRunner(
         options: {},
       },
       {
+        id: 'sortBy',
+        options: {
+          fields: {},
+          sort: [
+            {
+              field: 'StartTime',
+              desc: true,
+            },
+          ],
+        },
+      },
+      {
         id: 'organize',
         options: {
           excludeByName: {
