@@ -156,7 +156,7 @@ function createChassisActionsBody(chassisName: string) {
     direction: 'column',
     children: [
       new SceneFlexItem({
-        height: 600,
+        ySizing: 'fill',
         body: actionsPanel,
       }),
     ],
@@ -172,7 +172,7 @@ function DynamicActionsSceneRenderer({ model }: SceneComponentProps<DynamicActio
   // If no tabs, just render the body (which contains the "no selection" message)
   if (chassisTabs.length === 0) {
     return (
-      <div style={{ width: '100%', height: '100%', overflow: 'auto' }}>
+      <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column' }}>
         {body && body.Component && <body.Component key="empty-body" model={body} />}
       </div>
     );

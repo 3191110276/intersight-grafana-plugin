@@ -934,6 +934,7 @@ function createDomainInventoryBody(domainName: string) {
       // Fabric Interconnect section header
       new SceneFlexItem({
         height: 30,
+        ySizing: 'content',
         body: PanelBuilders.text()
           .setTitle('')
           .setOption('content', '### Fabric Interconnect')
@@ -944,6 +945,7 @@ function createDomainInventoryBody(domainName: string) {
       // FI-A and FI-B side by side
       new SceneFlexItem({
         height: 150,
+        ySizing: 'content',
         body: new SceneFlexLayout({
           direction: 'row',
           children: [
@@ -955,6 +957,7 @@ function createDomainInventoryBody(domainName: string) {
       // Chassis section
       new SceneFlexItem({
         height: 30,
+        ySizing: 'content',
         body: PanelBuilders.text()
           .setTitle('')
           .setOption('content', '### Chassis')
@@ -964,11 +967,13 @@ function createDomainInventoryBody(domainName: string) {
       }),
       new SceneFlexItem({
         height: 250,
+        ySizing: 'content',
         body: chassisPanel,
       }),
       // Server section
       new SceneFlexItem({
         height: 30,
+        ySizing: 'content',
         body: PanelBuilders.text()
           .setTitle('')
           .setOption('content', '### Server')
@@ -977,7 +982,7 @@ function createDomainInventoryBody(domainName: string) {
           .build(),
       }),
       new SceneFlexItem({
-        height: 400,
+        ySizing: 'fill',
         body: serverPanel,
       }),
     ],
@@ -993,7 +998,7 @@ function DynamicInventorySceneRenderer({ model }: SceneComponentProps<DynamicInv
   // If no tabs, just render the body (which contains the "no selection" message)
   if (domainTabs.length === 0) {
     return (
-      <div style={{ width: '100%', height: '100%', overflow: 'auto' }}>
+      <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column' }}>
         {body && body.Component && <body.Component key="empty-body" model={body} />}
       </div>
     );

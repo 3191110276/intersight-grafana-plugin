@@ -272,7 +272,7 @@ export function getInventoryTab() {
     direction: 'column',
     children: [
       new SceneFlexItem({
-        height: 600,
+        ySizing: 'fill',
         body: tablePanel,
       }),
     ],

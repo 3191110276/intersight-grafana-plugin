@@ -157,7 +157,7 @@ function DynamicAlarmsSceneRenderer({ model }: SceneComponentProps<DynamicAlarms
   // If no tabs, just render the body (which contains the "no selection" message)
   if (chassisTabs.length === 0) {
     return (
-      <div style={{ width: '100%', height: '100%', overflow: 'auto' }}>
+      <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column' }}>
         {body && body.Component && <body.Component key="empty-body" model={body} />}
       </div>
     );

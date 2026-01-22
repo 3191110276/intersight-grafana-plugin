@@ -229,10 +229,11 @@ export function getPortsTab() {
     children: [
       new SceneFlexItem({
         height: 400,
+        ySizing: 'content',
         body: getEcmcExternalPortsPanel(),
       }),
       new SceneFlexItem({
-        height: 400,
+        ySizing: 'fill',
         body: getServerPortsPanel(),
       }),
     ],

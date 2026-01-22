@@ -215,7 +215,7 @@ export function getActionsTab() {
     direction: 'column',
     children: [
       new SceneFlexItem({
-        height: 'calc(100vh - 180px)',
+        ySizing: 'fill',
         body: actionsPanel,
       }),
     ],

@@ -824,6 +824,7 @@ export function getNetworkErrorsTab() {
       // Row 1: Physical Ports (3 panels - 2 timeseries, 1 table)
       new SceneFlexItem({
         height: 300,
+        ySizing: 'content',
         body: new SceneFlexLayout({
           direction: 'row',
           children: [
@@ -840,12 +841,13 @@ export function getNetworkErrorsTab() {
       }),
       new SceneFlexItem({
         height: 400,
+        ySizing: 'content',
         body: errorDetailsPanel,
       }),
       // Row 2: Virtual Ports (empty - no panels)
       // Row 3: Error Descriptions (tall table)
       new SceneFlexItem({
-        height: 600,
+        ySizing: 'fill',
         body: errorDescriptionsPanel,
       }),
     ],

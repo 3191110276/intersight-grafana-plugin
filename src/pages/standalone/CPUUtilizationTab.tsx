@@ -292,7 +292,7 @@ export function getCPUUtilizationTab() {
     direction: 'column',
     children: [
       new SceneFlexItem({
-        height: 600,
+        ySizing: 'fill',
         body: tablePanel,
       }),
     ],
@@ -567,7 +567,7 @@ export function getStorageControllersPanel() {
     direction: 'column',
     children: [
       new SceneFlexItem({
-        height: 600,
+        ySizing: 'fill',
         body: panel,
       }),
     ],
@@ -894,7 +894,7 @@ export function getSSDDisksPanel() {
     direction: 'column',
     children: [
       new SceneFlexItem({
-        height: 600,
+        ySizing: 'fill',
         body: panel,
       }),
     ],
@@ -1222,7 +1222,7 @@ export function getHDDDisksPanel() {
     direction: 'column',
     children: [
       new SceneFlexItem({
-        height: 600,
+        ySizing: 'fill',
         body: panel,
       }),
     ],
@@ -1405,7 +1405,7 @@ export function getVirtualDrivesPanel() {
     direction: 'column',
     children: [
       new SceneFlexItem({
-        height: 600,
+        ySizing: 'fill',
         body: panel,
       }),
     ],

@@ -31,11 +31,12 @@ export function getSFPTab() {
     direction: 'column',
     children: [
       new SceneFlexItem({
-        height: 600,
+        ySizing: 'fill',
         body: sfpMetricsPanel,
       }),
       new SceneFlexItem({
         height: 200,
+        ySizing: 'content',
         body: sfpInfoPanel,
       }),
     ],

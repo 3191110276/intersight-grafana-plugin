@@ -477,11 +477,13 @@ export function getEnvironmentalTab() {
       // Row 1: Power Supply Status
       new SceneFlexItem({
         height: 300,
+        ySizing: 'content',
         body: powerSupplyPanel,
       }),
       // Row 2: Host Power Consumption (2 panels side by side)
       new SceneFlexItem({
         height: 300,
+        ySizing: 'content',
         body: new SceneFlexLayout({
           direction: 'row',
           children: [
@@ -499,11 +501,12 @@ export function getEnvironmentalTab() {
       // Row 3: Fan Speed
       new SceneFlexItem({
         height: 300,
+        ySizing: 'content',
         body: fanSpeedPanel,
       }),
       // Row 4: Host Temperature (nested tabs)
       new SceneFlexItem({
-        height: 600,
+        ySizing: 'fill',
         body: hostTemperatureTabs,
       }),
     ],
@@ -771,7 +774,7 @@ export function getTemperatureTab() {
     direction: 'column',
     children: [
       new SceneFlexItem({
-        height: 600,
+        ySizing: 'fill',
         body: temperaturePanel,
       }),
     ],
@@ -1077,7 +1080,7 @@ export function getCoolingBudgetTab() {
     direction: 'column',
     children: [
       new SceneFlexItem({
-        height: 600,
+        ySizing: 'fill',
         body: coolingBudgetPanel,
       }),
     ],

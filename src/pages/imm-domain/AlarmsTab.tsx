@@ -88,10 +88,7 @@ class DynamicAlarmsScene extends SceneObjectBase<DynamicAlarmsSceneState> {
           new SceneFlexItem({
             height: 200,
             body: PanelBuilders.text()
-              .setTitle('')
               .setOption('content', '### No Domains Selected\n\nPlease select one or more domains from the Domain filter above.')
-              .setOption('mode', 'markdown' as any)
-              .setDisplayMode('transparent')
               .build(),
           }),
         ],
@@ -132,7 +129,7 @@ function DynamicAlarmsSceneRenderer({ model }: SceneComponentProps<DynamicAlarms
   const { body } = model.useState();
 
   return (
-    <div style={{ width: '100%', height: '100%', overflow: 'auto' }}>
+    <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column' }}>
       {body && body.Component && <body.Component model={body} />}
     </div>
   );
@@ -144,12 +141,28 @@ function DynamicAlarmsSceneRenderer({ model }: SceneComponentProps<DynamicAlarms
 function getAllDomainsAlarmsPanel(domainNames: string[]) {
   const showDomainColumn = domainNames.length > 1;
 
-  // Create a query for each domain
-  const queries = domainNames.map((domainName, index) => {
-    const filterClause = `((startswith(AffectedMoDisplayName, '${domainName}'))) and ((Severity ne 'Cleared') or (Severity eq 'Cleared' and ((CreateTime ge \${__from:date}) and (CreateTime le \${__to:date}) or (LastTransitionTime ge \${__from:date}) and (LastTransitionTime le \${__to:date}))))`;
+  // Create 4 queries (one per severity) that fetch all domains at once
+  // This creates consistent ordering: Critical > Warning > Info > Cleared
+  const severities = ['Critical', 'Warning', 'Info', 'Cleared'];
+  const queries: any[] = [];
 
-    return {
-      refId: String.fromCharCode(65 + index), // A, B, C, etc.
+  severities.forEach((severity, index) => {
+    // Build filter for all domains with OR logic
+    const domainFilters = domainNames.map(name => `startswith(AffectedMoDisplayName, '${name}')`).join(' or ');
+    let severityFilterClause;
+
+    if (severity === 'Cleared') {
+      // For Cleared, filter by time range
+      severityFilterClause = `Severity eq 'Cleared' and ((CreateTime ge \${__from:date}) and (CreateTime le \${__to:date}) or (LastTransitionTime ge \${__from:date}) and (LastTransitionTime le \${__to:date}))`;
+    } else {
+      // For active alarms (Critical, Warning, Info)
+      severityFilterClause = `Severity eq '${severity}'`;
+    }
+
+    const filterClause = `(${domainFilters}) and (${severityFilterClause})`;
+
+    queries.push({
+      refId: String.fromCharCode(65 + index), // A, B, C, D
       queryType: 'infinity',
       type: 'json',
       source: 'url',
@@ -184,19 +197,134 @@ function getAllDomainsAlarmsPanel(domainNames: string[]) {
       computed_columns: [
         { selector: "Acknowledge + ' (' + AcknowledgeBy + ')'", text: 'Acknowledged', type: 'string' },
         { selector: "Flap + ' (' + FlappingCount + ')'", text: 'Flapping', type: 'string' },
-        { selector: `'${domainName}'`, text: 'Domain', type: 'string' },
+        // Extract domain name from AffectedMoDisplayName
+        { selector: "AffectedMoDisplayName", text: 'Domain', type: 'string' },
       ],
       url_options: {
         method: 'GET',
         data: '',
       },
-    };
+    });
   });
 
-  // Create query runner for all domains
+  // Add queries E and F for Suppressed and Acknowledged stat counts
+  const domainFilters = domainNames.map(name => `startswith(AffectedMoDisplayName, '${name}')`).join(' or ');
+
+  // Query E: Suppressed alarms (excluding Cleared)
+  queries.push({
+    refId: 'E',
+    queryType: 'infinity',
+    type: 'json',
+    source: 'url',
+    parser: 'backend',
+    format: 'table',
+    url: `/api/v1/cond/Alarms?$top=1000&$filter=(${domainFilters}) and (Suppressed eq 'true') and (Severity ne 'Cleared')`,
+    root_selector: '$.Results',
+    columns: [
+      { selector: 'Acknowledge', text: 'Acknowledge', type: 'string' },
+      { selector: 'AcknowledgeBy', text: 'AcknowledgeBy', type: 'string' },
+      { selector: 'AcknowledgeTime', text: 'AcknowledgeTime', type: 'string' },
+      { selector: 'AffectedMo', text: 'AffectedMo', type: 'string' },
+      { selector: 'AffectedMoDisplayName', text: 'AffectedMoDisplayName', type: 'string' },
+      { selector: 'AffectedMoType', text: 'AffectedMoType', type: 'string' },
+      { selector: 'AlarmSummaryAggregators', text: 'AlarmSummaryAggregators', type: 'string' },
+      { selector: 'AncestorMoType', text: 'AncestorMoType', type: 'string' },
+      { selector: 'Code', text: 'Code', type: 'string' },
+      { selector: 'CreateTime', text: 'CreateTime', type: 'timestamp' },
+      { selector: 'Definition', text: 'Definition', type: 'string' },
+      { selector: 'Description', text: 'Description', type: 'string' },
+      { selector: 'Flapping', text: 'Flap', type: 'string' },
+      { selector: 'FlappingCount', text: 'FlappingCount', type: 'string' },
+      { selector: 'MsAffectedObject', text: 'MsAffectedObject', type: 'string' },
+      { selector: 'Name', text: 'Name', type: 'string' },
+      { selector: 'OrigSeverity', text: 'OrigSeverity', type: 'string' },
+      { selector: 'Owners', text: 'Owners', type: 'string' },
+      { selector: 'RegisteredDevice', text: 'RegisteredDevice', type: 'string' },
+      { selector: 'Severity', text: 'Severity', type: 'string' },
+      { selector: 'Suppressed', text: 'Suppressed', type: 'string' },
+      { selector: 'LastTransitionTime', text: 'LastTransitionTime', type: 'timestamp' },
+    ],
+    url_options: {
+      method: 'GET',
+      data: '',
+    },
+  });
+
+  // Query F: Acknowledged alarms (excluding Cleared)
+  queries.push({
+    refId: 'F',
+    queryType: 'infinity',
+    type: 'json',
+    source: 'url',
+    parser: 'backend',
+    format: 'table',
+    url: `/api/v1/cond/Alarms?$top=1000&$filter=(${domainFilters}) and (Acknowledge eq 'Acknowledge') and (Severity ne 'Cleared')`,
+    root_selector: '$.Results',
+    columns: [
+      { selector: 'Acknowledge', text: 'Acknowledge', type: 'string' },
+      { selector: 'AcknowledgeBy', text: 'AcknowledgeBy', type: 'string' },
+      { selector: 'AcknowledgeTime', text: 'AcknowledgeTime', type: 'string' },
+      { selector: 'AffectedMo', text: 'AffectedMo', type: 'string' },
+      { selector: 'AffectedMoDisplayName', text: 'AffectedMoDisplayName', type: 'string' },
+      { selector: 'AffectedMoType', text: 'AffectedMoType', type: 'string' },
+      { selector: 'AlarmSummaryAggregators', text: 'AlarmSummaryAggregators', type: 'string' },
+      { selector: 'AncestorMoType', text: 'AncestorMoType', type: 'string' },
+      { selector: 'Code', text: 'Code', type: 'string' },
+      { selector: 'CreateTime', text: 'CreateTime', type: 'timestamp' },
+      { selector: 'Definition', text: 'Definition', type: 'string' },
+      { selector: 'Description', text: 'Description', type: 'string' },
+      { selector: 'Flapping', text: 'Flap', type: 'string' },
+      { selector: 'FlappingCount', text: 'FlappingCount', type: 'string' },
+      { selector: 'MsAffectedObject', text: 'MsAffectedObject', type: 'string' },
+      { selector: 'Name', text: 'Name', type: 'string' },
+      { selector: 'OrigSeverity', text: 'OrigSeverity', type: 'string' },
+      { selector: 'Owners', text: 'Owners', type: 'string' },
+      { selector: 'RegisteredDevice', text: 'RegisteredDevice', type: 'string' },
+      { selector: 'Severity', text: 'Severity', type: 'string' },
+      { selector: 'Suppressed', text: 'Suppressed', type: 'string' },
+      { selector: 'LastTransitionTime', text: 'LastTransitionTime', type: 'timestamp' },
+    ],
+    url_options: {
+      method: 'GET',
+      data: '',
+    },
+  });
+
+  // Create separate query runners for each stat widget
+  const criticalQueryRunner = new SceneQueryRunner({
+    datasource: { uid: '${Account}' },
+    queries: [queries[0]], // A - Critical
+  });
+
+  const warningQueryRunner = new SceneQueryRunner({
+    datasource: { uid: '${Account}' },
+    queries: [queries[1]], // B - Warning
+  });
+
+  const infoQueryRunner = new SceneQueryRunner({
+    datasource: { uid: '${Account}' },
+    queries: [queries[2]], // C - Info
+  });
+
+  const clearedQueryRunner = new SceneQueryRunner({
+    datasource: { uid: '${Account}' },
+    queries: [queries[3]], // D - Cleared
+  });
+
+  const suppressedQueryRunner = new SceneQueryRunner({
+    datasource: { uid: '${Account}' },
+    queries: [queries[4]], // E - Suppressed
+  });
+
+  const acknowledgedQueryRunner = new SceneQueryRunner({
+    datasource: { uid: '${Account}' },
+    queries: [queries[5]], // F - Acknowledged
+  });
+
+  // Query runner for table (uses A-D only)
   const baseQueryRunner = new SceneQueryRunner({
     datasource: { uid: '${Account}' },
-    queries: queries,
+    queries: queries.slice(0, 4), // Only A-D for table
   });
 
   // Apply transformations: merge queries, organize columns and format time
@@ -286,16 +414,279 @@ function getAllDomainsAlarmsPanel(domainNames: string[]) {
     ],
   });
 
+  // Build stat panels for alarm counts with transformers
+  // Critical stat (Query A)
+  const criticalTransformedData = new SceneDataTransformer({
+    $data: criticalQueryRunner,
+    transformations: [
+      {
+        id: 'reduce',
+        options: {
+          reducers: ['count'],
+        },
+      },
+    ],
+  });
+
+  const criticalStat = PanelBuilders.stat()
+    .setTitle('Critical')
+    .setMenu(undefined)
+    .setData(criticalTransformedData)
+    .setOption('graphMode', 'none')
+    .setOption('textMode', 'value')
+    .setOption('colorMode', 'background')
+    .setOption('orientation', 'vertical')
+    .setOption('textSize', {
+      title: 14,
+      value: 32,
+    })
+    .setOption('showThresholdLabels', false)
+    .setOption('showThresholdMarkers', false)
+    .setOverrides((builder) => {
+      builder.matchFieldsWithNameByRegex('.*')
+        .overrideCustomFieldConfig('noValue', '0')
+        .overrideColor({
+          mode: 'thresholds',
+        })
+        .overrideThresholds({
+          mode: 'absolute',
+          steps: [
+            { value: null as any, color: '#181b1f' },
+            { value: 1, color: '#8f0000' },
+          ],
+        });
+      return builder.build();
+    })
+    .build();
+
+  // Warning stat (Query B)
+  const warningTransformedData = new SceneDataTransformer({
+    $data: warningQueryRunner,
+    transformations: [
+      {
+        id: 'reduce',
+        options: {
+          reducers: ['count'],
+        },
+      },
+    ],
+  });
+
+  const warningStat = PanelBuilders.stat()
+    .setTitle('Warning')
+    .setMenu(undefined)
+    .setData(warningTransformedData)
+    .setOption('graphMode', 'none')
+    .setOption('textMode', 'value')
+    .setOption('colorMode', 'background')
+    .setOption('orientation', 'vertical')
+    .setOption('textSize', {
+      title: 14,
+      value: 32,
+    })
+    .setOption('showThresholdLabels', false)
+    .setOption('showThresholdMarkers', false)
+    .setOverrides((builder) => {
+      builder.matchFieldsWithNameByRegex('.*')
+        .overrideCustomFieldConfig('noValue', '0')
+        .overrideColor({
+          mode: 'thresholds',
+        })
+        .overrideThresholds({
+          mode: 'absolute',
+          steps: [
+            { value: null as any, color: '#181b1f' },
+            { value: 1, color: '#d6ba02' },
+          ],
+        });
+      return builder.build();
+    })
+    .build();
+
+  // Info stat (Query C)
+  const infoTransformedData = new SceneDataTransformer({
+    $data: infoQueryRunner,
+    transformations: [
+      {
+        id: 'reduce',
+        options: {
+          reducers: ['count'],
+        },
+      },
+    ],
+  });
+
+  const infoStat = PanelBuilders.stat()
+    .setTitle('Info')
+    .setMenu(undefined)
+    .setData(infoTransformedData)
+    .setOption('graphMode', 'none')
+    .setOption('textMode', 'value')
+    .setOption('colorMode', 'background')
+    .setOption('orientation', 'vertical')
+    .setOption('textSize', {
+      title: 14,
+      value: 32,
+    })
+    .setOption('showThresholdLabels', false)
+    .setOption('showThresholdMarkers', false)
+    .setOverrides((builder) => {
+      builder.matchFieldsWithNameByRegex('.*')
+        .overrideCustomFieldConfig('noValue', '0')
+        .overrideColor({
+          mode: 'thresholds',
+        })
+        .overrideThresholds({
+          mode: 'absolute',
+          steps: [
+            { value: null as any, color: '#181b1f' },
+            { value: 1, color: '#0262c2' },
+          ],
+        });
+      return builder.build();
+    })
+    .build();
+
+  // Cleared stat (Query D)
+  const clearedTransformedData = new SceneDataTransformer({
+    $data: clearedQueryRunner,
+    transformations: [
+      {
+        id: 'reduce',
+        options: {
+          reducers: ['count'],
+        },
+      },
+    ],
+  });
+
+  const clearedStat = PanelBuilders.stat()
+    .setTitle('Cleared')
+    .setMenu(undefined)
+    .setData(clearedTransformedData)
+    .setOption('graphMode', 'none')
+    .setOption('textMode', 'value')
+    .setOption('colorMode', 'background')
+    .setOption('orientation', 'vertical')
+    .setOption('textSize', {
+      title: 14,
+      value: 32,
+    })
+    .setOption('showThresholdLabels', false)
+    .setOption('showThresholdMarkers', false)
+    .setOverrides((builder) => {
+      builder.matchFieldsWithNameByRegex('.*')
+        .overrideCustomFieldConfig('noValue', '0')
+        .overrideColor({
+          mode: 'thresholds',
+        })
+        .overrideThresholds({
+          mode: 'absolute',
+          steps: [
+            { value: null as any, color: '#181b1f' },
+            { value: 1, color: '#018524' },
+          ],
+        });
+      return builder.build();
+    })
+    .build();
+
+  // Suppressed stat (Query E)
+  const suppressedTransformedData = new SceneDataTransformer({
+    $data: suppressedQueryRunner,
+    transformations: [
+      {
+        id: 'reduce',
+        options: {
+          reducers: ['count'],
+        },
+      },
+    ],
+  });
+
+  const suppressedStat = PanelBuilders.stat()
+    .setTitle('Suppressed')
+    .setMenu(undefined)
+    .setData(suppressedTransformedData)
+    .setOption('graphMode', 'none')
+    .setOption('textMode', 'value')
+    .setOption('colorMode', 'background')
+    .setOption('orientation', 'vertical')
+    .setOption('textSize', {
+      title: 14,
+      value: 32,
+    })
+    .setOption('showThresholdLabels', false)
+    .setOption('showThresholdMarkers', false)
+    .setOverrides((builder) => {
+      builder.matchFieldsWithNameByRegex('.*')
+        .overrideCustomFieldConfig('noValue', '0')
+        .overrideColor({
+          mode: 'thresholds',
+        })
+        .overrideThresholds({
+          mode: 'absolute',
+          steps: [
+            { value: null as any, color: '#181b1f' },
+            { value: 1, color: 'dark-gray' },
+          ],
+        });
+      return builder.build();
+    })
+    .build();
+
+  // Acknowledged stat (Query F)
+  const acknowledgedTransformedData = new SceneDataTransformer({
+    $data: acknowledgedQueryRunner,
+    transformations: [
+      {
+        id: 'reduce',
+        options: {
+          reducers: ['count'],
+        },
+      },
+    ],
+  });
+
+  const acknowledgedStat = PanelBuilders.stat()
+    .setTitle('Acknowledged')
+    .setMenu(undefined)
+    .setData(acknowledgedTransformedData)
+    .setOption('graphMode', 'none')
+    .setOption('textMode', 'value')
+    .setOption('colorMode', 'background')
+    .setOption('orientation', 'vertical')
+    .setOption('textSize', {
+      title: 14,
+      value: 32,
+    })
+    .setOption('showThresholdLabels', false)
+    .setOption('showThresholdMarkers', false)
+    .setOverrides((builder) => {
+      builder.matchFieldsWithNameByRegex('.*')
+        .overrideCustomFieldConfig('noValue', '0')
+        .overrideColor({
+          mode: 'thresholds',
+        })
+        .overrideThresholds({
+          mode: 'absolute',
+          steps: [
+            { value: null as any, color: '#181b1f' },
+            { value: 1, color: 'dark-gray' },
+          ],
+        });
+      return builder.build();
+    })
+    .build();
+
   // Build the alarms table panel
   const alarmsPanel = PanelBuilders.table()
+    .setTitle('Alarms from all selected Domains')
     .setData(transformedData)
     .setOption('showHeader', true)
     .setOption('cellHeight', 'sm')
     .setOption('enablePagination', true)
-    .setOption('sortBy', [
-      { desc: true, displayName: 'Last Transition' },
-      { desc: true, displayName: 'Severity' },
-    ])
+    // No sortBy needed - data is pre-sorted by query order: Critical > Warning > Info > Cleared, then by Last Transition within each group
     .setCustomFieldConfig('align', 'auto')
     .setCustomFieldConfig('cellOptions', { type: 'auto' })
     .setCustomFieldConfig('filterable', true)
@@ -403,12 +794,30 @@ function getAllDomainsAlarmsPanel(domainNames: string[]) {
     })
     .build();
 
-  // Return layout with the alarms panel
+  // Return layout with stats row + table
   return new SceneFlexLayout({
     direction: 'column',
     children: [
+      // Stats row
       new SceneFlexItem({
-        height: 600,
+        height: 100,
+        ySizing: 'content',
+        body: new SceneFlexLayout({
+          direction: 'row',
+          children: [
+            new SceneFlexItem({ body: criticalStat }),
+            new SceneFlexItem({ body: warningStat }),
+            new SceneFlexItem({ body: infoStat }),
+            new SceneFlexItem({ body: clearedStat }),
+            new SceneFlexItem({ body: suppressedStat }),
+            new SceneFlexItem({ body: acknowledgedStat }),
+          ],
+        }),
+      }),
+      // Table
+      new SceneFlexItem({
+        minHeight: 400,
+        ySizing: 'fill',
         body: alarmsPanel,
       }),
     ],
