@@ -75,7 +75,7 @@ function getECMCUplinksRow(isPercentage: boolean) {
     direction: 'column',
     children: [
       new SceneFlexItem({
-        height: 600,
+        height: 400,
         body: new SceneFlexLayout({
           direction: 'row',
           children: [
@@ -105,7 +105,7 @@ function getECMCUplinksRow(isPercentage: boolean) {
         }),
       }),
       new SceneFlexItem({
-        height: 600,
+        height: 400,
         body: new SceneFlexLayout({
           direction: 'row',
           children: [
@@ -142,7 +142,7 @@ function getECMCUplinksRow(isPercentage: boolean) {
     direction: 'column',
     children: [
       new SceneFlexItem({
-        height: 600,
+        height: 400,
         body: new SceneFlexLayout({
           direction: 'row',
           children: [
@@ -172,7 +172,7 @@ function getECMCUplinksRow(isPercentage: boolean) {
         }),
       }),
       new SceneFlexItem({
-        height: 600,
+        height: 400,
         body: new SceneFlexLayout({
           direction: 'row',
           children: [
@@ -215,7 +215,7 @@ function getECMCUplinksRow(isPercentage: boolean) {
   });
 
   return new SceneFlexItem({
-    height: 1300,
+    height: 900,
     body: new SceneFlexLayout({
       direction: 'column',
       children: [
@@ -228,7 +228,7 @@ function getECMCUplinksRow(isPercentage: boolean) {
             .build(),
         }),
         new SceneFlexItem({
-          height: 1250,
+          height: 850,
           body: uplinksTabs,
         }),
       ],
@@ -242,7 +242,7 @@ function getECMCUplinksRow(isPercentage: boolean) {
 
 function getECMCDownlinksRow(isPercentage: boolean) {
   return new SceneFlexItem({
-    height: 1300,
+    height: 900,
     body: new SceneFlexLayout({
       direction: 'column',
       children: [
@@ -255,7 +255,7 @@ function getECMCDownlinksRow(isPercentage: boolean) {
             .build(),
         }),
         new SceneFlexItem({
-          height: 600,
+          height: 400,
           body: new SceneFlexLayout({
             direction: 'row',
             children: [
@@ -285,7 +285,7 @@ function getECMCDownlinksRow(isPercentage: boolean) {
           }),
         }),
         new SceneFlexItem({
-          height: 600,
+          height: 400,
           body: new SceneFlexLayout({
             direction: 'row',
             children: [

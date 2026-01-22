@@ -31,28 +31,393 @@ function getOverviewTab() {
   return new SceneFlexLayout({
     direction: 'column',
     children: [
+      // Alarms row - repeated by DomainName variable
       new SceneFlexItem({
-        height: 300,
-        body: PanelBuilders.text()
-          .setTitle('Overview')
-          .setOption('content', `
-# Overview Tab
+        body: new SceneGridLayout({
+          children: [
+            new SceneGridRow({
+              title: 'Alarms',
+              isCollapsed: false,
+              y: 0,
+              children: [
+                new SceneGridItem({
+                  x: 0,
+                  y: 0,
+                  width: 6,
+                  height: 5,
+                  body: getAlarmsPanel(),
+                  $behaviors: [
+                    {
+                      _isSceneBehavior: true,
+                      repeatDirection: 'h',
+                      variableName: 'DomainName',
+                      maxPerRow: 4,
+                    } as any,
+                  ],
+                }),
+              ],
+            }),
+          ],
+        }),
+      }),
 
-This tab provides a high-level overview of all IMM Domains including:
-- Alarms summary (repeated by DomainName)
-- Actions summary (repeated by DomainName)
-- Network Utilization preview
-- Congestion preview
-- Network Errors preview
-- CPU Utilization preview
+      // Actions row - repeated by DomainName variable
+      new SceneFlexItem({
+        body: new SceneGridLayout({
+          children: [
+            new SceneGridRow({
+              title: 'Actions',
+              isCollapsed: false,
+              y: 5,
+              children: [
+                new SceneGridItem({
+                  x: 0,
+                  y: 5,
+                  width: 6,
+                  height: 5,
+                  body: getActionsPanel(),
+                  $behaviors: [
+                    {
+                      _isSceneBehavior: true,
+                      repeatDirection: 'h',
+                      variableName: 'DomainName',
+                      maxPerRow: 4,
+                    } as any,
+                  ],
+                }),
+              ],
+            }),
+          ],
+        }),
+      }),
 
-**Status**: To be implemented
-          `)
-          .setOption('mode', 'markdown' as any)
-          .build(),
+      // Network Utilization with nested tabs
+      new SceneFlexItem({
+        body: new SceneGridLayout({
+          children: [
+            new SceneGridRow({
+              title: 'Network Utilization',
+              isCollapsed: false,
+              y: 10,
+              children: [
+                new SceneGridItem({
+                  x: 0,
+                  y: 10,
+                  width: 24,
+                  height: 12,
+                  body: getNetworkUtilizationTabs(),
+                }),
+              ],
+            }),
+          ],
+        }),
+      }),
+
+      // Congestion row
+      new SceneFlexItem({
+        body: new SceneGridLayout({
+          children: [
+            new SceneGridRow({
+              title: 'Congestion',
+              isCollapsed: false,
+              y: 22,
+              children: [
+                new SceneGridItem({
+                  x: 0,
+                  y: 22,
+                  width: 12,
+                  height: 12,
+                  body: getTransmitPausePanel(),
+                }),
+                new SceneGridItem({
+                  x: 12,
+                  y: 22,
+                  width: 12,
+                  height: 12,
+                  body: getReceivePausePanel(),
+                }),
+              ],
+            }),
+          ],
+        }),
+      }),
+
+      // Network Errors row
+      new SceneFlexItem({
+        body: new SceneGridLayout({
+          children: [
+            new SceneGridRow({
+              title: 'Network Errors',
+              isCollapsed: false,
+              y: 34,
+              children: [
+                new SceneGridItem({
+                  x: 0,
+                  y: 34,
+                  width: 24,
+                  height: 12,
+                  body: getNetworkErrorsPanel(),
+                }),
+              ],
+            }),
+          ],
+        }),
+      }),
+
+      // CPU Utilization row
+      new SceneFlexItem({
+        body: new SceneGridLayout({
+          children: [
+            new SceneGridRow({
+              title: 'CPU Utilization',
+              isCollapsed: false,
+              y: 46,
+              children: [
+                new SceneGridItem({
+                  x: 0,
+                  y: 46,
+                  width: 12,
+                  height: 12,
+                  body: getCPUUtilizationPerDomainPanel(),
+                }),
+                new SceneGridItem({
+                  x: 12,
+                  y: 46,
+                  width: 12,
+                  height: 12,
+                  body: getTopServersByCPUPanel(),
+                }),
+              ],
+            }),
+          ],
+        }),
       }),
     ],
   });
+}
+
+// ============================================================================
+// OVERVIEW TAB HELPER FUNCTIONS - Alarms, Actions, Network Utilization, etc.
+// ============================================================================
+
+// Placeholder helper functions for the Overview tab panels
+// Note: These are simplified versions for now - they can be enhanced with full implementations
+
+function getAlarmsPanel() {
+  const queryRunner = new SceneQueryRunner({
+    datasource: { uid: '${Account}' },
+    queries: [
+      {
+        refId: 'A',
+        queryType: 'infinity',
+        type: 'json',
+        source: 'url',
+        parser: 'backend',
+        format: 'table',
+        url: "/api/v1/cond/Alarms?$filter=((startswith(AffectedMoDisplayName, '${DomainName:text}')) and Severity ne 'Cleared')&$apply=groupby((Severity),%20aggregate($count%20as%20count))",
+        root_selector: '$.Results',
+        columns: [],
+        filters: [],
+        url_options: { data: '', method: 'GET' },
+      } as any,
+    ],
+  });
+
+  const transformedData = new SceneDataTransformer({
+    $data: queryRunner,
+    transformations: [
+      {
+        id: 'rowsToFields',
+        options: {
+          mappings: [
+            { fieldName: 'Severity', handlerKey: 'field.name' },
+            { fieldName: 'count', handlerKey: 'field.value' },
+          ],
+        },
+      },
+      {
+        id: 'organize',
+        options: {
+          excludeByName: {},
+          includeByName: {},
+          indexByName: { Critical: 0, Warning: 1 },
+          renameByName: {},
+        },
+      },
+    ],
+  });
+
+  return PanelBuilders.table()
+    .setTitle('${DomainName}')
+    .setData(transformedData)
+    .setOption('showHeader', true)
+    .setOption('cellHeight', 'sm')
+    .setOverrides((builder) => {
+      builder.matchFieldsWithName('Critical').overrideColor({ fixedColor: 'dark-red', mode: 'fixed' });
+      builder.matchFieldsWithName('Warning').overrideColor({ fixedColor: 'dark-orange', mode: 'fixed' });
+      builder.matchFieldsWithName('Info').overrideColor({ fixedColor: 'dark-blue', mode: 'fixed' });
+    })
+    .build();
+}
+
+function getActionsPanel() {
+  const queryRunner = new SceneQueryRunner({
+    datasource: { uid: '${Account}' },
+    queries: [
+      {
+        refId: 'A',
+        queryType: 'infinity',
+        type: 'json',
+        source: 'url',
+        parser: 'backend',
+        format: 'table',
+        url: "/api/v1/workflow/WorkflowInfos?$skip=0&$top=1000&$filter=((startswith(WorkflowCtx.TargetCtxList.TargetName, '${DomainName:text}')))&$apply=groupby((WorkflowStatus),%20aggregate($count%20as%20count))",
+        root_selector: '$.Results',
+        columns: [],
+        filters: [],
+        url_options: { data: '', method: 'GET' },
+      } as any,
+    ],
+  });
+
+  const transformedData = new SceneDataTransformer({
+    $data: queryRunner,
+    transformations: [
+      {
+        id: 'rowsToFields',
+        options: {
+          mappings: [
+            { fieldName: 'count', handlerKey: 'field.value' },
+            { fieldName: 'WorkflowStatus', handlerKey: 'field.name' },
+          ],
+        },
+      },
+      {
+        id: 'organize',
+        options: {
+          excludeByName: {},
+          includeByName: {},
+          indexByName: { Completed: 0, Failed: 1 },
+          renameByName: { Completed: 'Success', Failed: 'Fail', Terminated: 'Terminated' },
+        },
+      },
+    ],
+  });
+
+  return PanelBuilders.table()
+    .setTitle('${DomainName}')
+    .setData(transformedData)
+    .setOption('showHeader', true)
+    .setOption('cellHeight', 'sm')
+    .setOverrides((builder) => {
+      builder.matchFieldsWithName('Success').overrideColor({ fixedColor: 'dark-green', mode: 'fixed' });
+      builder.matchFieldsWithName('Fail').overrideColor({ fixedColor: 'dark-red', mode: 'fixed' });
+      builder.matchFieldsWithName('Terminated').overrideColor({ fixedColor: '#565656', mode: 'fixed' });
+    })
+    .build();
+}
+
+function getNetworkUtilizationTabs() {
+  return new TabbedScene({
+    tabs: [
+      { id: 'percent', label: 'Percentage (%)', getBody: () => getNetworkUtilizationPercentageContent() },
+      { id: 'absolute', label: 'Absolute (bps)', getBody: () => getNetworkUtilizationAbsoluteContent() },
+    ],
+    activeTab: 'percent',
+    body: getNetworkUtilizationPercentageContent(),
+  });
+}
+
+function getNetworkUtilizationPercentageContent() {
+  return new SceneFlexLayout({
+    direction: 'row',
+    children: [
+      new SceneFlexItem({ width: '50%', body: getTransmitUtilizationPercentPanel() }),
+      new SceneFlexItem({ width: '50%', body: getReceiveUtilizationPercentPanel() }),
+    ],
+  });
+}
+
+function getNetworkUtilizationAbsoluteContent() {
+  return new SceneFlexLayout({
+    direction: 'row',
+    children: [
+      new SceneFlexItem({ width: '50%', body: getTransmitUtilizationBpsPanel() }),
+      new SceneFlexItem({ width: '50%', body: getReceiveUtilizationBpsPanel() }),
+    ],
+  });
+}
+
+function getTransmitUtilizationPercentPanel() {
+  return PanelBuilders.text()
+    .setTitle('Transmit Utilization (%)')
+    .setOption('content', 'Transmit utilization per port (percentage)')
+    .setOption('mode', 'markdown' as any)
+    .build();
+}
+
+function getReceiveUtilizationPercentPanel() {
+  return PanelBuilders.text()
+    .setTitle('Receive Utilization (%)')
+    .setOption('content', 'Receive utilization per port (percentage)')
+    .setOption('mode', 'markdown' as any)
+    .build();
+}
+
+function getTransmitUtilizationBpsPanel() {
+  return PanelBuilders.text()
+    .setTitle('Transmit Utilization (bps)')
+    .setOption('content', 'Transmit utilization per port (bits per second)')
+    .setOption('mode', 'markdown' as any)
+    .build();
+}
+
+function getReceiveUtilizationBpsPanel() {
+  return PanelBuilders.text()
+    .setTitle('Receive Utilization (bps)')
+    .setOption('content', 'Receive utilization per port (bits per second)')
+    .setOption('mode', 'markdown' as any)
+    .build();
+}
+
+function getTransmitPausePanel() {
+  return PanelBuilders.text()
+    .setTitle('Transmit Pause')
+    .setOption('content', 'Transmit pause frames')
+    .setOption('mode', 'markdown' as any)
+    .build();
+}
+
+function getReceivePausePanel() {
+  return PanelBuilders.text()
+    .setTitle('Receive Pause')
+    .setOption('content', 'Receive pause frames')
+    .setOption('mode', 'markdown' as any)
+    .build();
+}
+
+function getNetworkErrorsPanel() {
+  return PanelBuilders.text()
+    .setTitle('Network Errors')
+    .setOption('content', 'Network errors by port')
+    .setOption('mode', 'markdown' as any)
+    .build();
+}
+
+function getCPUUtilizationPerDomainPanel() {
+  return PanelBuilders.text()
+    .setTitle('CPU Utilization per Domain')
+    .setOption('content', 'CPU utilization statistics per domain')
+    .setOption('mode', 'markdown' as any)
+    .build();
+}
+
+function getTopServersByCPUPanel() {
+  return PanelBuilders.text()
+    .setTitle('Top Servers by CPU')
+    .setOption('content', 'Servers ranked by CPU utilization')
+    .setOption('mode', 'markdown' as any)
+    .build();
 }
 
 // ============================================================================
@@ -1281,18 +1646,16 @@ function getPortsTab() {
 }
 
 // ============================================================================
-// DYNAMIC ALARMS SCENE - Creates tabs dynamically based on DomainName variable
+// DYNAMIC ALARMS SCENE - Shows all alarms in a single table for all selected domains
 // ============================================================================
 
 interface DynamicAlarmsSceneState extends SceneObjectState {
-  domainTabs: Array<{ id: string; label: string; getBody: () => any }>;
-  activeTab: string;
   body: any;
 }
 
 /**
  * DynamicAlarmsScene - Custom scene that reads the DomainName variable
- * and creates a tab for each selected domain with domain-specific alarm panels.
+ * and shows all alarms in a single table with conditional domain column visibility.
  */
 class DynamicAlarmsScene extends SceneObjectBase<DynamicAlarmsSceneState> {
   public static Component = DynamicAlarmsSceneRenderer;
@@ -1302,15 +1665,13 @@ class DynamicAlarmsScene extends SceneObjectBase<DynamicAlarmsSceneState> {
     onReferencedVariableValueChanged: () => {
       // Only rebuild if the scene is still active
       if (this.isActive) {
-        this.rebuildTabs();
+        this.rebuildBody();
       }
     },
   });
 
   public constructor(state: Partial<DynamicAlarmsSceneState>) {
     super({
-      domainTabs: [],
-      activeTab: '',
       body: new SceneFlexLayout({ children: [] }),
       ...state,
     });
@@ -1318,10 +1679,10 @@ class DynamicAlarmsScene extends SceneObjectBase<DynamicAlarmsSceneState> {
 
   public activate() {
     super.activate();
-    this.rebuildTabs();
+    this.rebuildBody();
   }
 
-  private rebuildTabs() {
+  private rebuildBody() {
     // Skip if scene is not active (prevents race conditions during deactivation)
     if (!this.isActive) {
       return;
@@ -1363,48 +1724,18 @@ class DynamicAlarmsScene extends SceneObjectBase<DynamicAlarmsSceneState> {
       });
 
       this.setState({
-        domainTabs: [],
-        activeTab: '',
         body: emptyBody,
       });
       return;
     }
 
-    // Create a tab for each domain
-    const newTabs = domainNames.map((domainName) => ({
-      id: domainName,
-      label: domainName,
-      getBody: () => createDomainAlarmsBody(domainName),
-    }));
+    // Create the alarms table with all domains
+    const newBody = createAllDomainsAlarmsBody(domainNames);
 
-    // Set the active tab to the first tab if not already set or if current tab is not in new tabs
-    let newActiveTab = this.state.activeTab;
-    if (!newActiveTab || !newTabs.find(t => t.id === newActiveTab)) {
-      newActiveTab = newTabs[0]?.id || '';
-    }
-
-    // Create the new body
-    const newBody = newTabs.find(t => t.id === newActiveTab)?.getBody() || new SceneFlexLayout({ children: [] });
-
-    // Update state - React will handle component lifecycle via key prop
+    // Update state
     this.setState({
-      domainTabs: newTabs,
-      activeTab: newActiveTab,
       body: newBody,
     });
-  }
-
-  public setActiveTab(tabId: string) {
-    const tab = this.state.domainTabs.find((t) => t.id === tabId);
-    if (tab) {
-      const newBody = tab.getBody();
-      if (!newBody) {
-        console.warn('getBody returned null/undefined for tab:', tabId);
-        return;
-      }
-      // Just update state - React will handle unmounting via the key prop
-      this.setState({ activeTab: tabId, body: newBody });
-    }
   }
 
   private getVariable(name: string): any {
@@ -1414,67 +1745,307 @@ class DynamicAlarmsScene extends SceneObjectBase<DynamicAlarmsSceneState> {
 }
 
 /**
- * Creates the alarms layout for a specific domain
+ * Creates the alarms layout showing all domains in a single table
  */
-function createDomainAlarmsBody(domainName: string) {
-  return getAlarmsPanelForDomain(domainName);
+function createAllDomainsAlarmsBody(domainNames: string[]) {
+  return getAllDomainsAlarmsPanel(domainNames);
 }
 
 /**
  * Renderer component for DynamicAlarmsScene
  */
 function DynamicAlarmsSceneRenderer({ model }: SceneComponentProps<DynamicAlarmsScene>) {
-  const { domainTabs, activeTab, body } = model.useState();
-
-  // If no tabs, just render the body (which contains the "no selection" message)
-  if (domainTabs.length === 0) {
-    return (
-      <div style={{ width: '100%', height: '100%', overflow: 'auto' }}>
-        {body && body.Component && <body.Component key="empty-body" model={body} />}
-      </div>
-    );
-  }
+  const { body } = model.useState();
 
   return (
-    <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column' }}>
-      <div style={{
-        display: 'flex',
-        alignItems: 'center',
-        padding: '8px 16px',
-        borderBottom: '1px solid rgba(204, 204, 220, 0.15)',
-        flexShrink: 0,
-        minHeight: '48px',
-      }}>
-        <TabsBar style={{ border: 'none' }}>
-          {domainTabs.map((tab) => (
-            <Tab
-              key={tab.id}
-              label={tab.label}
-              active={activeTab === tab.id}
-              onChangeTab={() => model.setActiveTab(tab.id)}
-            />
-          ))}
-        </TabsBar>
-      </div>
-      <div style={{
-        flexGrow: 1,
-        width: '100%',
-        height: '100%',
-        overflow: 'auto',
-        position: 'relative'
-      }}>
-        {body && body.Component && <body.Component key={activeTab} model={body} />}
-      </div>
+    <div style={{ width: '100%', height: '100%', overflow: 'auto' }}>
+      {body && body.Component && <body.Component model={body} />}
     </div>
   );
 }
 
 function getAlarmsTab() {
-  // Return the dynamic alarms scene that creates tabs based on DomainName variable selection
+  // Return the dynamic alarms scene that shows all alarms in a single table
   return new DynamicAlarmsScene({});
 }
 
-// Helper function to create Alarms panel for a specific domain (panel-63)
+// Helper function to create Alarms panel for all selected domains (panel-63)
+function getAllDomainsAlarmsPanel(domainNames: string[]) {
+  const showDomainColumn = domainNames.length > 1;
+
+  // Create a query for each domain
+  const queries = domainNames.map((domainName, index) => {
+    const filterClause = `((startswith(AffectedMoDisplayName, '${domainName}'))) and ((Severity ne 'Cleared') or (Severity eq 'Cleared' and ((CreateTime ge \${__from:date}) and (CreateTime le \${__to:date}) or (LastTransitionTime ge \${__from:date}) and (LastTransitionTime le \${__to:date}))))`;
+
+    return {
+      refId: String.fromCharCode(65 + index), // A, B, C, etc.
+      queryType: 'infinity',
+      type: 'json',
+      source: 'url',
+      parser: 'backend',
+      format: 'table',
+      url: `/api/v1/cond/Alarms?$top=1000&$expand=RegisteredDevice($select=PlatformType,DeviceHostname,ParentConnection,Pid)&$filter=${filterClause}&$orderby=LastTransitionTime desc`,
+      root_selector: '$.Results',
+      columns: [
+        { selector: 'Acknowledge', text: 'Acknowledge', type: 'string' },
+        { selector: 'AcknowledgeBy', text: 'AcknowledgeBy', type: 'string' },
+        { selector: 'AcknowledgeTime', text: 'AcknowledgeTime', type: 'string' },
+        { selector: 'AffectedMo', text: 'AffectedMo', type: 'string' },
+        { selector: 'AffectedMoDisplayName', text: 'AffectedMoDisplayName', type: 'string' },
+        { selector: 'AffectedMoType', text: 'AffectedMoType', type: 'string' },
+        { selector: 'AlarmSummaryAggregators', text: 'AlarmSummaryAggregators', type: 'string' },
+        { selector: 'AncestorMoType', text: 'AncestorMoType', type: 'string' },
+        { selector: 'Code', text: 'Code', type: 'string' },
+        { selector: 'CreateTime', text: 'CreateTime', type: 'timestamp' },
+        { selector: 'Definition', text: 'Definition', type: 'string' },
+        { selector: 'Description', text: 'Description', type: 'string' },
+        { selector: 'Flapping', text: 'Flap', type: 'string' },
+        { selector: 'FlappingCount', text: 'FlappingCount', type: 'string' },
+        { selector: 'MsAffectedObject', text: 'MsAffectedObject', type: 'string' },
+        { selector: 'Name', text: 'Name', type: 'string' },
+        { selector: 'OrigSeverity', text: 'OrigSeverity', type: 'string' },
+        { selector: 'Owners', text: 'Owners', type: 'string' },
+        { selector: 'RegisteredDevice', text: 'RegisteredDevice', type: 'string' },
+        { selector: 'Severity', text: 'Severity', type: 'string' },
+        { selector: 'Suppressed', text: 'Suppressed', type: 'string' },
+        { selector: 'LastTransitionTime', text: 'LastTransitionTime', type: 'timestamp' },
+      ],
+      computed_columns: [
+        { selector: "Acknowledge + ' (' + AcknowledgeBy + ')'", text: 'Acknowledged', type: 'string' },
+        { selector: "Flap + ' (' + FlappingCount + ')'", text: 'Flapping', type: 'string' },
+        { selector: `'${domainName}'`, text: 'Domain', type: 'string' },
+      ],
+      url_options: {
+        method: 'GET',
+        data: '',
+      },
+    };
+  });
+
+  // Create query runner for all domains
+  const baseQueryRunner = new SceneQueryRunner({
+    datasource: { uid: '${Account}' },
+    queries: queries,
+  });
+
+  // Apply transformations: merge queries, organize columns and format time
+  const transformedData = new SceneDataTransformer({
+    $data: baseQueryRunner,
+    transformations: [
+      {
+        id: 'merge',
+        options: {},
+      },
+      {
+        id: 'organize',
+        options: {
+          excludeByName: {
+            Acknowledge: true,
+            AcknowledgeBy: true,
+            AcknowledgeTime: true,
+            AffectedMo: true,
+            AffectedMoDisplayName: true,
+            AffectedMoType: true,
+            AlarmSummaryAggregators: true,
+            CreateTime: true,
+            Definition: true,
+            Flap: true,
+            FlappingCount: true,
+            MsAffectedObject: true,
+            Name: true,
+            OrigSeverity: true,
+            Owners: true,
+            RegisteredDevice: true,
+            Domain: !showDomainColumn, // Hide Domain column if only one domain selected
+          },
+          includeByName: {},
+          indexByName: {
+            Acknowledge: 12,
+            AcknowledgeBy: 13,
+            AcknowledgeTime: 14,
+            Acknowledged: 11,
+            AffectedMo: 15,
+            AffectedMoDisplayName: 16,
+            AffectedMoType: 17,
+            AlarmSummaryAggregators: 18,
+            AncestorMoType: 19,
+            Code: 2,
+            CreateTime: 20,
+            Definition: 6,
+            Description: 5,
+            Domain: 0, // Domain column first
+            Flap: 8,
+            Flapping: 7,
+            FlappingCount: 9,
+            LastTransitionTime: 24,
+            MsAffectedObject: 21,
+            Name: 1,
+            OrigSeverity: 4,
+            Owners: 22,
+            RegisteredDevice: 23,
+            Severity: 3,
+            Suppressed: 10,
+          },
+          renameByName: {
+            AncestorMoType: 'Type',
+            LastTransitionTime: 'Last Transition',
+          },
+        },
+      },
+      {
+        id: 'convertFieldType',
+        options: {
+          conversions: [
+            {
+              destinationType: 'time',
+              targetField: 'Last Transition',
+            },
+          ],
+          fields: {},
+        },
+      },
+      {
+        id: 'formatTime',
+        options: {
+          timeField: 'Last Transition',
+          outputFormat: 'YYYY-MM-DD HH:mm',
+          useTimezone: true,
+        },
+      },
+    ],
+  });
+
+  // Build the alarms table panel
+  const alarmsPanel = PanelBuilders.table()
+    .setTitle('')
+    .setData(transformedData)
+    .setOption('showHeader', true)
+    .setOption('cellHeight', 'sm')
+    .setOption('enablePagination', true)
+    .setOption('sortBy', [
+      { desc: true, displayName: 'Last Transition' },
+      { desc: true, displayName: 'Severity' },
+    ])
+    .setCustomFieldConfig('align', 'auto')
+    .setCustomFieldConfig('cellOptions', { type: 'auto' })
+    .setCustomFieldConfig('filterable', true)
+    .setCustomFieldConfig('inspect', false)
+    .setOverrides((builder) => {
+      // Severity column - color-coded text
+      builder.matchFieldsWithName('Severity')
+        .overrideCustomFieldConfig('cellOptions', { type: 'color-text' })
+        .overrideCustomFieldConfig('width', 115)
+        .overrideMappings([
+          {
+            type: 'value',
+            options: {
+              Critical: { color: 'red', index: 0 },
+              Warning: { color: 'orange', index: 1 },
+              Info: { color: 'super-light-yellow', index: 2 },
+              Cleared: { color: 'green', index: 3 },
+            },
+          },
+        ]);
+
+      // Flapping column
+      builder.matchFieldsWithName('Flapping')
+        .overrideCustomFieldConfig('width', 110)
+        .overrideMappings([
+          {
+            type: 'value',
+            options: {
+              'NotFlapping (0)': { index: 0, text: 'No' },
+            },
+          },
+          {
+            type: 'regex',
+            options: {
+              pattern: '(.*)',
+              result: { color: 'red', index: 1, text: '$1' },
+            },
+          },
+        ]);
+
+      // Suppressed column
+      builder.matchFieldsWithName('Suppressed')
+        .overrideCustomFieldConfig('cellOptions', { type: 'color-text' })
+        .overrideCustomFieldConfig('width', 115)
+        .overrideMappings([
+          {
+            type: 'value',
+            options: {
+              false: { color: 'text', index: 0, text: 'No' },
+              true: { color: 'blue', index: 1, text: 'Yes' },
+            },
+          },
+        ]);
+
+      // Acknowledged column
+      builder.matchFieldsWithName('Acknowledged')
+        .overrideCustomFieldConfig('width', 140)
+        .overrideMappings([
+          {
+            type: 'value',
+            options: {
+              'None ()': { color: 'text', index: 0, text: 'No' },
+            },
+          },
+          {
+            type: 'regex',
+            options: {
+              pattern: 'Acknowledge(.*)',
+              result: { color: 'blue', index: 1, text: 'Yes$1' },
+            },
+          },
+        ]);
+
+      // Type column
+      builder.matchFieldsWithName('Type')
+        .overrideCustomFieldConfig('width', 100)
+        .overrideMappings([
+          {
+            type: 'value',
+            options: {
+              'compute.Blade': { index: 0, text: 'Blade' },
+              'compute.RackUnit': { index: 1, text: 'Rack Server' },
+              'network.Element': { index: 2, text: 'FI' },
+              'equipment.Chassis': { index: 3, text: 'Chassis' },
+              'asset.Target': { index: 4, text: 'Target' },
+            },
+          },
+        ]);
+
+      // Last Transition column
+      builder.matchFieldsWithName('Last Transition')
+        .overrideCustomFieldConfig('width', 165);
+
+      // Code column
+      builder.matchFieldsWithName('Code')
+        .overrideCustomFieldConfig('width', 260);
+
+      // Domain column
+      if (showDomainColumn) {
+        builder.matchFieldsWithName('Domain')
+          .overrideCustomFieldConfig('width', 150);
+      }
+
+      return builder.build();
+    })
+    .build();
+
+  // Return layout with the alarms panel
+  return new SceneFlexLayout({
+    direction: 'column',
+    children: [
+      new SceneFlexItem({
+        height: 600,
+        body: alarmsPanel,
+      }),
+    ],
+  });
+}
+
+// Helper function to create Alarms panel for a specific domain (panel-63) - DEPRECATED, kept for reference
 function getAlarmsPanelForDomain(domainName: string) {
   // Build the filter clause with the actual domain name
   const filterClause = `((startswith(AffectedMoDisplayName, '${domainName}'))) and ((Severity ne 'Cleared') or (Severity eq 'Cleared' and ((CreateTime ge \${__from:date}) and (CreateTime le \${__to:date}) or (LastTransitionTime ge \${__from:date}) and (LastTransitionTime le \${__to:date}))))`;
@@ -1726,7 +2297,7 @@ function getAlarmsPanelForDomain(domainName: string) {
     direction: 'column',
     children: [
       new SceneFlexItem({
-        height: 'calc(100vh - 180px)',
+        height: 600,
         body: alarmsPanel,
       }),
     ],
@@ -2901,13 +3472,13 @@ function createNetworkUtilizationPanel(config: NetworkUtilPanelConfig) {
 // ROW 1: Fabric Interconnect Storage Uplinks
 // ============================================================================
 
-function getFIStorageUplinksRow(isPercentage: boolean) {
+function getFIStorageUplinksRowContent(isPercentage: boolean) {
   // Ports Tab (4 panels)
   const portsTab = new SceneFlexLayout({
     direction: 'column',
     children: [
       new SceneFlexItem({
-        height: 600,
+        height: 400,
         body: new SceneFlexLayout({
           direction: 'row',
           children: [
@@ -2935,7 +3506,7 @@ function getFIStorageUplinksRow(isPercentage: boolean) {
         }),
       }),
       new SceneFlexItem({
-        height: 600,
+        height: 400,
         body: new SceneFlexLayout({
           direction: 'row',
           children: [
@@ -2970,7 +3541,7 @@ function getFIStorageUplinksRow(isPercentage: boolean) {
     direction: 'column',
     children: [
       new SceneFlexItem({
-        height: 600,
+        height: 400,
         body: new SceneFlexLayout({
           direction: 'row',
           children: [
@@ -3000,7 +3571,7 @@ function getFIStorageUplinksRow(isPercentage: boolean) {
         }),
       }),
       new SceneFlexItem({
-        height: 600,
+        height: 400,
         body: new SceneFlexLayout({
           direction: 'row',
           children: [
@@ -3033,7 +3604,7 @@ function getFIStorageUplinksRow(isPercentage: boolean) {
   });
 
   // Create nested tabs
-  const nestedTabs = new TabbedScene({
+  return new TabbedScene({
     tabs: [
       { id: 'ports', label: 'Ports', getBody: () => portsTab },
       { id: 'port-channels', label: 'Port Channels', getBody: () => portChannelsTab },
@@ -3041,10 +3612,23 @@ function getFIStorageUplinksRow(isPercentage: boolean) {
     activeTab: 'ports',
     body: portsTab,
   });
+}
 
-  return new SceneFlexItem({
-    height: 1200,
-    body: nestedTabs,
+function getFIStorageUplinksRow(isPercentage: boolean) {
+  return new SceneGridRow({
+    title: 'FI Storage Uplinks',
+    isCollapsible: true,
+    isCollapsed: false,
+    y: 0,
+    children: [
+      new SceneGridItem({
+        x: 0,
+        y: 0,
+        width: 24,
+        height: 16,
+        body: getFIStorageUplinksRowContent(isPercentage),
+      }),
+    ],
   });
 }
 
@@ -3052,13 +3636,13 @@ function getFIStorageUplinksRow(isPercentage: boolean) {
 // ROW 2: Fabric Interconnect Ethernet Uplinks
 // ============================================================================
 
-function getFIEthernetUplinksRow(isPercentage: boolean) {
+function getFIEthernetUplinksRowContent(isPercentage: boolean) {
   // Ports Tab (4 panels)
   const portsTab = new SceneFlexLayout({
     direction: 'column',
     children: [
       new SceneFlexItem({
-        height: 600,
+        height: 400,
         body: new SceneFlexLayout({
           direction: 'row',
           children: [
@@ -3086,7 +3670,7 @@ function getFIEthernetUplinksRow(isPercentage: boolean) {
         }),
       }),
       new SceneFlexItem({
-        height: 600,
+        height: 400,
         body: new SceneFlexLayout({
           direction: 'row',
           children: [
@@ -3121,7 +3705,7 @@ function getFIEthernetUplinksRow(isPercentage: boolean) {
     direction: 'column',
     children: [
       new SceneFlexItem({
-        height: 600,
+        height: 400,
         body: new SceneFlexLayout({
           direction: 'row',
           children: [
@@ -3151,7 +3735,7 @@ function getFIEthernetUplinksRow(isPercentage: boolean) {
         }),
       }),
       new SceneFlexItem({
-        height: 600,
+        height: 400,
         body: new SceneFlexLayout({
           direction: 'row',
           children: [
@@ -3184,7 +3768,7 @@ function getFIEthernetUplinksRow(isPercentage: boolean) {
   });
 
   // Create nested tabs
-  const nestedTabs = new TabbedScene({
+  return new TabbedScene({
     tabs: [
       { id: 'ports', label: 'Ports', getBody: () => portsTab },
       { id: 'port-channels', label: 'Port Channels', getBody: () => portChannelsTab },
@@ -3192,10 +3776,23 @@ function getFIEthernetUplinksRow(isPercentage: boolean) {
     activeTab: 'ports',
     body: portsTab,
   });
+}
 
-  return new SceneFlexItem({
-    height: 1200,
-    body: nestedTabs,
+function getFIEthernetUplinksRow(isPercentage: boolean) {
+  return new SceneGridRow({
+    title: 'FI Ethernet Uplinks',
+    isCollapsible: true,
+    isCollapsed: false,
+    y: 24,
+    children: [
+      new SceneGridItem({
+        x: 0,
+        y: 24,
+        width: 24,
+        height: 16,
+        body: getFIEthernetUplinksRowContent(isPercentage),
+      }),
+    ],
   });
 }
 
@@ -3203,38 +3800,53 @@ function getFIEthernetUplinksRow(isPercentage: boolean) {
 // ROW 3: Fabric Interconnect Downlinks
 // ============================================================================
 
+function getFIDownlinksRowContent(isPercentage: boolean) {
+  return new SceneFlexLayout({
+    direction: 'row',
+    children: [
+      new SceneFlexItem({
+        width: '50%',
+        body: createNetworkUtilizationPanel({
+          fabric: null,
+          direction: 'transmit',
+          title: 'Transmit utilization per FI downlink port',
+          portRoles: ['server'],
+          identifierExpression: "concat(domain_name + ' - ' + host_name + ' (' + name + ')')",
+          includeHostFilter: false,
+          isPercentage,
+        }),
+      }),
+      new SceneFlexItem({
+        width: '50%',
+        body: createNetworkUtilizationPanel({
+          fabric: null,
+          direction: 'receive',
+          title: 'Receive utilization per FI downlink port',
+          portRoles: ['server'],
+          identifierExpression: "concat(domain_name + ' - ' + host_name + ' (' + name + ')')",
+          includeHostFilter: false,
+          isPercentage,
+        }),
+      }),
+    ],
+  });
+}
+
 function getFIDownlinksRow(isPercentage: boolean) {
-  return new SceneFlexItem({
-    height: 400,
-    body: new SceneFlexLayout({
-      direction: 'row',
-      children: [
-        new SceneFlexItem({
-          width: '50%',
-          body: createNetworkUtilizationPanel({
-            fabric: null,
-            direction: 'transmit',
-            title: 'Transmit utilization per FI downlink port',
-            portRoles: ['server'],
-            identifierExpression: "concat(domain_name + ' - ' + host_name + ' (' + name + ')')",
-            includeHostFilter: false,
-            isPercentage,
-          }),
-        }),
-        new SceneFlexItem({
-          width: '50%',
-          body: createNetworkUtilizationPanel({
-            fabric: null,
-            direction: 'receive',
-            title: 'Receive utilization per FI downlink port',
-            portRoles: ['server'],
-            identifierExpression: "concat(domain_name + ' - ' + host_name + ' (' + name + ')')",
-            includeHostFilter: false,
-            isPercentage,
-          }),
-        }),
-      ],
-    }),
+  return new SceneGridRow({
+    title: 'FI Downlinks',
+    isCollapsible: true,
+    isCollapsed: false,
+    y: 48,
+    children: [
+      new SceneGridItem({
+        x: 0,
+        y: 48,
+        width: 24,
+        height: 8,
+        body: getFIDownlinksRowContent(isPercentage),
+      }),
+    ],
   });
 }
 
@@ -3242,40 +3854,55 @@ function getFIDownlinksRow(isPercentage: boolean) {
 // ROW 4: IFM Uplinks
 // ============================================================================
 
+function getIFMUplinksRowContent(isPercentage: boolean) {
+  return new SceneFlexLayout({
+    direction: 'row',
+    children: [
+      new SceneFlexItem({
+        width: '50%',
+        body: createNetworkUtilizationPanel({
+          fabric: null,
+          direction: 'transmit',
+          title: 'Transmit utilization per IFM uplink port',
+          portRoles: ['network'],
+          portType: 'backplane_port',
+          identifierExpression: "concat(domain_name + ' - ' + host_name + ' (G' + chassis_number + '/' + name + ')')",
+          includeHostFilter: false,
+          isPercentage,
+        }),
+      }),
+      new SceneFlexItem({
+        width: '50%',
+        body: createNetworkUtilizationPanel({
+          fabric: null,
+          direction: 'receive',
+          title: 'Receive utilization per IFM uplink port',
+          portRoles: ['network'],
+          portType: 'backplane_port',
+          identifierExpression: "concat(domain_name + ' - ' + host_name + ' (G' + chassis_number + '/' + name + ')')",
+          includeHostFilter: false,
+          isPercentage,
+        }),
+      }),
+    ],
+  });
+}
+
 function getIFMUplinksRow(isPercentage: boolean) {
-  return new SceneFlexItem({
-    height: 400,
-    body: new SceneFlexLayout({
-      direction: 'row',
-      children: [
-        new SceneFlexItem({
-          width: '50%',
-          body: createNetworkUtilizationPanel({
-            fabric: null,
-            direction: 'transmit',
-            title: 'Transmit utilization per IFM uplink port',
-            portRoles: ['network'],
-            portType: 'backplane_port',
-            identifierExpression: "concat(domain_name + ' - ' + host_name + ' (G' + chassis_number + '/' + name + ')')",
-            includeHostFilter: false,
-            isPercentage,
-          }),
-        }),
-        new SceneFlexItem({
-          width: '50%',
-          body: createNetworkUtilizationPanel({
-            fabric: null,
-            direction: 'receive',
-            title: 'Receive utilization per IFM uplink port',
-            portRoles: ['network'],
-            portType: 'backplane_port',
-            identifierExpression: "concat(domain_name + ' - ' + host_name + ' (G' + chassis_number + '/' + name + ')')",
-            includeHostFilter: false,
-            isPercentage,
-          }),
-        }),
-      ],
-    }),
+  return new SceneGridRow({
+    title: 'IFM Uplinks',
+    isCollapsible: true,
+    isCollapsed: false,
+    y: 72,
+    children: [
+      new SceneGridItem({
+        x: 0,
+        y: 72,
+        width: 24,
+        height: 8,
+        body: getIFMUplinksRowContent(isPercentage),
+      }),
+    ],
   });
 }
 
@@ -3283,40 +3910,55 @@ function getIFMUplinksRow(isPercentage: boolean) {
 // ROW 5: IFM Downlinks
 // ============================================================================
 
+function getIFMDownlinksRowContent(isPercentage: boolean) {
+  return new SceneFlexLayout({
+    direction: 'row',
+    children: [
+      new SceneFlexItem({
+        width: '50%',
+        body: createNetworkUtilizationPanel({
+          fabric: null,
+          direction: 'transmit',
+          title: 'Transmit utilization per IFM downlink port',
+          portRoles: ['host_port'],
+          portType: 'backplane_port',
+          identifierExpression: "concat(domain_name + ' - ' + host_name + ' (G' + chassis_number + '/' + name + ')')",
+          includeHostFilter: false,
+          isPercentage,
+        }),
+      }),
+      new SceneFlexItem({
+        width: '50%',
+        body: createNetworkUtilizationPanel({
+          fabric: null,
+          direction: 'receive',
+          title: 'Receive utilization per IFM downlink port',
+          portRoles: ['host_port'],
+          portType: 'backplane_port',
+          identifierExpression: "concat(domain_name + ' - ' + host_name + ' (G' + chassis_number + '/' + name + ')')",
+          includeHostFilter: false,
+          isPercentage,
+        }),
+      }),
+    ],
+  });
+}
+
 function getIFMDownlinksRow(isPercentage: boolean) {
-  return new SceneFlexItem({
-    height: 400,
-    body: new SceneFlexLayout({
-      direction: 'row',
-      children: [
-        new SceneFlexItem({
-          width: '50%',
-          body: createNetworkUtilizationPanel({
-            fabric: null,
-            direction: 'transmit',
-            title: 'Transmit utilization per IFM downlink port',
-            portRoles: ['host_port'],
-            portType: 'backplane_port',
-            identifierExpression: "concat(domain_name + ' - ' + host_name + ' (G' + chassis_number + '/' + name + ')')",
-            includeHostFilter: false,
-            isPercentage,
-          }),
-        }),
-        new SceneFlexItem({
-          width: '50%',
-          body: createNetworkUtilizationPanel({
-            fabric: null,
-            direction: 'receive',
-            title: 'Receive utilization per IFM downlink port',
-            portRoles: ['host_port'],
-            portType: 'backplane_port',
-            identifierExpression: "concat(domain_name + ' - ' + host_name + ' (G' + chassis_number + '/' + name + ')')",
-            includeHostFilter: false,
-            isPercentage,
-          }),
-        }),
-      ],
-    }),
+  return new SceneGridRow({
+    title: 'IFM Downlinks',
+    isCollapsible: true,
+    isCollapsed: false,
+    y: 96,
+    children: [
+      new SceneGridItem({
+        x: 0,
+        y: 96,
+        width: 24,
+        height: 8,
+        body: getIFMDownlinksRowContent(isPercentage),
+      }),
+    ],
   });
 }
 
@@ -3328,11 +3970,17 @@ function getNetworkUtilizationPercentageTab() {
   return new SceneFlexLayout({
     direction: 'column',
     children: [
-      getFIStorageUplinksRow(true),
-      getFIEthernetUplinksRow(true),
-      getFIDownlinksRow(true),
-      getIFMUplinksRow(true),
-      getIFMDownlinksRow(true),
+      new SceneFlexItem({
+        body: new SceneGridLayout({
+          children: [
+            getFIStorageUplinksRow(true),
+            getFIEthernetUplinksRow(true),
+            getFIDownlinksRow(true),
+            getIFMUplinksRow(true),
+            getIFMDownlinksRow(true),
+          ],
+        }),
+      }),
     ],
   });
 }
@@ -3341,11 +3989,17 @@ function getNetworkUtilizationAbsoluteTab() {
   return new SceneFlexLayout({
     direction: 'column',
     children: [
-      getFIStorageUplinksRow(false),
-      getFIEthernetUplinksRow(false),
-      getFIDownlinksRow(false),
-      getIFMUplinksRow(false),
-      getIFMDownlinksRow(false),
+      new SceneFlexItem({
+        body: new SceneGridLayout({
+          children: [
+            getFIStorageUplinksRow(false),
+            getFIEthernetUplinksRow(false),
+            getFIDownlinksRow(false),
+            getIFMUplinksRow(false),
+            getIFMDownlinksRow(false),
+          ],
+        }),
+      }),
     ],
   });
 }
@@ -3357,6 +4011,7 @@ function getTrafficBalanceTab() {
     title: 'Ethernet Overview',
     isCollapsible: true,
     isCollapsed: false,
+    y: 0,
     children: [
       new SceneGridItem({ x: 0, y: 0, width: 6, height: 8, body: getPanel185_EthTransmitTrafficA() }),
       new SceneGridItem({ x: 6, y: 0, width: 6, height: 8, body: getPanel186_EthTransmitTrafficB() }),
@@ -3370,9 +4025,10 @@ function getTrafficBalanceTab() {
     title: 'Ethernet Transmit Details',
     isCollapsible: true,
     isCollapsed: false,
+    y: 8,
     children: [
-      new SceneGridItem({ x: 0, y: 0, width: 12, height: 12, body: getPanel189_EthTransmitUtilPerDomainA() }),
-      new SceneGridItem({ x: 12, y: 0, width: 12, height: 12, body: getPanel190_EthTransmitUtilPerDomainB() }),
+      new SceneGridItem({ x: 0, y: 8, width: 12, height: 12, body: getPanel189_EthTransmitUtilPerDomainA() }),
+      new SceneGridItem({ x: 12, y: 8, width: 12, height: 12, body: getPanel190_EthTransmitUtilPerDomainB() }),
     ],
   });
 
@@ -3381,9 +4037,10 @@ function getTrafficBalanceTab() {
     title: 'Ethernet Receive Details',
     isCollapsible: true,
     isCollapsed: false,
+    y: 20,
     children: [
-      new SceneGridItem({ x: 0, y: 0, width: 12, height: 12, body: getPanel191_EthReceiveUtilPerDomainA() }),
-      new SceneGridItem({ x: 12, y: 0, width: 12, height: 12, body: getPanel192_EthReceiveUtilPerDomainB() }),
+      new SceneGridItem({ x: 0, y: 20, width: 12, height: 12, body: getPanel191_EthReceiveUtilPerDomainA() }),
+      new SceneGridItem({ x: 12, y: 20, width: 12, height: 12, body: getPanel192_EthReceiveUtilPerDomainB() }),
     ],
   });
 
@@ -3392,11 +4049,12 @@ function getTrafficBalanceTab() {
     title: 'Fibre Channel Overview',
     isCollapsible: true,
     isCollapsed: false,
+    y: 32,
     children: [
-      new SceneGridItem({ x: 0, y: 0, width: 6, height: 8, body: getPanel193_StorageTransmitTrafficA() }),
-      new SceneGridItem({ x: 6, y: 0, width: 6, height: 8, body: getPanel194_StorageTransmitTrafficB() }),
-      new SceneGridItem({ x: 12, y: 0, width: 6, height: 8, body: getPanel195_StorageReceiveTrafficA() }),
-      new SceneGridItem({ x: 18, y: 0, width: 6, height: 8, body: getPanel196_StorageReceiveTrafficB() }),
+      new SceneGridItem({ x: 0, y: 32, width: 6, height: 8, body: getPanel193_StorageTransmitTrafficA() }),
+      new SceneGridItem({ x: 6, y: 32, width: 6, height: 8, body: getPanel194_StorageTransmitTrafficB() }),
+      new SceneGridItem({ x: 12, y: 32, width: 6, height: 8, body: getPanel195_StorageReceiveTrafficA() }),
+      new SceneGridItem({ x: 18, y: 32, width: 6, height: 8, body: getPanel196_StorageReceiveTrafficB() }),
     ],
   });
 
@@ -3405,9 +4063,10 @@ function getTrafficBalanceTab() {
     title: 'Fibre Channel Transmit Details',
     isCollapsible: true,
     isCollapsed: false,
+    y: 40,
     children: [
-      new SceneGridItem({ x: 0, y: 0, width: 12, height: 12, body: getPanel197_StorageTransmitUtilPerDomainA() }),
-      new SceneGridItem({ x: 12, y: 0, width: 12, height: 12, body: getPanel198_StorageTransmitUtilPerDomainB() }),
+      new SceneGridItem({ x: 0, y: 40, width: 12, height: 12, body: getPanel197_StorageTransmitUtilPerDomainA() }),
+      new SceneGridItem({ x: 12, y: 40, width: 12, height: 12, body: getPanel198_StorageTransmitUtilPerDomainB() }),
     ],
   });
 
@@ -3416,21 +4075,31 @@ function getTrafficBalanceTab() {
     title: 'Fibre Channel Receive Details',
     isCollapsible: true,
     isCollapsed: false,
+    y: 52,
     children: [
-      new SceneGridItem({ x: 0, y: 0, width: 12, height: 12, body: getPanel199_StorageReceiveUtilPerDomainA() }),
-      new SceneGridItem({ x: 12, y: 0, width: 12, height: 12, body: getPanel200_StorageReceiveUtilPerDomainB() }),
+      new SceneGridItem({ x: 0, y: 52, width: 12, height: 12, body: getPanel199_StorageReceiveUtilPerDomainA() }),
+      new SceneGridItem({ x: 12, y: 52, width: 12, height: 12, body: getPanel200_StorageReceiveUtilPerDomainB() }),
     ],
   });
 
   // Main layout with all collapsible rows
-  return new SceneGridLayout({
+  // Wrap SceneGridLayout in SceneFlexLayout to provide proper flex container context
+  // This ensures the grid layout renders correctly within the tab
+  return new SceneFlexLayout({
+    direction: 'column',
     children: [
-      ethernetOverviewRow,
-      ethernetTransmitDetailsRow,
-      ethernetReceiveDetailsRow,
-      fcOverviewRow,
-      fcTransmitDetailsRow,
-      fcReceiveDetailsRow,
+      new SceneFlexItem({
+        body: new SceneGridLayout({
+          children: [
+            ethernetOverviewRow,
+            ethernetTransmitDetailsRow,
+            ethernetReceiveDetailsRow,
+            fcOverviewRow,
+            fcTransmitDetailsRow,
+            fcReceiveDetailsRow,
+          ],
+        }),
+      }),
     ],
   });
 }
@@ -6561,66 +7230,46 @@ function getFIDownlinksPanel() {
     .setOption('cellHeight', 'sm')
     .setOption('showHeader', true)
     .setOption('sortBy', [{ desc: true, displayName: 'Total' }])
-    .setFieldConfig({
-      defaults: {
-        color: { mode: 'thresholds' },
-        custom: {
-          align: 'auto',
-          cellOptions: { type: 'auto' },
-          filterable: true,
-          inspect: false,
-          wrapText: false,
-        },
-        min: 0,
-        thresholds: {
-          mode: 'percentage',
-          steps: [
-            { color: 'transparent', value: 0 },
-            { color: '#EAB839', value: 10 },
-            { color: 'dark-red', value: 80 },
-          ],
-        },
-        unit: 'none',
-      },
-      overrides: [
-        {
-          matcher: { id: 'byName', options: 'FI' },
-          properties: [
-            { id: 'custom.width', value: 50 },
-            { id: 'custom.align', value: 'center' },
-          ],
-        },
-        {
-          matcher: { id: 'byName', options: 'Port' },
-          properties: [
-            { id: 'custom.width', value: 80 },
-            { id: 'custom.align', value: 'center' },
-            {
-              id: 'mappings',
-              value: [
-                {
-                  options: {
-                    pattern: '^.*Ethernet([0-9]+/[0-9]+).*$',
-                    result: { index: 0, text: '$1' },
-                  },
-                  type: 'regex',
-                },
-              ],
-            },
-          ],
-        },
-        {
-          matcher: { id: 'byType', options: 'number' },
-          properties: [
-            {
-              id: 'custom.cellOptions',
-              value: { applyToRow: false, mode: 'basic', type: 'color-background' },
-            },
-            { id: 'custom.wrapText', value: false },
-            { id: 'custom.width', value: 120 },
-          ],
-        },
+    .setMin(0)
+    .setUnit('none')
+    .setThresholds({
+      mode: 'percentage',
+      steps: [
+        { color: 'transparent', value: 0 },
+        { color: '#EAB839', value: 10 },
+        { color: 'dark-red', value: 80 },
       ],
+    })
+    .setCustomFieldConfig('align', 'auto')
+    .setCustomFieldConfig('cellOptions', { type: 'auto' })
+    .setCustomFieldConfig('filterable', true)
+    .setCustomFieldConfig('inspect', false)
+    .setCustomFieldConfig('wrapText', false)
+    .setOverrides((builder) => {
+      builder
+        .matchFieldsWithName('FI')
+        .overrideCustomFieldConfig('width', 50)
+        .overrideCustomFieldConfig('align', 'center');
+
+      builder
+        .matchFieldsWithName('Port')
+        .overrideCustomFieldConfig('width', 80)
+        .overrideCustomFieldConfig('align', 'center')
+        .overrideMappings([
+          {
+            type: 'regex',
+            options: {
+              pattern: '^.*Ethernet([0-9]+/[0-9]+).*$',
+              result: { index: 0, text: '$1' },
+            },
+          },
+        ]);
+
+      builder
+        .matchFieldsByType('number')
+        .overrideCustomFieldConfig('cellOptions', { applyToRow: false, mode: 'basic', type: 'color-background' })
+        .overrideCustomFieldConfig('wrapText', false)
+        .overrideCustomFieldConfig('width', 120);
     })
     .build();
 }
@@ -6748,66 +7397,46 @@ function getIFMUplinksPanel() {
     .setOption('cellHeight', 'sm')
     .setOption('showHeader', true)
     .setOption('sortBy', [{ desc: true, displayName: 'Total' }])
-    .setFieldConfig({
-      defaults: {
-        color: { mode: 'thresholds' },
-        custom: {
-          align: 'auto',
-          cellOptions: { type: 'auto' },
-          filterable: true,
-          inspect: false,
-          wrapText: false,
-        },
-        min: 0,
-        thresholds: {
-          mode: 'percentage',
-          steps: [
-            { color: 'transparent', value: 0 },
-            { color: '#EAB839', value: 10 },
-            { color: 'dark-red', value: 80 },
-          ],
-        },
-        unit: 'none',
-      },
-      overrides: [
-        {
-          matcher: { id: 'byName', options: 'FI' },
-          properties: [
-            { id: 'custom.width', value: 50 },
-            { id: 'custom.align', value: 'center' },
-          ],
-        },
-        {
-          matcher: { id: 'byName', options: 'Port' },
-          properties: [
-            { id: 'custom.width', value: 80 },
-            { id: 'custom.align', value: 'center' },
-            {
-              id: 'mappings',
-              value: [
-                {
-                  options: {
-                    pattern: '^.*Ethernet([0-9]+/[0-9]+).*$',
-                    result: { index: 0, text: '$1' },
-                  },
-                  type: 'regex',
-                },
-              ],
-            },
-          ],
-        },
-        {
-          matcher: { id: 'byType', options: 'number' },
-          properties: [
-            {
-              id: 'custom.cellOptions',
-              value: { applyToRow: false, mode: 'basic', type: 'color-background' },
-            },
-            { id: 'custom.wrapText', value: false },
-            { id: 'custom.width', value: 120 },
-          ],
-        },
+    .setMin(0)
+    .setUnit('none')
+    .setThresholds({
+      mode: 'percentage',
+      steps: [
+        { color: 'transparent', value: 0 },
+        { color: '#EAB839', value: 10 },
+        { color: 'dark-red', value: 80 },
       ],
+    })
+    .setCustomFieldConfig('align', 'auto')
+    .setCustomFieldConfig('cellOptions', { type: 'auto' })
+    .setCustomFieldConfig('filterable', true)
+    .setCustomFieldConfig('inspect', false)
+    .setCustomFieldConfig('wrapText', false)
+    .setOverrides((builder) => {
+      builder
+        .matchFieldsWithName('FI')
+        .overrideCustomFieldConfig('width', 50)
+        .overrideCustomFieldConfig('align', 'center');
+
+      builder
+        .matchFieldsWithName('Port')
+        .overrideCustomFieldConfig('width', 80)
+        .overrideCustomFieldConfig('align', 'center')
+        .overrideMappings([
+          {
+            type: 'regex',
+            options: {
+              pattern: '^.*Ethernet([0-9]+/[0-9]+).*$',
+              result: { index: 0, text: '$1' },
+            },
+          },
+        ]);
+
+      builder
+        .matchFieldsByType('number')
+        .overrideCustomFieldConfig('cellOptions', { applyToRow: false, mode: 'basic', type: 'color-background' })
+        .overrideCustomFieldConfig('wrapText', false)
+        .overrideCustomFieldConfig('width', 120);
     })
     .build();
 }
@@ -6930,122 +7559,100 @@ function getIFMDownlinksPanel() {
     .setOption('cellHeight', 'sm')
     .setOption('showHeader', true)
     .setOption('sortBy', [{ desc: true, displayName: 'Total' }])
-    .setFieldConfig({
-      defaults: {
-        color: { mode: 'thresholds' },
-        custom: {
-          align: 'auto',
-          cellOptions: { type: 'auto' },
-          filterable: true,
-          inspect: false,
-          wrapText: false,
-        },
-        min: 0,
-        thresholds: {
-          mode: 'percentage',
-          steps: [
-            { color: 'transparent', value: 0 },
-            { color: '#EAB839', value: 10 },
-            { color: 'dark-red', value: 80 },
-          ],
-        },
-        unit: 'none',
-      },
-      overrides: [
-        {
-          matcher: { id: 'byName', options: 'FI' },
-          properties: [
-            { id: 'custom.width', value: 50 },
-            { id: 'custom.align', value: 'center' },
-          ],
-        },
-        {
-          matcher: { id: 'byName', options: 'Port' },
-          properties: [
-            { id: 'custom.align', value: 'center' },
-            { id: 'custom.width', value: 105 },
-            {
-              id: 'mappings',
-              value: [
-                {
-                  options: {
-                    pattern: '^.*Ethernet([0-9]+/1/[1-4])$',
-                    result: { index: 0, text: 'Slot 1 ($1)' },
-                  },
-                  type: 'regex',
-                },
-                {
-                  options: {
-                    pattern: '^.*Ethernet([0-9]+/1/[5-8])$',
-                    result: { index: 1, text: 'Slot 2 ($1)' },
-                  },
-                  type: 'regex',
-                },
-                {
-                  options: {
-                    pattern: '^.*Ethernet([0-9]+/1/([9]|1[0-2]))$',
-                    result: { index: 2, text: 'Slot 3 ($1)' },
-                  },
-                  type: 'regex',
-                },
-                {
-                  options: {
-                    pattern: '^.*Ethernet([0-9]+/1/1[3-6])$',
-                    result: { index: 3, text: 'Slot 4 ($1)' },
-                  },
-                  type: 'regex',
-                },
-                {
-                  options: {
-                    pattern: '^.*Ethernet([0-9]+/1/(1[7-9]|20))$',
-                    result: { index: 4, text: 'Slot 5 ($1)' },
-                  },
-                  type: 'regex',
-                },
-                {
-                  options: {
-                    pattern: '^.*Ethernet([0-9]+/1/2[1-4])$',
-                    result: { index: 5, text: 'Slot 6 ($1)' },
-                  },
-                  type: 'regex',
-                },
-                {
-                  options: {
-                    pattern: '^.*Ethernet([0-9]+/1/2[5-8])$',
-                    result: { index: 6, text: 'Slot 7 ($1)' },
-                  },
-                  type: 'regex',
-                },
-                {
-                  options: {
-                    pattern: '^.*Ethernet([0-9]+/1/(29|3[0-2]))$',
-                    result: { index: 7, text: 'Slot 8 ($1)' },
-                  },
-                  type: 'regex',
-                },
-              ],
-            },
-          ],
-        },
-        {
-          matcher: { id: 'byType', options: 'number' },
-          properties: [
-            {
-              id: 'custom.cellOptions',
-              value: { applyToRow: false, mode: 'basic', type: 'color-background' },
-            },
-            { id: 'custom.wrapText', value: false },
-            { id: 'custom.width', value: 120 },
-          ],
-        },
-        {
-          matcher: { id: 'byName', options: 'Chassis' },
-          properties: [
-            { id: 'custom.width', value: 90 },
-            { id: 'custom.align', value: 'center' },
-          ],
-        },
+    .setMin(0)
+    .setUnit('none')
+    .setThresholds({
+      mode: 'percentage',
+      steps: [
+        { color: 'transparent', value: 0 },
+        { color: '#EAB839', value: 10 },
+        { color: 'dark-red', value: 80 },
       ],
+    })
+    .setCustomFieldConfig('align', 'auto')
+    .setCustomFieldConfig('cellOptions', { type: 'auto' })
+    .setCustomFieldConfig('filterable', true)
+    .setCustomFieldConfig('inspect', false)
+    .setCustomFieldConfig('wrapText', false)
+    .setOverrides((builder) => {
+      builder
+        .matchFieldsWithName('FI')
+        .overrideCustomFieldConfig('width', 50)
+        .overrideCustomFieldConfig('align', 'center');
+
+      builder
+        .matchFieldsWithName('Port')
+        .overrideCustomFieldConfig('align', 'center')
+        .overrideCustomFieldConfig('width', 105)
+        .overrideMappings([
+          {
+            type: 'regex',
+            options: {
+              pattern: '^.*Ethernet([0-9]+/1/[1-4])$',
+              result: { index: 0, text: 'Slot 1 ($1)' },
+            },
+          },
+          {
+            type: 'regex',
+            options: {
+              pattern: '^.*Ethernet([0-9]+/1/[5-8])$',
+              result: { index: 1, text: 'Slot 2 ($1)' },
+            },
+          },
+          {
+            type: 'regex',
+            options: {
+              pattern: '^.*Ethernet([0-9]+/1/([9]|1[0-2]))$',
+              result: { index: 2, text: 'Slot 3 ($1)' },
+            },
+          },
+          {
+            type: 'regex',
+            options: {
+              pattern: '^.*Ethernet([0-9]+/1/1[3-6])$',
+              result: { index: 3, text: 'Slot 4 ($1)' },
+            },
+          },
+          {
+            type: 'regex',
+            options: {
+              pattern: '^.*Ethernet([0-9]+/1/(1[7-9]|20))$',
+              result: { index: 4, text: 'Slot 5 ($1)' },
+            },
+          },
+          {
+            type: 'regex',
+            options: {
+              pattern: '^.*Ethernet([0-9]+/1/2[1-4])$',
+              result: { index: 5, text: 'Slot 6 ($1)' },
+            },
+          },
+          {
+            type: 'regex',
+            options: {
+              pattern: '^.*Ethernet([0-9]+/1/2[5-8])$',
+              result: { index: 6, text: 'Slot 7 ($1)' },
+            },
+          },
+          {
+            type: 'regex',
+            options: {
+              pattern: '^.*Ethernet([0-9]+/1/(29|3[0-2]))$',
+              result: { index: 7, text: 'Slot 8 ($1)' },
+            },
+          },
+        ]);
+
+      builder
+        .matchFieldsByType('number')
+        .overrideCustomFieldConfig('cellOptions', { applyToRow: false, mode: 'basic', type: 'color-background' })
+        .overrideCustomFieldConfig('wrapText', false)
+        .overrideCustomFieldConfig('width', 120);
+
+      builder
+        .matchFieldsWithName('Chassis')
+        .overrideCustomFieldConfig('width', 90)
+        .overrideCustomFieldConfig('align', 'center');
     })
     .build();
 }
@@ -7176,59 +7783,40 @@ function getVNICVHBAPanel() {
     .setOption('cellHeight', 'sm')
     .setOption('showHeader', true)
     .setOption('sortBy', [{ desc: true, displayName: 'Total' }])
-    .setFieldConfig({
-      defaults: {
-        color: { mode: 'thresholds' },
-        custom: {
-          align: 'auto',
-          cellOptions: { type: 'auto' },
-          filterable: true,
-          inspect: false,
-          wrapText: false,
-        },
-        min: 0,
-        thresholds: {
-          mode: 'percentage',
-          steps: [
-            { color: 'transparent', value: 0 },
-            { color: '#EAB839', value: 10 },
-            { color: 'dark-red', value: 80 },
-          ],
-        },
-        unit: 'none',
-      },
-      overrides: [
-        {
-          matcher: { id: 'byType', options: 'number' },
-          properties: [
-            {
-              id: 'custom.cellOptions',
-              value: { applyToRow: false, mode: 'basic', type: 'color-background' },
-            },
-            { id: 'custom.wrapText', value: false },
-            { id: 'custom.width', value: 120 },
-          ],
-        },
-        {
-          matcher: { id: 'byName', options: 'Chassis' },
-          properties: [
-            { id: 'custom.width', value: 100 },
-            { id: 'custom.align', value: 'center' },
-          ],
-        },
-        {
-          matcher: { id: 'byName', options: 'Server' },
-          properties: [
-            { id: 'custom.align', value: 'center' },
-          ],
-        },
-        {
-          matcher: { id: 'byName', options: 'vNIC/vHBA' },
-          properties: [
-            { id: 'custom.align', value: 'center' },
-          ],
-        },
+    .setMin(0)
+    .setUnit('none')
+    .setThresholds({
+      mode: 'percentage',
+      steps: [
+        { color: 'transparent', value: 0 },
+        { color: '#EAB839', value: 10 },
+        { color: 'dark-red', value: 80 },
       ],
+    })
+    .setCustomFieldConfig('align', 'auto')
+    .setCustomFieldConfig('cellOptions', { type: 'auto' })
+    .setCustomFieldConfig('filterable', true)
+    .setCustomFieldConfig('inspect', false)
+    .setCustomFieldConfig('wrapText', false)
+    .setOverrides((builder) => {
+      builder
+        .matchFieldsByType('number')
+        .overrideCustomFieldConfig('cellOptions', { applyToRow: false, mode: 'basic', type: 'color-background' })
+        .overrideCustomFieldConfig('wrapText', false)
+        .overrideCustomFieldConfig('width', 120);
+
+      builder
+        .matchFieldsWithName('Chassis')
+        .overrideCustomFieldConfig('width', 100)
+        .overrideCustomFieldConfig('align', 'center');
+
+      builder
+        .matchFieldsWithName('Server')
+        .overrideCustomFieldConfig('align', 'center');
+
+      builder
+        .matchFieldsWithName('vNIC/vHBA')
+        .overrideCustomFieldConfig('align', 'center');
     })
     .build();
 }
@@ -7298,12 +7886,18 @@ function getNetworkErrorsTab() {
     ],
   });
 
-  return new SceneFlexLayout({
-    direction: 'column',
+  // Row 1: Fabric Interconnect Ethernet Uplinks (with nested tabs)
+  const ethernetUplinksRow = new SceneGridRow({
+    title: 'Fabric Interconnect Ethernet Uplinks',
+    isCollapsible: true,
+    isCollapsed: false,
+    y: 0,
     children: [
-      // Row 1: Fabric Interconnect Ethernet Uplinks (with nested tabs)
-      new SceneFlexItem({
-        height: 1400,
+      new SceneGridItem({
+        x: 0,
+        y: 0,
+        width: 24,
+        height: 14,
         body: new TabbedScene({
           tabs: [
             {
@@ -7321,31 +7915,103 @@ function getNetworkErrorsTab() {
           body: getPortsTabBody(),
         }),
       }),
-      // Row 2: Fabric Interconnect Downlinks
-      new SceneFlexItem({
-        height: 400,
+    ],
+  });
+
+  // Row 2: Fabric Interconnect Downlinks
+  const downlinksRow = new SceneGridRow({
+    title: 'Fabric Interconnect Downlinks',
+    isCollapsible: true,
+    isCollapsed: false,
+    y: 14,
+    children: [
+      new SceneGridItem({
+        x: 0,
+        y: 14,
+        width: 24,
+        height: 8,
         body: getFIDownlinksPanel(),
       }),
-      // Row 3: IFM Uplinks
-      new SceneFlexItem({
-        height: 400,
+    ],
+  });
+
+  // Row 3: IFM Uplinks
+  const ifmUplinksRow = new SceneGridRow({
+    title: 'IFM Uplinks',
+    isCollapsible: true,
+    isCollapsed: false,
+    y: 22,
+    children: [
+      new SceneGridItem({
+        x: 0,
+        y: 22,
+        width: 24,
+        height: 8,
         body: getIFMUplinksPanel(),
       }),
-      // Row 4: IFM Downlinks
-      new SceneFlexItem({
-        height: 400,
+    ],
+  });
+
+  // Row 4: IFM Downlinks
+  const ifmDownlinksRow = new SceneGridRow({
+    title: 'IFM Downlinks',
+    isCollapsible: true,
+    isCollapsed: false,
+    y: 30,
+    children: [
+      new SceneGridItem({
+        x: 0,
+        y: 30,
+        width: 24,
+        height: 8,
         body: getIFMDownlinksPanel(),
       }),
-      // Row 5: vNIC/vHBA
-      new SceneFlexItem({
-        height: 400,
+    ],
+  });
+
+  // Row 5: vNIC/vHBA
+  const vnicVhbaRow = new SceneGridRow({
+    title: 'vNIC/vHBA',
+    isCollapsible: true,
+    isCollapsed: false,
+    y: 38,
+    children: [
+      new SceneGridItem({
+        x: 0,
+        y: 38,
+        width: 24,
+        height: 8,
         body: getVNICVHBAPanel(),
       }),
-      // Row 6: Error Descriptions
-      new SceneFlexItem({
-        height: 400,
+    ],
+  });
+
+  // Row 6: Error Descriptions
+  const errorDescriptionsRow = new SceneGridRow({
+    title: 'Error Descriptions',
+    isCollapsible: true,
+    isCollapsed: false,
+    y: 46,
+    children: [
+      new SceneGridItem({
+        x: 0,
+        y: 46,
+        width: 24,
+        height: 8,
         body: getErrorDescriptionsPanel(),
       }),
+    ],
+  });
+
+  // Main layout with all collapsible rows
+  return new SceneGridLayout({
+    children: [
+      ethernetUplinksRow,
+      downlinksRow,
+      ifmUplinksRow,
+      ifmDownlinksRow,
+      vnicVhbaRow,
+      errorDescriptionsRow,
     ],
   });
 }
@@ -9962,36 +10628,35 @@ function getCoolingBudgetPanel() {
 // ============================================================================
 
 function getEnvironmentalTab() {
-  return new SceneFlexLayout({
-    direction: 'column',
+  // Row 0: Power Supply Status (single panel)
+  const powerSupplyStatusRow = new SceneGridRow({
+    title: 'Power Supply Status',
+    isCollapsible: true,
+    isCollapsed: false,
+    y: 0,
     children: [
-      // Row 0: Power Supply Status
-      new SceneFlexItem({
-        height: 30,
-        body: PanelBuilders.text()
-          .setTitle('')
-          .setOption('content', '### Power Supply Status')
-          .setOption('mode', 'markdown' as any)
-          .setDisplayMode('transparent')
-          .build(),
-      }),
-      new SceneFlexItem({
-        height: 300,
+      new SceneGridItem({
+        x: 0,
+        y: 0,
+        width: 24,
+        height: 8,
         body: getPowerSupplyStatusPanel(),
       }),
+    ],
+  });
 
-      // Row 1: Domain Power Consumption (with nested tabs)
-      new SceneFlexItem({
-        height: 30,
-        body: PanelBuilders.text()
-          .setTitle('')
-          .setOption('content', '### Domain Power Consumption')
-          .setOption('mode', 'markdown' as any)
-          .setDisplayMode('transparent')
-          .build(),
-      }),
-      new SceneFlexItem({
-        height: 300,
+  // Row 1: Domain Power Consumption (with nested tabs)
+  const domainPowerConsumptionRow = new SceneGridRow({
+    title: 'Domain Power Consumption',
+    isCollapsible: true,
+    isCollapsed: false,
+    y: 8,
+    children: [
+      new SceneGridItem({
+        x: 0,
+        y: 8,
+        width: 24,
+        height: 10,
         body: new TabbedScene({
           tabs: [
             {
@@ -10045,64 +10710,72 @@ function getEnvironmentalTab() {
           ],
         }),
       }),
+    ],
+  });
 
-      // Row 2: Host Power Consumption
-      new SceneFlexItem({
-        height: 30,
-        body: PanelBuilders.text()
-          .setTitle('')
-          .setOption('content', '### Host Power Consumption')
-          .setOption('mode', 'markdown' as any)
-          .setDisplayMode('transparent')
-          .build(),
-      }),
-      new SceneFlexItem({
-        height: 300,
+  // Row 2: Host Power Consumption (single panel)
+  const hostPowerConsumptionRow = new SceneGridRow({
+    title: 'Host Power Consumption',
+    isCollapsible: true,
+    isCollapsed: false,
+    y: 18,
+    children: [
+      new SceneGridItem({
+        x: 0,
+        y: 18,
+        width: 24,
+        height: 8,
         body: getHostPowerConsumptionPanel(),
       }),
+    ],
+  });
 
-      // Row 3: Fabric Interconnect Fan Speed
-      new SceneFlexItem({
-        height: 30,
-        body: PanelBuilders.text()
-          .setTitle('')
-          .setOption('content', '### Fabric Interconnect Fan Speed')
-          .setOption('mode', 'markdown' as any)
-          .setDisplayMode('transparent')
-          .build(),
-      }),
-      new SceneFlexItem({
-        height: 300,
+  // Row 3: Fabric Interconnect Fan Speed (single panel)
+  const fiFantSpeedRow = new SceneGridRow({
+    title: 'Fabric Interconnect Fan Speed',
+    isCollapsible: true,
+    isCollapsed: false,
+    y: 26,
+    children: [
+      new SceneGridItem({
+        x: 0,
+        y: 26,
+        width: 24,
+        height: 8,
         body: getFIFanSpeedPanel(),
       }),
+    ],
+  });
 
-      // Row 4: Chassis Fan Speed
-      new SceneFlexItem({
-        height: 30,
-        body: PanelBuilders.text()
-          .setTitle('')
-          .setOption('content', '### Chassis Fan Speed')
-          .setOption('mode', 'markdown' as any)
-          .setDisplayMode('transparent')
-          .build(),
-      }),
-      new SceneFlexItem({
-        height: 300,
+  // Row 4: Chassis Fan Speed (single panel)
+  const chassisFantSpeedRow = new SceneGridRow({
+    title: 'Chassis Fan Speed',
+    isCollapsible: true,
+    isCollapsed: false,
+    y: 34,
+    children: [
+      new SceneGridItem({
+        x: 0,
+        y: 34,
+        width: 24,
+        height: 8,
         body: getChassisFanSpeedPanel(),
       }),
+    ],
+  });
 
-      // Row 5: Fabric Interconnect Temperature (with nested tabs)
-      new SceneFlexItem({
-        height: 30,
-        body: PanelBuilders.text()
-          .setTitle('')
-          .setOption('content', '### Fabric Interconnect Temperature')
-          .setOption('mode', 'markdown' as any)
-          .setDisplayMode('transparent')
-          .build(),
-      }),
-      new SceneFlexItem({
-        height: 300,
+  // Row 5: Fabric Interconnect Temperature (with nested tabs, 2-panel layout)
+  const fiTemperatureRow = new SceneGridRow({
+    title: 'Fabric Interconnect Temperature',
+    isCollapsible: true,
+    isCollapsed: false,
+    y: 42,
+    children: [
+      new SceneGridItem({
+        x: 0,
+        y: 42,
+        width: 24,
+        height: 12,
         body: new TabbedScene({
           tabs: [
             {
@@ -10138,19 +10811,21 @@ function getEnvironmentalTab() {
           ],
         }),
       }),
+    ],
+  });
 
-      // Row 6: Chassis Temperature
-      new SceneFlexItem({
-        height: 30,
-        body: PanelBuilders.text()
-          .setTitle('')
-          .setOption('content', '### Chassis Temperature')
-          .setOption('mode', 'markdown' as any)
-          .setDisplayMode('transparent')
-          .build(),
-      }),
-      new SceneFlexItem({
-        height: 300,
+  // Row 6: Chassis Temperature (2-panel layout)
+  const chassisTemperatureRow = new SceneGridRow({
+    title: 'Chassis Temperature',
+    isCollapsible: true,
+    isCollapsed: false,
+    y: 54,
+    children: [
+      new SceneGridItem({
+        x: 0,
+        y: 54,
+        width: 24,
+        height: 10,
         body: new SceneFlexLayout({
           direction: 'row',
           children: [
@@ -10163,19 +10838,21 @@ function getEnvironmentalTab() {
           ],
         }),
       }),
+    ],
+  });
 
-      // Row 7: Host Temperature (with nested tabs)
-      new SceneFlexItem({
-        height: 30,
-        body: PanelBuilders.text()
-          .setTitle('')
-          .setOption('content', '### Host Temperature')
-          .setOption('mode', 'markdown' as any)
-          .setDisplayMode('transparent')
-          .build(),
-      }),
-      new SceneFlexItem({
-        height: 400,
+  // Row 7: Host Temperature (with nested tabs)
+  const hostTemperatureRow = new SceneGridRow({
+    title: 'Host Temperature',
+    isCollapsible: true,
+    isCollapsed: false,
+    y: 64,
+    children: [
+      new SceneGridItem({
+        x: 0,
+        y: 64,
+        width: 24,
+        height: 12,
         body: new TabbedScene({
           tabs: [
             {
@@ -10205,6 +10882,20 @@ function getEnvironmentalTab() {
           ],
         }),
       }),
+    ],
+  });
+
+  // Main layout with all collapsible rows
+  return new SceneGridLayout({
+    children: [
+      powerSupplyStatusRow,
+      domainPowerConsumptionRow,
+      hostPowerConsumptionRow,
+      fiFantSpeedRow,
+      chassisFantSpeedRow,
+      fiTemperatureRow,
+      chassisTemperatureRow,
+      hostTemperatureRow,
     ],
   });
 }
@@ -10861,6 +11552,8 @@ function getSSDDisksPanel() {
           { selector: 'ParentBlade + ParentRackUnit', text: 'Server', type: 'string' },
           { selector: 'StorageControllerName + \' \' + StorageControllerModel', text: 'Controller', type: 'string' },
           { selector: '(((NonCoercedSizeBytes / 1024) / 1024) / 1024) / 1024', text: 'Capacity (TB)', type: 'number' },
+          { selector: 'DiskState + \'/\' + DriveState', text: 'State', type: 'string' },
+          { selector: 'OperatingTemperature + \'/\' + MaximumOperatingTemperature', text: 'Temp', type: 'string' },
         ],
         url_options: {
           method: 'GET',
@@ -10880,24 +11573,32 @@ function getSSDDisksPanel() {
             Bootable: true,
             Description: true,
             DisabledForRemoval: true,
+            DiskState: true,
+            DriveState: true,
+            EncryptionStatus: true,
             FdeCapable: true,
+            HotSpareType: true,
             IsPlatformSupported: true,
             LinkSpeed: true,
             MaximumOperatingTemperature: true,
+            Name: true,
             NonCoercedSizeBytes: true,
             NumBlocks: true,
             OperPowerState: true,
-            PartNumber: true,
+            OperatingTemperature: true,
             ParentBlade: true,
             ParentRackUnit: true,
+            PartNumber: true,
+            PercentReservedCapacityConsumed: true,
+            PerformancePercent: true,
             PowerCycleCount: true,
             PowerOnHours: true,
+            PowerOnHoursPercentage: true,
+            PredictedMediaLifeLeftPercent: true,
+            PredictiveFailureCount: true,
             PreviousFru: true,
-            Protocol: true,
             ReadErrorCountThreshold: true,
             RunningFirmware: true,
-            StorageControllerModel: true,
-            StorageControllerName: true,
             ThresholdOperatingTemperature: true,
             Type: true,
             WriteErrorCountThreshold: true,
@@ -10906,37 +11607,33 @@ function getSSDDisksPanel() {
           indexByName: {
             'Capacity (TB)': 6,
             Controller: 2,
-            DiskId: 3,
-            DiskState: 5,
-            DriveState: 15,
-            EncryptionStatus: 16,
-            FailurePredicted: 17,
-            HotSpareType: 18,
-            MediaErrorCount: 19,
-            Model: 7,
-            Name: 4,
-            OperatingTemperature: 9,
-            PercentLifeLeft: 10,
-            PercentReservedCapacityConsumed: 11,
-            PerformancePercent: 20,
-            PowerOnHoursPercentage: 21,
-            PredictedMediaLifeLeftPercent: 12,
-            PredictiveFailureCount: 22,
-            Presence: 23,
-            ReadIoErrorCount: 24,
-            Serial: 8,
-            Server: 1,
-            Size: 25,
-            WearStatusInDays: 13,
-            WriteIoErrorCount: 26,
+            DiskId: 1,
+            FailurePredicted: 11,
+            MediaErrorCount: 21,
+            Model: 2,
+            PercentLifeLeft: 12,
+            Presence: 7,
+            Protocol: 6,
+            ReadIoErrorCount: 22,
+            Serial: 4,
+            Server: 0,
+            Size: 5,
+            State: 10,
+            Temp: 14,
+            WriteIoErrorCount: 23,
           },
           renameByName: {
-            DiskState: 'State',
-            Name: 'Disk',
-            PercentLifeLeft: 'Life Left',
-            PercentReservedCapacityConsumed: 'Reserved Cap Used',
-            PredictedMediaLifeLeftPercent: 'Predicted Life',
-            WearStatusInDays: 'Wear (days)',
+            DisabledForRemoval: 'Removal',
+            DiskId: 'Slot',
+            FailurePredicted: 'Failure',
+            MediaErrorCount: 'Media Errors',
+            OperatingTemperature: '',
+            PercentLifeLeft: 'Percent Life Left',
+            PowerOnHours: 'Power On Hours',
+            ReadIoErrorCount: 'Read IO Errors',
+            Server: 'Server',
+            Temp: 'Temperature',
+            WriteIoErrorCount: 'Write IO Errors',
           },
         },
       },
@@ -11188,6 +11885,8 @@ function getHDDDisksPanel() {
           { selector: 'ParentBlade + ParentRackUnit', text: 'Server', type: 'string' },
           { selector: 'StorageControllerName + \' \' + StorageControllerModel', text: 'Controller', type: 'string' },
           { selector: '(((NonCoercedSizeBytes / 1024) / 1024) / 1024) / 1024', text: 'Capacity (TB)', type: 'number' },
+          { selector: 'DiskState + \'/\' + DriveState', text: 'State', type: 'string' },
+          { selector: 'OperatingTemperature + \'/\' + MaximumOperatingTemperature', text: 'Temp', type: 'string' },
         ],
         url_options: {
           method: 'GET',
@@ -11207,24 +11906,32 @@ function getHDDDisksPanel() {
             Bootable: true,
             Description: true,
             DisabledForRemoval: true,
+            DiskState: true,
+            DriveState: true,
+            EncryptionStatus: true,
             FdeCapable: true,
+            HotSpareType: true,
             IsPlatformSupported: true,
             LinkSpeed: true,
             MaximumOperatingTemperature: true,
+            Name: true,
             NonCoercedSizeBytes: true,
             NumBlocks: true,
             OperPowerState: true,
-            PartNumber: true,
+            OperatingTemperature: true,
             ParentBlade: true,
             ParentRackUnit: true,
+            PartNumber: true,
+            PercentReservedCapacityConsumed: true,
+            PerformancePercent: true,
             PowerCycleCount: true,
             PowerOnHours: true,
+            PowerOnHoursPercentage: true,
+            PredictedMediaLifeLeftPercent: true,
+            PredictiveFailureCount: true,
             PreviousFru: true,
-            Protocol: true,
             ReadErrorCountThreshold: true,
             RunningFirmware: true,
-            StorageControllerModel: true,
-            StorageControllerName: true,
             ThresholdOperatingTemperature: true,
             Type: true,
             WriteErrorCountThreshold: true,
@@ -11233,37 +11940,33 @@ function getHDDDisksPanel() {
           indexByName: {
             'Capacity (TB)': 6,
             Controller: 2,
-            DiskId: 3,
-            DiskState: 5,
-            DriveState: 15,
-            EncryptionStatus: 16,
-            FailurePredicted: 17,
-            HotSpareType: 18,
-            MediaErrorCount: 19,
-            Model: 7,
-            Name: 4,
-            OperatingTemperature: 9,
-            PercentLifeLeft: 10,
-            PercentReservedCapacityConsumed: 11,
-            PerformancePercent: 20,
-            PowerOnHoursPercentage: 21,
-            PredictedMediaLifeLeftPercent: 12,
-            PredictiveFailureCount: 22,
-            Presence: 23,
-            ReadIoErrorCount: 24,
-            Serial: 8,
-            Server: 1,
-            Size: 25,
-            WearStatusInDays: 13,
-            WriteIoErrorCount: 26,
+            DiskId: 1,
+            FailurePredicted: 11,
+            MediaErrorCount: 21,
+            Model: 2,
+            PercentLifeLeft: 12,
+            Presence: 7,
+            Protocol: 6,
+            ReadIoErrorCount: 22,
+            Serial: 4,
+            Server: 0,
+            Size: 5,
+            State: 10,
+            Temp: 14,
+            WriteIoErrorCount: 23,
           },
           renameByName: {
-            DiskState: 'State',
-            Name: 'Disk',
-            PercentLifeLeft: 'Life Left',
-            PercentReservedCapacityConsumed: 'Reserved Cap Used',
-            PredictedMediaLifeLeftPercent: 'Predicted Life',
-            WearStatusInDays: 'Wear (days)',
+            DisabledForRemoval: 'Removal',
+            DiskId: 'Slot',
+            FailurePredicted: 'Failure',
+            MediaErrorCount: 'Media Errors',
+            OperatingTemperature: '',
+            PercentLifeLeft: 'Percent Life Left',
+            PowerOnHours: 'Power On Hours',
+            ReadIoErrorCount: 'Read IO Errors',
+            Server: 'Server',
+            Temp: 'Temperature',
+            WriteIoErrorCount: 'Write IO Errors',
           },
         },
       },

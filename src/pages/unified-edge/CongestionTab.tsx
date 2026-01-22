@@ -1,4 +1,6 @@
 import {
+  SceneFlexLayout,
+  SceneFlexItem,
   SceneGridLayout,
   SceneGridRow,
   SceneGridItem,
@@ -18,6 +20,7 @@ export function getCongestionTab() {
     title: 'Ethernet Overview',
     isCollapsible: true,
     isCollapsed: false,
+    y: 0,
     children: [
       new SceneGridItem({ x: 0, y: 0, width: 6, height: 8, body: getPanel185_EthTransmitTrafficA() }),
       new SceneGridItem({ x: 6, y: 0, width: 6, height: 8, body: getPanel186_EthTransmitTrafficB() }),
@@ -31,9 +34,10 @@ export function getCongestionTab() {
     title: 'Ethernet Transmit Details',
     isCollapsible: true,
     isCollapsed: false,
+    y: 8,
     children: [
-      new SceneGridItem({ x: 0, y: 0, width: 12, height: 12, body: getPanel189_EthTransmitUtilPerChassisA() }),
-      new SceneGridItem({ x: 12, y: 0, width: 12, height: 12, body: getPanel190_EthTransmitUtilPerChassisB() }),
+      new SceneGridItem({ x: 0, y: 8, width: 12, height: 12, body: getPanel189_EthTransmitUtilPerChassisA() }),
+      new SceneGridItem({ x: 12, y: 8, width: 12, height: 12, body: getPanel190_EthTransmitUtilPerChassisB() }),
     ],
   });
 
@@ -42,18 +46,26 @@ export function getCongestionTab() {
     title: 'Ethernet Receive Details',
     isCollapsible: true,
     isCollapsed: false,
+    y: 20,
     children: [
-      new SceneGridItem({ x: 0, y: 0, width: 12, height: 12, body: getPanel191_EthReceiveUtilPerChassisA() }),
-      new SceneGridItem({ x: 12, y: 0, width: 12, height: 12, body: getPanel192_EthReceiveUtilPerChassisB() }),
+      new SceneGridItem({ x: 0, y: 20, width: 12, height: 12, body: getPanel191_EthReceiveUtilPerChassisA() }),
+      new SceneGridItem({ x: 12, y: 20, width: 12, height: 12, body: getPanel192_EthReceiveUtilPerChassisB() }),
     ],
   });
 
   // Main layout with all collapsible rows
-  return new SceneGridLayout({
+  return new SceneFlexLayout({
+    direction: 'column',
     children: [
-      ethernetOverviewRow,
-      ethernetTransmitDetailsRow,
-      ethernetReceiveDetailsRow,
+      new SceneFlexItem({
+        body: new SceneGridLayout({
+          children: [
+            ethernetOverviewRow,
+            ethernetTransmitDetailsRow,
+            ethernetReceiveDetailsRow,
+          ],
+        }),
+      }),
     ],
   });
 }
