@@ -22,11 +22,11 @@ export function getCongestionTab() {
     direction: 'column',
     children: [
       new SceneFlexItem({
-        height: 'auto',
+        height: 400,
         body: getCongestionTransmitPanel(),
       }),
       new SceneFlexItem({
-        height: 'auto',
+        height: 400,
         body: getCongestionReceivePanel(),
       }),
     ],
@@ -779,7 +779,7 @@ function getCongestionReceivePanel() {
 // ============================================================================
 
 // Helper function for Error Descriptions panel (panel-24)
-function getErrorDescriptionsPanel() {
+export function getErrorDescriptionsPanel() {
   const queryRunner = new SceneQueryRunner({
     datasource: { uid: '${Account}' },
     queries: [
@@ -861,7 +861,7 @@ function getErrorDescriptionsPanel() {
 // Network Errors Tab Helper Functions - Panel implementations for all error monitoring
 
 // Creates base query runner for network errors with configurable role
-function createNetworkErrorsQueryRunner(role: string, filterType: 'role' | 'type' = 'role') {
+export function createNetworkErrorsQueryRunner(role: string, filterType: 'role' | 'type' = 'role') {
   const filterConfig = filterType === 'role'
     ? {
         type: "selector",
@@ -1044,7 +1044,7 @@ function createNetworkErrorsQueryRunner(role: string, filterType: 'role' | 'type
 }
 
 // Panel 95/100: FI Ethernet Uplink TX Errors
-function getFIEthernetUplinkTXErrorsPanel(fiFilter: string) {
+export function getFIEthernetUplinkTXErrorsPanel(fiFilter: string) {
   const queryRunner = createNetworkErrorsQueryRunner('eth_uplink');
 
   const transformer = new SceneDataTransformer({
@@ -1075,7 +1075,7 @@ function getFIEthernetUplinkTXErrorsPanel(fiFilter: string) {
 }
 
 // Panel 101/102: FI Ethernet Uplink RX Errors
-function getFIEthernetUplinkRXErrorsPanel(fiFilter: string) {
+export function getFIEthernetUplinkRXErrorsPanel(fiFilter: string) {
   const queryRunner = createNetworkErrorsQueryRunner('eth_uplink');
 
   const transformer = new SceneDataTransformer({
@@ -1106,7 +1106,7 @@ function getFIEthernetUplinkRXErrorsPanel(fiFilter: string) {
 }
 
 // Panel 25: FI Ethernet Uplink Detail Table
-function getFIEthernetUplinkDetailTable() {
+export function getFIEthernetUplinkDetailTable() {
   return PanelBuilders.table()
     .setTitle('')
     .setData(createNetworkErrorsQueryRunner('eth_uplink'))
@@ -1116,7 +1116,7 @@ function getFIEthernetUplinkDetailTable() {
 }
 
 // Panel 47/51: FI Ethernet Uplink Port Channel TX Errors
-function getFIEthernetUplinkPortChannelTXErrorsPanel(fiFilter: string) {
+export function getFIEthernetUplinkPortChannelTXErrorsPanel(fiFilter: string) {
   const queryRunner = createNetworkErrorsQueryRunner('eth_uplink_port_channel');
 
   const transformer = new SceneDataTransformer({
@@ -1147,7 +1147,7 @@ function getFIEthernetUplinkPortChannelTXErrorsPanel(fiFilter: string) {
 }
 
 // Panel 48/52: FI Ethernet Uplink Port Channel RX Errors
-function getFIEthernetUplinkPortChannelRXErrorsPanel(fiFilter: string) {
+export function getFIEthernetUplinkPortChannelRXErrorsPanel(fiFilter: string) {
   const queryRunner = createNetworkErrorsQueryRunner('eth_uplink_port_channel');
 
   const transformer = new SceneDataTransformer({
@@ -1178,7 +1178,7 @@ function getFIEthernetUplinkPortChannelRXErrorsPanel(fiFilter: string) {
 }
 
 // Panel 45: FI Ethernet Uplink Port Channel Detail Table
-function getFIEthernetUplinkPortChannelDetailTable() {
+export function getFIEthernetUplinkPortChannelDetailTable() {
   return PanelBuilders.table()
     .setTitle('')
     .setData(createNetworkErrorsQueryRunner('eth_uplink_port_channel'))
@@ -1193,7 +1193,7 @@ function getFIEthernetUplinkPortChannelDetailTable() {
 
 // Base query runner for Network Errors - shared by multiple panels (panel-25 equivalent)
 // This query fetches all network error metrics from the NetworkInterfaces dataSource
-function createNetworkErrorsBaseQueryRunner() {
+export function createNetworkErrorsBaseQueryRunner() {
   return new SceneQueryRunner({
     datasource: { uid: '${Account}' },
     queries: [
@@ -1354,7 +1354,7 @@ function createNetworkErrorsBaseQueryRunner() {
 
 // Panel 26: FI Downlinks Panel (Fabric Interconnect Downlinks - server ports)
 // Filters for Port Type='ethernet' AND Port Role='server'
-function getFIDownlinksPanel() {
+export function getFIDownlinksPanel() {
   const queryRunner = createNetworkErrorsBaseQueryRunner();
 
   const transformer = new SceneDataTransformer({
@@ -1513,7 +1513,7 @@ function getFIDownlinksPanel() {
 
 // Panel 27: IFM Uplinks Panel
 // Filters for Port Type='ethernet' AND Port Role='iom_uplink'
-function getIFMUplinksPanel() {
+export function getIFMUplinksPanel() {
   const queryRunner = createNetworkErrorsBaseQueryRunner();
 
   const transformer = new SceneDataTransformer({
@@ -1680,7 +1680,7 @@ function getIFMUplinksPanel() {
 
 // Panel 28: IFM Downlinks Panel (backplane_port + host_port)
 // Filters for Port Type='backplane_port' AND Port Role='host_port'
-function getIFMDownlinksPanel() {
+export function getIFMDownlinksPanel() {
   const queryRunner = createNetworkErrorsBaseQueryRunner();
 
   const transformer = new SceneDataTransformer({
@@ -1896,7 +1896,7 @@ function getIFMDownlinksPanel() {
 
 // Panel 29: vNIC/vHBA Panel
 // Filters for Port Role='vnic' OR Port Role='vhba'
-function getVNICVHBAPanel() {
+export function getVNICVHBAPanel() {
   const queryRunner = createNetworkErrorsBaseQueryRunner();
 
   const transformer = new SceneDataTransformer({

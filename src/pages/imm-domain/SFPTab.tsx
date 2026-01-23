@@ -10,6 +10,7 @@ import {
   SceneFlexItem,
   PanelBuilders,
   SceneQueryRunner,
+  SceneDataTransformer,
   SceneGridLayout,
   SceneGridRow,
   SceneGridItem,
@@ -31,13 +32,41 @@ export function getSFPTab() {
     direction: 'column',
     children: [
       new SceneFlexItem({
-        ySizing: 'fill',
-        body: sfpMetricsPanel,
-      }),
-      new SceneFlexItem({
-        height: 200,
-        ySizing: 'content',
-        body: sfpInfoPanel,
+        minHeight: 1000,
+        body: new SceneGridLayout({
+          children: [
+            new SceneGridRow({
+              title: 'SFP Metrics',
+              isCollapsible: true,
+              isCollapsed: false,
+              y: 0,
+              children: [
+                new SceneGridItem({
+                  x: 0,
+                  y: 0,
+                  width: 24,
+                  height: 16,
+                  body: sfpMetricsPanel,
+                }),
+              ],
+            }),
+            new SceneGridRow({
+              title: 'Information',
+              isCollapsible: true,
+              isCollapsed: false,
+              y: 16,
+              children: [
+                new SceneGridItem({
+                  x: 0,
+                  y: 16,
+                  width: 24,
+                  height: 4,
+                  body: sfpInfoPanel,
+                }),
+              ],
+            }),
+          ],
+        }),
       }),
     ],
   });

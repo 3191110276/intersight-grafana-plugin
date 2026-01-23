@@ -16,6 +16,7 @@ export function getOverviewTab() {
     children: [
       // Alarms row - repeated by DomainName variable
       new SceneFlexItem({
+        minHeight: 200,
         body: new SceneGridLayout({
           children: [
             new SceneGridRow({
@@ -46,6 +47,7 @@ export function getOverviewTab() {
 
       // Actions row - repeated by DomainName variable
       new SceneFlexItem({
+        minHeight: 200,
         body: new SceneGridLayout({
           children: [
             new SceneGridRow({
@@ -76,6 +78,7 @@ export function getOverviewTab() {
 
       // Network Utilization with nested tabs
       new SceneFlexItem({
+        minHeight: 200,
         body: new SceneGridLayout({
           children: [
             new SceneGridRow({
@@ -98,6 +101,7 @@ export function getOverviewTab() {
 
       // Congestion row
       new SceneFlexItem({
+        minHeight: 200,
         body: new SceneGridLayout({
           children: [
             new SceneGridRow({
@@ -127,6 +131,7 @@ export function getOverviewTab() {
 
       // Network Errors row
       new SceneFlexItem({
+        minHeight: 200,
         body: new SceneGridLayout({
           children: [
             new SceneGridRow({
@@ -149,6 +154,7 @@ export function getOverviewTab() {
 
       // CPU Utilization row
       new SceneFlexItem({
+        minHeight: 200,
         body: new SceneGridLayout({
           children: [
             new SceneGridRow({

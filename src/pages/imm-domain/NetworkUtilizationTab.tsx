@@ -771,6 +771,7 @@ function getNetworkUtilizationPercentageTab() {
     direction: 'column',
     children: [
       new SceneFlexItem({
+        minHeight: 2000,
         body: new SceneGridLayout({
           children: [
             getFIStorageUplinksRow(true),
@@ -790,6 +791,7 @@ function getNetworkUtilizationAbsoluteTab() {
     direction: 'column',
     children: [
       new SceneFlexItem({
+        minHeight: 2000,
         body: new SceneGridLayout({
           children: [
             getFIStorageUplinksRow(false),

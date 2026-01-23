@@ -1,37 +1,42 @@
+import React from 'react';
 import {
   SceneFlexLayout,
   SceneFlexItem,
   PanelBuilders,
   SceneQueryRunner,
   SceneDataTransformer,
+  SceneObjectBase,
+  SceneComponentProps,
+  SceneObjectState,
+  VariableDependencyConfig,
+  sceneGraph,
 } from '@grafana/scenes';
+import { TableCellDisplayMode } from '@grafana/ui';
 
-export function getCPUUtilizationTab() {
-  // Create query runner with 3 timeseries queries
-  const baseQueryRunner = new SceneQueryRunner({
-    datasource: { uid: '${Account}' },
-    queries: [
-      // Query A: CPU Utilization
-      {
-        refId: 'A',
-        queryType: 'infinity',
-        type: 'json',
-        source: 'url',
-        parser: 'backend',
-        format: 'timeseries',
-        url: '/api/v1/telemetry/TimeSeries',
-        root_selector: '',
-        columns: [
-          { selector: 'timestamp', text: 'Time', type: 'timestamp' },
-          { selector: 'event.domain_name', text: 'Domain Name', type: 'string' },
-          { selector: 'event.host_name', text: 'Host Name', type: 'string' },
-          { selector: 'event.utilization', text: 'Utilization', type: 'number' },
-        ],
-        url_options: {
-          method: 'POST',
-          body_type: 'raw',
-          body_content_type: 'application/json',
-          data: `  {
+// ============================================================================
+// QUERY DEFINITIONS - Reused across single and multi-server views
+// ============================================================================
+
+// Query A: CPU Utilization
+const queryA = {
+  refId: 'A',
+  queryType: 'infinity',
+  type: 'json',
+  source: 'url',
+  parser: 'backend',
+  format: 'timeseries',
+  url: '/api/v1/telemetry/TimeSeries',
+  root_selector: '',
+  columns: [
+    { selector: 'timestamp', text: 'Time', type: 'timestamp' },
+    { selector: 'event.host_name', text: 'Host Name', type: 'string' },
+    { selector: 'event.utilization', text: 'Utilization', type: 'number' },
+  ],
+  url_options: {
+    method: 'POST',
+    body_type: 'raw',
+    body_content_type: 'application/json',
+    data: `  {
     "queryType": "groupBy",
     "dataSource": "PhysicalEntities",
     "granularity": {
@@ -71,28 +76,29 @@ export function getCPUUtilizationTab() {
       }
     ]
   }`,
-        },
-      } as any,
-      // Query B: CPU 1 Temperature
-      {
-        refId: 'B',
-        queryType: 'infinity',
-        type: 'json',
-        source: 'url',
-        parser: 'backend',
-        format: 'timeseries',
-        url: '/api/v1/telemetry/TimeSeries',
-        root_selector: '',
-        columns: [
-          { selector: 'timestamp', text: 'Time', type: 'timestamp' },
-          { selector: 'event.host_name', text: 'Host Name', type: 'string' },
-          { selector: 'event.temperature', text: 'Temperature', type: 'number' },
-        ],
-        url_options: {
-          method: 'POST',
-          body_type: 'raw',
-          body_content_type: 'application/json',
-          data: `  {
+  },
+} as any;
+
+// Query B: CPU 1 Temperature
+const queryB = {
+  refId: 'B',
+  queryType: 'infinity',
+  type: 'json',
+  source: 'url',
+  parser: 'backend',
+  format: 'timeseries',
+  url: '/api/v1/telemetry/TimeSeries',
+  root_selector: '',
+  columns: [
+    { selector: 'timestamp', text: 'Time', type: 'timestamp' },
+    { selector: 'event.host_name', text: 'Host Name', type: 'string' },
+    { selector: 'event.temperature', text: 'Temperature', type: 'number' },
+  ],
+  url_options: {
+    method: 'POST',
+    body_type: 'raw',
+    body_content_type: 'application/json',
+    data: `  {
     "queryType": "groupBy",
     "dataSource": "PhysicalEntities",
     "granularity": {
@@ -140,28 +146,29 @@ export function getCPUUtilizationTab() {
       }
     ]
   }`,
-        },
-      } as any,
-      // Query C: CPU 2 Temperature
-      {
-        refId: 'C',
-        queryType: 'infinity',
-        type: 'json',
-        source: 'url',
-        parser: 'backend',
-        format: 'timeseries',
-        url: '/api/v1/telemetry/TimeSeries',
-        root_selector: '',
-        columns: [
-          { selector: 'timestamp', text: 'Time', type: 'timestamp' },
-          { selector: 'event.host_name', text: 'Host Name', type: 'string' },
-          { selector: 'event.temperature', text: 'Temperature', type: 'number' },
-        ],
-        url_options: {
-          method: 'POST',
-          body_type: 'raw',
-          body_content_type: 'application/json',
-          data: `  {
+  },
+} as any;
+
+// Query C: CPU 2 Temperature
+const queryC = {
+  refId: 'C',
+  queryType: 'infinity',
+  type: 'json',
+  source: 'url',
+  parser: 'backend',
+  format: 'timeseries',
+  url: '/api/v1/telemetry/TimeSeries',
+  root_selector: '',
+  columns: [
+    { selector: 'timestamp', text: 'Time', type: 'timestamp' },
+    { selector: 'event.host_name', text: 'Host Name', type: 'string' },
+    { selector: 'event.temperature', text: 'Temperature', type: 'number' },
+  ],
+  url_options: {
+    method: 'POST',
+    body_type: 'raw',
+    body_content_type: 'application/json',
+    data: `  {
     "queryType": "groupBy",
     "dataSource": "PhysicalEntities",
     "granularity": {
@@ -209,13 +216,210 @@ export function getCPUUtilizationTab() {
       }
     ]
   }`,
-        },
-      } as any,
-    ],
+  },
+} as any;
+
+// ============================================================================
+// DYNAMIC CPU UTILIZATION SCENE - Conditional rendering based on ServerName
+// ============================================================================
+
+interface DynamicCPUUtilizationSceneState extends SceneObjectState {
+  body: any;
+}
+
+/**
+ * DynamicCPUUtilizationScene - Custom scene that monitors the ServerName variable
+ * and conditionally renders:
+ * - Single server: 3 separate timeseries graphs (CPU Util, CPU 1 Temp, CPU 2 Temp)
+ * - Multiple servers: Table with sparklines (matching IMM Domain style)
+ */
+class DynamicCPUUtilizationScene extends SceneObjectBase<DynamicCPUUtilizationSceneState> {
+  public static Component = DynamicCPUUtilizationSceneRenderer;
+
+  protected _variableDependency = new VariableDependencyConfig(this, {
+    variableNames: ['ServerName'],
+    onReferencedVariableValueChanged: () => {
+      // Only rebuild if the scene is still active
+      if (this.isActive) {
+        this.rebuildBody();
+      }
+    },
   });
 
-  // Wrap with transformer to convert timeseries to table and join by Host Name
-  const queryRunner = new SceneDataTransformer({
+  public constructor(state: Partial<DynamicCPUUtilizationSceneState>) {
+    super({
+      body: new SceneFlexLayout({ children: [] }),
+      ...state,
+    });
+  }
+
+  public activate() {
+    super.activate();
+    this.rebuildBody();
+  }
+
+  private rebuildBody() {
+    // Skip if scene is not active (prevents race conditions during deactivation)
+    if (!this.isActive) {
+      return;
+    }
+
+    // Get the ServerName variable from the scene's variable set
+    const variable = this.getVariable('ServerName');
+
+    if (!variable) {
+      console.warn('ServerName variable not found');
+      return;
+    }
+
+    // Get the current value(s) from the variable
+    const value = variable.state.value;
+    let serverNames: string[] = [];
+
+    if (Array.isArray(value)) {
+      serverNames = value.map(v => String(v));
+    } else if (value && value !== '$__all') {
+      serverNames = [String(value)];
+    }
+
+    // If no servers selected, show a message
+    if (serverNames.length === 0) {
+      const emptyBody = new SceneFlexLayout({
+        direction: 'column',
+        children: [
+          new SceneFlexItem({
+            height: 200,
+            body: PanelBuilders.text()
+              .setTitle('')
+              .setOption('content', '### No Server Selected\n\nPlease select one or more servers from the Server filter above.')
+              .setOption('mode', 'markdown' as any)
+              .setDisplayMode('transparent')
+              .build(),
+          }),
+        ],
+      });
+
+      this.setState({ body: emptyBody });
+      return;
+    }
+
+    // If single server, show 3 separate graphs
+    if (serverNames.length === 1) {
+      const singleServerBody = createSingleServerGraphsBody();
+      this.setState({ body: singleServerBody });
+      return;
+    }
+
+    // If multiple servers, show table with sparklines
+    const multiServerBody = createMultiServerTableBody();
+    this.setState({ body: multiServerBody });
+  }
+
+  private getVariable(name: string): any {
+    // Use sceneGraph to lookup variable in parent scope
+    return sceneGraph.lookupVariable(name, this);
+  }
+}
+
+/**
+ * Renderer component for DynamicCPUUtilizationScene
+ */
+function DynamicCPUUtilizationSceneRenderer({
+  model,
+}: SceneComponentProps<DynamicCPUUtilizationScene>) {
+  const { body } = model.useState();
+
+  return (
+    <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column' }}>
+      {body && body.Component && <body.Component model={body} />}
+    </div>
+  );
+}
+
+// ============================================================================
+// SINGLE SERVER VIEW - 3 separate timeseries graphs
+// ============================================================================
+
+function createSingleServerGraphsBody() {
+  // Graph 1: CPU Utilization
+  const cpuUtilQueryRunner = new SceneQueryRunner({
+    datasource: { uid: '${Account}' },
+    queries: [queryA],
+  });
+
+  const cpuUtilizationPanel = PanelBuilders.timeseries()
+    .setTitle('CPU Utilization')
+    .setData(cpuUtilQueryRunner)
+    .setUnit('percentunit')
+    .setCustomFieldConfig('axisSoftMin', 0)
+    .setCustomFieldConfig('axisSoftMax', 1)
+    .setOverrides((builder) => {
+      builder
+        .matchFieldsByType('number')
+        .overrideColor({ fixedColor: 'semi-dark-blue', mode: 'fixed' });
+    })
+    .build();
+
+  // Graph 2: CPU 1 Temperature
+  const cpu1TempQueryRunner = new SceneQueryRunner({
+    datasource: { uid: '${Account}' },
+    queries: [queryB],
+  });
+
+  const cpu1TempPanel = PanelBuilders.timeseries()
+    .setTitle('CPU 1 Temperature')
+    .setData(cpu1TempQueryRunner)
+    .setUnit('celsius')
+    .setCustomFieldConfig('axisSoftMin', 0)
+    .setOverrides((builder) => {
+      builder
+        .matchFieldsByType('number')
+        .overrideColor({ fixedColor: 'semi-dark-orange', mode: 'fixed' });
+    })
+    .build();
+
+  // Graph 3: CPU 2 Temperature
+  const cpu2TempQueryRunner = new SceneQueryRunner({
+    datasource: { uid: '${Account}' },
+    queries: [queryC],
+  });
+
+  const cpu2TempPanel = PanelBuilders.timeseries()
+    .setTitle('CPU 2 Temperature')
+    .setData(cpu2TempQueryRunner)
+    .setUnit('celsius')
+    .setCustomFieldConfig('axisSoftMin', 0)
+    .setOverrides((builder) => {
+      builder
+        .matchFieldsByType('number')
+        .overrideColor({ fixedColor: 'semi-dark-orange', mode: 'fixed' });
+    })
+    .build();
+
+  // Return vertical layout with 3 graphs
+  return new SceneFlexLayout({
+    direction: 'column',
+    children: [
+      new SceneFlexItem({ height: 250, body: cpuUtilizationPanel }),
+      new SceneFlexItem({ height: 250, body: cpu1TempPanel }),
+      new SceneFlexItem({ height: 250, body: cpu2TempPanel }),
+    ],
+  });
+}
+
+// ============================================================================
+// MULTI-SERVER VIEW - Table with sparklines
+// ============================================================================
+
+function createMultiServerTableBody() {
+  // Create query runner with all 3 timeseries queries
+  const baseQueryRunner = new SceneQueryRunner({
+    datasource: { uid: '${Account}' },
+    queries: [queryA, queryB, queryC],
+  });
+
+  // Apply transformations to convert timeseries to table and join by Host Name
+  const transformedData = new SceneDataTransformer({
     $data: baseQueryRunner,
     transformations: [
       // Convert timeseries to table format with explicit time fields
@@ -227,12 +431,12 @@ export function getCPUUtilizationTab() {
           C: { timeField: 'Time' },
         },
       },
-      // Join all queries by Host Name field (using outer join to be more forgiving)
+      // Join all queries by Host Name field (using inner join to match IMM Domain)
       {
         id: 'joinByField',
         options: {
           byField: 'Host Name',
-          mode: 'outer',
+          mode: 'inner',
         },
       },
       // Organize and rename columns
@@ -242,11 +446,10 @@ export function getCPUUtilizationTab() {
           excludeByName: {},
           includeByName: {},
           indexByName: {
-            'Domain Name': 0,
-            'Host Name': 1,
-            'Trend #A': 2,
-            'Trend #B': 3,
-            'Trend #C': 4,
+            'Host Name': 0,
+            'Trend #A': 1,
+            'Trend #B': 2,
+            'Trend #C': 3,
           },
           renameByName: {
             'Trend #A': 'Utilization',
@@ -258,16 +461,22 @@ export function getCPUUtilizationTab() {
     ],
   });
 
-  // Create table panel with field overrides
+  // Create table panel with sparklines and field overrides
   const tablePanel = PanelBuilders.table()
-    .setTitle('')
-    .setData(queryRunner)
+    .setTitle('CPU details for all Servers')
+    .setData(transformedData)
     .setOption('showHeader', true)
     .setOption('cellHeight', 'lg')
+    .setOption('enablePagination', true)
     .setOption('sortBy', [{ displayName: 'Utilization', desc: true }])
+    .setCustomFieldConfig('filterable', true)
     .setOverrides((builder) => {
-      // Utilization column - percentunit with bar gauge
-      builder.matchFieldsWithName('Utilization')
+      // Utilization column - sparkline visualization with percentunit and semi-dark-blue color
+      builder
+        .matchFieldsWithName('Utilization')
+        .overrideCustomFieldConfig('cellOptions', {
+          type: TableCellDisplayMode.Sparkline,
+        })
         .overrideColor({
           fixedColor: 'semi-dark-blue',
           mode: 'fixed',
@@ -278,11 +487,11 @@ export function getCPUUtilizationTab() {
         .overrideDecimals(1);
 
       // String columns - set width to 240px
-      builder.matchFieldsByType('string')
-        .overrideCustomFieldConfig('width', 240);
+      builder.matchFieldsByType('string').overrideCustomFieldConfig('width', 240);
 
       // Temperature columns - celsius unit
-      builder.matchFieldsWithNameByRegex('/CPU.*Temperature/')
+      builder
+        .matchFieldsWithNameByRegex('/CPU.*Temperature/')
         .overrideUnit('celsius')
         .overrideDecimals(1);
     })
@@ -297,6 +506,14 @@ export function getCPUUtilizationTab() {
       }),
     ],
   });
+}
+
+// ============================================================================
+// MAIN EXPORT FUNCTION
+// ============================================================================
+
+export function getCPUUtilizationTab() {
+  return new DynamicCPUUtilizationScene({});
 }
 
 // Helper function for Storage Controllers sub-tab (panel-204)
@@ -1411,4 +1628,3 @@ export function getVirtualDrivesPanel() {
     ],
   });
 }
-

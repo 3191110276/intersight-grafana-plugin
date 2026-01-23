@@ -189,6 +189,7 @@ export function getStorageControllersPanel() {
           {
             type: 'value',
             options: {
+              '': { color: 'dark-yellow', index: 4, text: 'Unknown' },
               ',': { color: 'orange', index: 3, text: 'NA' },
               'Enabled,Critical': { color: 'dark-red', index: 2, text: 'Critical' },
               'Enabled,OK': { color: 'green', index: 1, text: 'OK' },
@@ -199,7 +200,7 @@ export function getStorageControllersPanel() {
             type: 'regex',
             options: {
               pattern: '(.*)',
-              result: { color: 'dark-red', index: 4, text: 'Error ($1)' },
+              result: { color: 'dark-red', index: 5, text: 'Error ($1)' },
             },
           },
         ])
@@ -214,8 +215,10 @@ export function getStorageControllersPanel() {
           {
             type: 'value',
             options: {
-              false: { color: '#646464', index: 1, text: 'Not Enabled' },
-              true: { color: 'blue', index: 0, text: 'Enabled' },
+              no: { color: '#646464', index: 0, text: 'No' },
+              yes: { color: 'blue', index: 1, text: 'Yes' },
+              false: { color: '#646464', index: 2, text: 'No' },
+              true: { color: 'blue', index: 3, text: 'Yes' },
             },
           },
         ])
@@ -277,15 +280,7 @@ export function getStorageControllersPanel() {
     })
     .build();
 
-  return new SceneFlexLayout({
-    direction: 'column',
-    children: [
-      new SceneFlexItem({
-        ySizing: 'fill',
-        body: panel,
-      }),
-    ],
-  });
+  return panel;
 }
 
 // Helper function for SSD Disks sub-tab (panel-205)
@@ -604,15 +599,7 @@ export function getSSDDisksPanel() {
     })
     .build();
 
-  return new SceneFlexLayout({
-    direction: 'column',
-    children: [
-      new SceneFlexItem({
-        ySizing: 'fill',
-        body: panel,
-      }),
-    ],
-  });
+  return panel;
 }
 
 // Helper function for HDD Disks sub-tab (panel-208)
@@ -932,15 +919,7 @@ export function getHDDDisksPanel() {
     })
     .build();
 
-  return new SceneFlexLayout({
-    direction: 'column',
-    children: [
-      new SceneFlexItem({
-        ySizing: 'fill',
-        body: panel,
-      }),
-    ],
-  });
+  return panel;
 }
 
 // Helper function for Virtual Drives sub-tab (panel-206)
@@ -1115,15 +1094,7 @@ export function getVirtualDrivesPanel() {
     })
     .build();
 
-  return new SceneFlexLayout({
-    direction: 'column',
-    children: [
-      new SceneFlexItem({
-        ySizing: 'fill',
-        body: panel,
-      }),
-    ],
-  });
+  return panel;
 }
 
 export function getStorageTab() {
@@ -1144,14 +1115,6 @@ export function getStorageTab() {
     body: storageControllerTab,
   });
 
-  // Wrap the TabbedScene in a SceneFlexLayout as per Grafana Scenes pattern
-  return new SceneFlexLayout({
-    direction: 'column',
-    children: [
-      new SceneFlexItem({
-        ySizing: 'fill',
-        body: storageTabs,
-      }),
-    ],
-  });
+  // Return the TabbedScene directly
+  return storageTabs;
 }

@@ -62,7 +62,13 @@ export function App(props: AppRootProps) {
   }, []);
 
   return (
-    <BrowserRouter basename="/a/intersight-app">
+    <BrowserRouter
+      basename="/a/intersight-app"
+      future={{
+        v7_startTransition: true,
+        v7_relativeSplatPath: true,
+      }}
+    >
       <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column' }}>
         <scene.Component model={scene} />
       </div>

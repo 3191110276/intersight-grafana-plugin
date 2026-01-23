@@ -4,10 +4,101 @@ import {
   PanelBuilders,
   SceneQueryRunner,
   SceneDataTransformer,
+  SceneObjectBase,
+  SceneComponentProps,
+  SceneObjectState,
+  VariableDependencyConfig,
+  sceneGraph,
 } from '@grafana/scenes';
+import React from 'react';
 import { TabbedScene } from '../../components/TabbedScene';
 
-export function getStorageControllersPanel() {
+// DynamicStorageScene class to handle variable dependencies
+interface DynamicStorageSceneState extends SceneObjectState {
+  body: TabbedScene;
+}
+
+class DynamicStorageScene extends SceneObjectBase<DynamicStorageSceneState> {
+  protected _variableDependency = new VariableDependencyConfig(this, {
+    variableNames: ['ServerName'],
+    onReferencedVariableValueChanged: () => {
+      this.rebuildBody();
+    },
+  });
+
+  public static Component = ({ model }: SceneComponentProps<DynamicStorageScene>) => {
+    const { body } = model.useState();
+    return <body.Component model={body} />;
+  };
+
+  public activate() {
+    super.activate();
+    // Trigger initial rebuild once the scene is connected to the parent
+    this.rebuildBody();
+  }
+
+  private rebuildBody() {
+    // Try to get the root scene
+    const scene = this.getRoot();
+    if (!scene) {
+      // Scene not connected yet, skip rebuild
+      return;
+    }
+
+    // Access ServerName variable
+    const serverNameVariable = sceneGraph.lookupVariable('ServerName', scene);
+    if (!serverNameVariable) {
+      // Variable not found, use default (no hiding)
+      this.buildBodyWithDefaults();
+      return;
+    }
+
+    // Check if single server is selected
+    const serverNameValue = serverNameVariable.getValue();
+    const isSingleServer = Array.isArray(serverNameValue) && serverNameValue.length === 1;
+    const shouldHideServerColumn = isSingleServer;
+    const serverName = isSingleServer ? String(serverNameValue[0]) : '';
+
+    // Rebuild panels with updated flags
+    const storageControllerTab = getStorageControllersPanel(shouldHideServerColumn, serverName);
+    const ssdDisksTab = getSSDDisksPanel(shouldHideServerColumn, serverName);
+    const virtualDrivesTab = getVirtualDrivesPanel(shouldHideServerColumn, serverName);
+
+    // Create new TabbedScene with updated panels
+    const newBody = new TabbedScene({
+      tabs: [
+        { id: 'storage-controllers', label: 'Storage Controllers', getBody: () => storageControllerTab },
+        { id: 'ssd-disks', label: 'SSD Disks', getBody: () => ssdDisksTab },
+        { id: 'virtual-drives', label: 'Virtual Drives', getBody: () => virtualDrivesTab },
+      ],
+      activeTab: this.state.body.state.activeTab || 'storage-controllers',
+      body: storageControllerTab,
+    });
+
+    this.setState({ body: newBody });
+  }
+
+  private buildBodyWithDefaults() {
+    // Build with default settings (no column hiding)
+    const storageControllerTab = getStorageControllersPanel(false, '');
+    const ssdDisksTab = getSSDDisksPanel(false, '');
+    const virtualDrivesTab = getVirtualDrivesPanel(false, '');
+
+    const newBody = new TabbedScene({
+      tabs: [
+        { id: 'storage-controllers', label: 'Storage Controllers', getBody: () => storageControllerTab },
+        { id: 'ssd-disks', label: 'SSD Disks', getBody: () => ssdDisksTab },
+        { id: 'virtual-drives', label: 'Virtual Drives', getBody: () => virtualDrivesTab },
+      ],
+      activeTab: this.state.body.state.activeTab || 'storage-controllers',
+      body: storageControllerTab,
+    });
+
+    this.setState({ body: newBody });
+  }
+}
+
+export function getStorageControllersPanel(hideServerColumn: boolean = false, serverName: string = '') {
   const queryRunner = new SceneQueryRunner({
     datasource: { uid: '${Account}' },
     queries: [
@@ -18,7 +109,7 @@ export function getStorageControllersPanel() {
         source: 'url',
         parser: 'backend',
         format: 'table',
-        url: '/api/v1/storage/Controllers?$top=1000&$filter=Owners in (${RegisteredDevices:singlequote})&$expand=BackupBatteryUnit,ComputeBlade,ComputeRackUnit,ComputeBoard($expand=ComputeBlade,ComputeRackUnit)',
+        url: '/api/v1/storage/Controllers?$top=1000&$filter=Owners in (${RegisteredDevices:singlequote}) and ControllerId ne \'NVMe-direct-U.2-drives\'&$expand=BackupBatteryUnit,ComputeBlade,ComputeRackUnit,ComputeBoard($expand=ComputeBlade,ComputeRackUnit)',
         root_selector: '$.Results',
         columns: [
           { selector: 'BackupBatteryUnit.IsBatteryPresent', text: 'BackupBatteryUnitPresence', type: 'string' },
@@ -74,6 +165,7 @@ export function getStorageControllersPanel() {
         id: 'organize',
         options: {
           excludeByName: {
+            Server: hideServerColumn,
             ComputeBlade: true,
             ComputeBoard: true,
             ComputeBoardBlade: true,
@@ -152,8 +244,12 @@ export function getStorageControllersPanel() {
     ],
   });
 
+  const panelTitle = serverName
+    ? `Storage Controllers in ${serverName}`
+    : 'Storage Controllers in all selected servers';
+
   const panel = PanelBuilders.table()
-    .setTitle('')
+    .setTitle(panelTitle)
     .setData(dataTransformer)
     .setOption('cellHeight', 'sm')
     .setOverrides((builder) => {
@@ -182,6 +278,7 @@ export function getStorageControllersPanel() {
           {
             type: 'value',
             options: {
+              '': { color: 'dark-yellow', index: 4, text: 'Unknown' },
               ',': { color: 'orange', index: 3, text: 'NA' },
               'Enabled,Critical': { color: 'dark-red', index: 2, text: 'Critical' },
               'Enabled,OK': { color: 'green', index: 1, text: 'OK' },
@@ -192,7 +289,7 @@ export function getStorageControllersPanel() {
             type: 'regex',
             options: {
               pattern: '(.*)',
-              result: { color: 'dark-red', index: 4, text: 'Error ($1)' },
+              result: { color: 'dark-red', index: 5, text: 'Error ($1)' },
             },
           },
         ])
@@ -207,8 +304,10 @@ export function getStorageControllersPanel() {
           {
             type: 'value',
             options: {
-              false: { color: '#646464', index: 1, text: 'Not Enabled' },
-              true: { color: 'blue', index: 0, text: 'Enabled' },
+              no: { color: '#646464', index: 0, text: 'No' },
+              yes: { color: 'blue', index: 1, text: 'Yes' },
+              false: { color: '#646464', index: 2, text: 'No' },
+              true: { color: 'blue', index: 3, text: 'Yes' },
             },
           },
         ])
@@ -270,19 +369,11 @@ export function getStorageControllersPanel() {
     })
     .build();
 
-  return new SceneFlexLayout({
-    direction: 'column',
-    children: [
-      new SceneFlexItem({
-        ySizing: 'fill',
-        body: panel,
-      }),
-    ],
-  });
+  return panel;
 }
 
 // Helper function for SSD Disks sub-tab (panel-205)
-export function getSSDDisksPanel() {
+export function getSSDDisksPanel(hideServerColumn: boolean = false, serverName: string = '') {
   const queryRunner = new SceneQueryRunner({
     datasource: { uid: '${Account}' },
     queries: [
@@ -333,20 +424,19 @@ export function getSSDDisksPanel() {
           { selector: 'RunningFirmware', text: '', type: 'string' },
           { selector: 'Serial', text: '', type: 'string' },
           { selector: 'Size', text: '', type: 'string' },
-          { selector: 'ThresholdOperatingTemperature', text: '', type: 'string' },
           { selector: 'Type', text: '', type: 'string' },
           { selector: 'WearStatusInDays', text: '', type: 'string' },
           { selector: 'WriteErrorCountThreshold', text: '', type: 'string' },
           { selector: 'WriteIoErrorCount', text: '', type: 'string' },
-          { selector: 'Parent.Parent.ComputeBlade.Name', text: 'ParentBlade', type: 'string' },
-          { selector: 'Parent.Parent.ComputeRackUnit.Name', text: 'ParentRackUnit', type: 'string' },
-          { selector: 'Parent.StorageController.Name', text: 'StorageControllerName', type: 'string' },
-          { selector: 'Parent.StorageController.Model', text: 'StorageControllerModel', type: 'string' },
+          { selector: 'Parent.Parent.ComputeBlade.Name', text: 'Parent1', type: 'string' },
+          { selector: 'Parent.Parent.Name', text: 'Parent2', type: 'string' },
+          { selector: 'Parent.Parent.ComputeRackUnit.Name', text: 'Parent3', type: 'string' },
+          { selector: 'Parent.Model', text: 'ParentModel', type: 'string' },
         ],
         computed_columns: [
-          { selector: 'ParentBlade + ParentRackUnit', text: 'Server', type: 'string' },
-          { selector: 'StorageControllerName + \' \' + StorageControllerModel', text: 'Controller', type: 'string' },
-          { selector: '(((NonCoercedSizeBytes / 1024) / 1024) / 1024) / 1024', text: 'Capacity (TB)', type: 'number' },
+          { selector: 'Parent1 + Parent2 + Parent3', text: 'Parent', type: 'string' },
+          { selector: 'DiskState + \'/\' + DriveState', text: 'State', type: 'string' },
+          { selector: 'OperatingTemperature + \'/\' + MaximumOperatingTemperature', text: 'Temp', type: 'string' },
         ],
         url_options: {
           method: 'GET',
@@ -363,76 +453,83 @@ export function getSSDDisksPanel() {
         id: 'organize',
         options: {
           excludeByName: {
+            Parent: hideServerColumn,
             Bootable: true,
             Description: true,
-            DisabledForRemoval: true,
+            DiskState: true,
+            DriveState: true,
+            EncryptionStatus: true,
             FdeCapable: true,
+            HotSpareType: true,
             IsPlatformSupported: true,
             LinkSpeed: true,
             MaximumOperatingTemperature: true,
+            Name: true,
             NonCoercedSizeBytes: true,
             NumBlocks: true,
             OperPowerState: true,
+            OperatingTemperature: true,
+            Parent1: true,
+            Parent2: true,
+            Parent3: true,
             PartNumber: true,
-            ParentBlade: true,
-            ParentRackUnit: true,
+            PercentReservedCapacityConsumed: true,
+            PerformancePercent: true,
             PowerCycleCount: true,
             PowerOnHours: true,
+            PowerOnHoursPercentage: true,
+            PredictedMediaLifeLeftPercent: true,
+            PredictiveFailureCount: true,
             PreviousFru: true,
-            Protocol: true,
             ReadErrorCountThreshold: true,
             RunningFirmware: true,
-            StorageControllerModel: true,
-            StorageControllerName: true,
-            ThresholdOperatingTemperature: true,
+            Temp: true,
             Type: true,
+            WearStatusInDays: true,
             WriteErrorCountThreshold: true,
           },
           includeByName: {},
           indexByName: {
-            'Capacity (TB)': 6,
-            Controller: 2,
-            DiskId: 3,
-            DiskState: 5,
-            DriveState: 15,
-            EncryptionStatus: 16,
-            FailurePredicted: 17,
-            HotSpareType: 18,
-            MediaErrorCount: 19,
-            Model: 7,
-            Name: 4,
-            OperatingTemperature: 9,
-            PercentLifeLeft: 10,
-            PercentReservedCapacityConsumed: 11,
-            PerformancePercent: 20,
-            PowerOnHoursPercentage: 21,
-            PredictedMediaLifeLeftPercent: 12,
-            PredictiveFailureCount: 22,
-            Presence: 23,
-            ReadIoErrorCount: 24,
-            Serial: 8,
-            Server: 1,
-            Size: 25,
-            WearStatusInDays: 13,
-            WriteIoErrorCount: 26,
+            Parent: 0,
+            DiskId: 1,
+            Model: 2,
+            Serial: 3,
+            Size: 4,
+            Protocol: 5,
+            Presence: 6,
+            State: 7,
+            FailurePredicted: 8,
+            PercentLifeLeft: 9,
+            ParentModel: 10,
+            DisabledForRemoval: 11,
+            MediaErrorCount: 12,
+            ReadIoErrorCount: 13,
+            WriteIoErrorCount: 14,
           },
           renameByName: {
-            DiskState: 'State',
-            Name: 'Disk',
-            PercentLifeLeft: 'Life Left',
-            PercentReservedCapacityConsumed: 'Reserved Cap Used',
-            PredictedMediaLifeLeftPercent: 'Predicted Life',
-            WearStatusInDays: 'Wear (days)',
+            Parent: 'Server',
+            DiskId: 'Slot',
+            FailurePredicted: 'Failure',
+            PercentLifeLeft: 'Percent Life Left',
+            ParentModel: 'Storage Controller',
+            DisabledForRemoval: 'Removal',
+            MediaErrorCount: 'Media Errors',
+            ReadIoErrorCount: 'Read IO Errors',
+            WriteIoErrorCount: 'Write IO Errors',
           },
         },
       },
     ],
   });
 
+  const panelTitle = serverName
+    ? `SSD Disks in ${serverName}`
+    : 'SSD Disks in all selected servers';
+
   const panel = PanelBuilders.table()
-    .setTitle('')
+    .setTitle(panelTitle)
     .setData(dataTransformer)
-    .setOption('cellHeight', 'lg')
+    .setOption('cellHeight', 'sm')
     .setOverrides((builder) => {
       // State field
       builder
@@ -441,143 +538,161 @@ export function getSSDDisksPanel() {
           {
             type: 'value',
             options: {
-              good: { color: 'green', index: 0, text: 'Good' },
-              online: { color: 'green', index: 1, text: 'Online' },
+              'Good/Online': { color: 'green', index: 0, text: 'OK' },
+              'OK/Online': { color: 'green', index: 1, text: 'OK' },
+              'OK/Jbod': { color: 'green', index: 2, text: 'OK' },
+              'OK/Enabled': { color: 'green', index: 3, text: 'OK' },
+              '/Enabled': { color: 'blue', index: 4, text: 'Enabled' },
             },
           },
           {
             type: 'regex',
             options: {
               pattern: '(.*)',
-              result: { color: 'dark-red', index: 2, text: 'Error ($1)' },
+              result: { color: 'dark-red', index: 5, text: '$1' },
             },
           },
         ])
-        .overrideCustomFieldConfig('cellOptions', { type: 'color-text' });
+        .overrideCustomFieldConfig('cellOptions', { type: 'color-text' })
+        .overrideCustomFieldConfig('width', 90);
 
-      // Life Left field
+      // Failure field (FailurePredicted)
       builder
-        .matchFieldsWithName('Life Left')
-        .overrideUnit('percent')
-        .overrideThresholds({
-          mode: 'absolute',
-          steps: [
-            { value: 0, color: 'dark-red' },
-            { value: 25, color: 'dark-orange' },
-            { value: 50, color: 'dark-yellow' },
-            { value: 75, color: 'green' },
-          ],
-        })
-        .overrideCustomFieldConfig('cellOptions', { type: 'color-background' });
-
-      // Predicted Life field
-      builder
-        .matchFieldsWithName('Predicted Life')
-        .overrideUnit('percent')
-        .overrideThresholds({
-          mode: 'absolute',
-          steps: [
-            { value: 0, color: 'dark-red' },
-            { value: 25, color: 'dark-orange' },
-            { value: 50, color: 'dark-yellow' },
-            { value: 75, color: 'green' },
-          ],
-        })
-        .overrideCustomFieldConfig('cellOptions', { type: 'color-background' });
-
-      // Reserved Cap Used field
-      builder
-        .matchFieldsWithName('Reserved Cap Used')
-        .overrideUnit('percent')
-        .overrideThresholds({
-          mode: 'absolute',
-          steps: [
-            { value: 0, color: 'green' },
-            { value: 25, color: 'dark-yellow' },
-            { value: 50, color: 'dark-orange' },
-            { value: 75, color: 'dark-red' },
-          ],
-        })
-        .overrideCustomFieldConfig('cellOptions', { type: 'color-background' });
-
-      // Wear (days) field
-      builder
-        .matchFieldsWithName('Wear (days)')
-        .overrideThresholds({
-          mode: 'absolute',
-          steps: [
-            { value: 0, color: 'dark-red' },
-            { value: 50, color: 'dark-orange' },
-            { value: 100, color: 'dark-yellow' },
-            { value: 200, color: 'green' },
-          ],
-        })
-        .overrideCustomFieldConfig('cellOptions', { type: 'color-background' });
-
-      // Temperature field
-      builder
-        .matchFieldsWithName('OperatingTemperature')
-        .overrideUnit('celsius')
-        .overrideThresholds({
-          mode: 'absolute',
-          steps: [
-            { value: 0, color: 'text' },
-            { value: 60, color: 'dark-yellow' },
-            { value: 70, color: 'dark-orange' },
-            { value: 80, color: 'dark-red' },
-          ],
-        })
-        .overrideCustomFieldConfig('cellOptions', { type: 'color-text' });
-
-      // Capacity field
-      builder
-        .matchFieldsWithName('Capacity (TB)')
-        .overrideDecimals(2);
-
-      // Serial field
-      builder
-        .matchFieldsWithName('Serial')
-        .overrideCustomFieldConfig('width', 150);
-
-      // Controller field
-      builder
-        .matchFieldsWithName('Controller')
-        .overrideCustomFieldConfig('width', 200);
-
-      // Server field
-      builder
-        .matchFieldsWithName('Server')
-        .overrideCustomFieldConfig('width', 150);
-
-      // Disk field
-      builder
-        .matchFieldsWithName('Disk')
-        .overrideCustomFieldConfig('width', 100);
-
-      // DiskId field
-      builder
-        .matchFieldsWithName('DiskId')
-        .overrideCustomFieldConfig('width', 80);
-
-      // Model field
-      builder
-        .matchFieldsWithName('Model')
-        .overrideCustomFieldConfig('width', 200);
-
-      // EncryptionStatus field
-      builder
-        .matchFieldsWithName('EncryptionStatus')
+        .matchFieldsWithName('Failure')
         .overrideMappings([
           {
             type: 'value',
             options: {
-              'Not Capable': { color: '#646464', index: 0, text: 'Not Capable' },
-              'Capable': { color: 'text', index: 1, text: 'Capable' },
-              'Enabled': { color: 'blue', index: 2, text: 'Enabled' },
+              false: { color: 'green', index: 0, text: 'Not Predicted' },
+              true: { color: 'dark-red', index: 1, text: 'Predicted' },
+            },
+          },
+          {
+            type: 'regex',
+            options: {
+              pattern: '(.*)',
+              result: { color: 'dark-orange', index: 2, text: '$1' },
             },
           },
         ])
-        .overrideCustomFieldConfig('cellOptions', { type: 'color-text' });
+        .overrideCustomFieldConfig('cellOptions', { type: 'color-text' })
+        .overrideCustomFieldConfig('width', 110);
+
+      // Percent Life Left field
+      builder
+        .matchFieldsWithName('Percent Life Left')
+        .overrideUnit('percent')
+        .overrideThresholds({
+          mode: 'percentage',
+          steps: [
+            { value: 0, color: 'red' },
+            { value: 20, color: 'orange' },
+            { value: 40, color: '#EAB839' },
+            { value: 60, color: 'green' },
+          ],
+        })
+        .overrideCustomFieldConfig('cellOptions', { type: 'gauge', mode: 'gradient', valueDisplayMode: 'color' });
+
+      // Size field
+      builder
+        .matchFieldsWithName('Size')
+        .overrideUnit('mbytes')
+        .overrideCustomFieldConfig('width', 75);
+
+      // Slot field
+      builder
+        .matchFieldsWithName('Slot')
+        .overrideCustomFieldConfig('width', 60);
+
+      // Protocol field
+      builder
+        .matchFieldsWithName('Protocol')
+        .overrideCustomFieldConfig('width', 85);
+
+      // Removal field
+      builder
+        .matchFieldsWithName('Removal')
+        .overrideMappings([
+          {
+            type: 'value',
+            options: {
+              false: { color: 'text', index: 0, text: 'No' },
+              true: { color: 'blue', index: 1, text: 'Yes (Disabled)' },
+            },
+          },
+          {
+            type: 'regex',
+            options: {
+              pattern: '(.*)',
+              result: { color: 'blue', index: 2, text: '$1' },
+            },
+          },
+        ])
+        .overrideCustomFieldConfig('cellOptions', { type: 'color-text' })
+        .overrideCustomFieldConfig('width', 100);
+
+      // Media Errors field
+      builder
+        .matchFieldsWithName('Media Errors')
+        .overrideMappings([
+          {
+            type: 'value',
+            options: {
+              '0': { color: 'text', index: 0, text: '0' },
+            },
+          },
+          {
+            type: 'range',
+            options: {
+              from: 1,
+              result: { color: 'dark-red', index: 1 },
+            },
+          },
+        ])
+        .overrideCustomFieldConfig('cellOptions', { type: 'color-text' })
+        .overrideCustomFieldConfig('width', 140);
+
+      // Read IO Errors field
+      builder
+        .matchFieldsWithName('Read IO Errors')
+        .overrideMappings([
+          {
+            type: 'value',
+            options: {
+              '0': { color: 'text', index: 0, text: '0' },
+            },
+          },
+          {
+            type: 'range',
+            options: {
+              from: 1,
+              result: { color: 'dark-red', index: 1 },
+            },
+          },
+        ])
+        .overrideCustomFieldConfig('cellOptions', { type: 'color-text' })
+        .overrideCustomFieldConfig('width', 140);
+
+      // Write IO Errors field
+      builder
+        .matchFieldsWithName('Write IO Errors')
+        .overrideMappings([
+          {
+            type: 'value',
+            options: {
+              '0': { color: 'text', index: 0, text: '0' },
+            },
+          },
+          {
+            type: 'range',
+            options: {
+              from: 1,
+              result: { color: 'dark-red', index: 1 },
+            },
+          },
+        ])
+        .overrideCustomFieldConfig('cellOptions', { type: 'color-text' })
+        .overrideCustomFieldConfig('width', 140);
 
       // Presence field
       builder
@@ -587,357 +702,28 @@ export function getSSDDisksPanel() {
             type: 'value',
             options: {
               equipped: { color: 'green', index: 0, text: 'Equipped' },
-              missing: { color: 'dark-red', index: 1, text: 'Missing' },
-            },
-          },
-        ])
-        .overrideCustomFieldConfig('cellOptions', { type: 'color-text' });
-
-      return builder.build();
-    })
-    .build();
-
-  return new SceneFlexLayout({
-    direction: 'column',
-    children: [
-      new SceneFlexItem({
-        ySizing: 'fill',
-        body: panel,
-      }),
-    ],
-  });
-}
-
-// Helper function for HDD Disks sub-tab (panel-208)
-export function getHDDDisksPanel() {
-  // HDD panel is nearly identical to SSD panel, just with Type eq 'HDD' filter
-  const queryRunner = new SceneQueryRunner({
-    datasource: { uid: '${Account}' },
-    queries: [
-      {
-        refId: 'A',
-        queryType: 'infinity',
-        type: 'json',
-        source: 'url',
-        parser: 'backend',
-        format: 'table',
-        url: '/api/v1/storage/PhysicalDisks?$top=1000&$filter=Type eq \'HDD\' and Owners in (${RegisteredDevices:singlequote})&$expand=Parent($expand=Parent($expand=ComputeBlade,ComputeRackUnit))',
-        root_selector: '$.Results',
-        columns: [
-          { selector: 'Bootable', text: '', type: 'string' },
-          { selector: 'Description', text: '', type: 'string' },
-          { selector: 'DisabledForRemoval', text: '', type: 'string' },
-          { selector: 'DiskId', text: '', type: 'string' },
-          { selector: 'DiskState', text: '', type: 'string' },
-          { selector: 'DriveState', text: '', type: 'string' },
-          { selector: 'EncryptionStatus', text: '', type: 'string' },
-          { selector: 'FailurePredicted', text: '', type: 'string' },
-          { selector: 'FdeCapable', text: '', type: 'string' },
-          { selector: 'HotSpareType', text: '', type: 'string' },
-          { selector: 'IsPlatformSupported', text: '', type: 'string' },
-          { selector: 'LinkSpeed', text: '', type: 'string' },
-          { selector: 'MaximumOperatingTemperature', text: '', type: 'string' },
-          { selector: 'MediaErrorCount', text: '', type: 'string' },
-          { selector: 'Model', text: '', type: 'string' },
-          { selector: 'Name', text: '', type: 'string' },
-          { selector: 'NonCoercedSizeBytes', text: '', type: 'string' },
-          { selector: 'NumBlocks', text: '', type: 'string' },
-          { selector: 'OperPowerState', text: '', type: 'string' },
-          { selector: 'OperatingTemperature', text: '', type: 'string' },
-          { selector: 'PartNumber', text: '', type: 'string' },
-          { selector: 'PercentLifeLeft', text: '', type: 'string' },
-          { selector: 'PercentReservedCapacityConsumed', text: '', type: 'string' },
-          { selector: 'PerformancePercent', text: '', type: 'string' },
-          { selector: 'PowerCycleCount', text: '', type: 'string' },
-          { selector: 'PowerOnHours', text: '', type: 'string' },
-          { selector: 'PowerOnHoursPercentage', text: '', type: 'string' },
-          { selector: 'PredictedMediaLifeLeftPercent', text: '', type: 'string' },
-          { selector: 'PredictiveFailureCount', text: '', type: 'string' },
-          { selector: 'Presence', text: '', type: 'string' },
-          { selector: 'PreviousFru', text: '', type: 'string' },
-          { selector: 'Protocol', text: '', type: 'string' },
-          { selector: 'ReadErrorCountThreshold', text: '', type: 'string' },
-          { selector: 'ReadIoErrorCount', text: '', type: 'string' },
-          { selector: 'RunningFirmware', text: '', type: 'string' },
-          { selector: 'Serial', text: '', type: 'string' },
-          { selector: 'Size', text: '', type: 'string' },
-          { selector: 'ThresholdOperatingTemperature', text: '', type: 'string' },
-          { selector: 'Type', text: '', type: 'string' },
-          { selector: 'WearStatusInDays', text: '', type: 'string' },
-          { selector: 'WriteErrorCountThreshold', text: '', type: 'string' },
-          { selector: 'WriteIoErrorCount', text: '', type: 'string' },
-          { selector: 'Parent.Parent.ComputeBlade.Name', text: 'ParentBlade', type: 'string' },
-          { selector: 'Parent.Parent.ComputeRackUnit.Name', text: 'ParentRackUnit', type: 'string' },
-          { selector: 'Parent.StorageController.Name', text: 'StorageControllerName', type: 'string' },
-          { selector: 'Parent.StorageController.Model', text: 'StorageControllerModel', type: 'string' },
-        ],
-        computed_columns: [
-          { selector: 'ParentBlade + ParentRackUnit', text: 'Server', type: 'string' },
-          { selector: 'StorageControllerName + \' \' + StorageControllerModel', text: 'Controller', type: 'string' },
-          { selector: '(((NonCoercedSizeBytes / 1024) / 1024) / 1024) / 1024', text: 'Capacity (TB)', type: 'number' },
-        ],
-        url_options: {
-          method: 'GET',
-          data: '',
-        },
-      } as any,
-    ],
-  });
-
-  const dataTransformer = new SceneDataTransformer({
-    $data: queryRunner,
-    transformations: [
-      {
-        id: 'organize',
-        options: {
-          excludeByName: {
-            Bootable: true,
-            Description: true,
-            DisabledForRemoval: true,
-            FdeCapable: true,
-            IsPlatformSupported: true,
-            LinkSpeed: true,
-            MaximumOperatingTemperature: true,
-            NonCoercedSizeBytes: true,
-            NumBlocks: true,
-            OperPowerState: true,
-            PartNumber: true,
-            ParentBlade: true,
-            ParentRackUnit: true,
-            PowerCycleCount: true,
-            PowerOnHours: true,
-            PreviousFru: true,
-            Protocol: true,
-            ReadErrorCountThreshold: true,
-            RunningFirmware: true,
-            StorageControllerModel: true,
-            StorageControllerName: true,
-            ThresholdOperatingTemperature: true,
-            Type: true,
-            WriteErrorCountThreshold: true,
-          },
-          includeByName: {},
-          indexByName: {
-            'Capacity (TB)': 6,
-            Controller: 2,
-            DiskId: 3,
-            DiskState: 5,
-            DriveState: 15,
-            EncryptionStatus: 16,
-            FailurePredicted: 17,
-            HotSpareType: 18,
-            MediaErrorCount: 19,
-            Model: 7,
-            Name: 4,
-            OperatingTemperature: 9,
-            PercentLifeLeft: 10,
-            PercentReservedCapacityConsumed: 11,
-            PerformancePercent: 20,
-            PowerOnHoursPercentage: 21,
-            PredictedMediaLifeLeftPercent: 12,
-            PredictiveFailureCount: 22,
-            Presence: 23,
-            ReadIoErrorCount: 24,
-            Serial: 8,
-            Server: 1,
-            Size: 25,
-            WearStatusInDays: 13,
-            WriteIoErrorCount: 26,
-          },
-          renameByName: {
-            DiskState: 'State',
-            Name: 'Disk',
-            PercentLifeLeft: 'Life Left',
-            PercentReservedCapacityConsumed: 'Reserved Cap Used',
-            PredictedMediaLifeLeftPercent: 'Predicted Life',
-            WearStatusInDays: 'Wear (days)',
-          },
-        },
-      },
-    ],
-  });
-
-  const panel = PanelBuilders.table()
-    .setTitle('')
-    .setData(dataTransformer)
-    .setOption('cellHeight', 'lg')
-    .setOverrides((builder) => {
-      // State field
-      builder
-        .matchFieldsWithName('State')
-        .overrideMappings([
-          {
-            type: 'value',
-            options: {
-              good: { color: 'green', index: 0, text: 'Good' },
-              online: { color: 'green', index: 1, text: 'Online' },
             },
           },
           {
             type: 'regex',
             options: {
               pattern: '(.*)',
-              result: { color: 'dark-red', index: 2, text: 'Error ($1)' },
+              result: { color: 'dark-red', index: 1, text: '$1' },
             },
           },
         ])
-        .overrideCustomFieldConfig('cellOptions', { type: 'color-text' });
-
-      // Life Left field
-      builder
-        .matchFieldsWithName('Life Left')
-        .overrideUnit('percent')
-        .overrideThresholds({
-          mode: 'absolute',
-          steps: [
-            { value: 0, color: 'dark-red' },
-            { value: 25, color: 'dark-orange' },
-            { value: 50, color: 'dark-yellow' },
-            { value: 75, color: 'green' },
-          ],
-        })
-        .overrideCustomFieldConfig('cellOptions', { type: 'color-background' });
-
-      // Predicted Life field
-      builder
-        .matchFieldsWithName('Predicted Life')
-        .overrideUnit('percent')
-        .overrideThresholds({
-          mode: 'absolute',
-          steps: [
-            { value: 0, color: 'dark-red' },
-            { value: 25, color: 'dark-orange' },
-            { value: 50, color: 'dark-yellow' },
-            { value: 75, color: 'green' },
-          ],
-        })
-        .overrideCustomFieldConfig('cellOptions', { type: 'color-background' });
-
-      // Reserved Cap Used field
-      builder
-        .matchFieldsWithName('Reserved Cap Used')
-        .overrideUnit('percent')
-        .overrideThresholds({
-          mode: 'absolute',
-          steps: [
-            { value: 0, color: 'green' },
-            { value: 25, color: 'dark-yellow' },
-            { value: 50, color: 'dark-orange' },
-            { value: 75, color: 'dark-red' },
-          ],
-        })
-        .overrideCustomFieldConfig('cellOptions', { type: 'color-background' });
-
-      // Wear (days) field
-      builder
-        .matchFieldsWithName('Wear (days)')
-        .overrideThresholds({
-          mode: 'absolute',
-          steps: [
-            { value: 0, color: 'dark-red' },
-            { value: 50, color: 'dark-orange' },
-            { value: 100, color: 'dark-yellow' },
-            { value: 200, color: 'green' },
-          ],
-        })
-        .overrideCustomFieldConfig('cellOptions', { type: 'color-background' });
-
-      // Temperature field
-      builder
-        .matchFieldsWithName('OperatingTemperature')
-        .overrideUnit('celsius')
-        .overrideThresholds({
-          mode: 'absolute',
-          steps: [
-            { value: 0, color: 'text' },
-            { value: 60, color: 'dark-yellow' },
-            { value: 70, color: 'dark-orange' },
-            { value: 80, color: 'dark-red' },
-          ],
-        })
-        .overrideCustomFieldConfig('cellOptions', { type: 'color-text' });
-
-      // Capacity field
-      builder
-        .matchFieldsWithName('Capacity (TB)')
-        .overrideDecimals(2);
-
-      // Serial field
-      builder
-        .matchFieldsWithName('Serial')
-        .overrideCustomFieldConfig('width', 150);
-
-      // Controller field
-      builder
-        .matchFieldsWithName('Controller')
-        .overrideCustomFieldConfig('width', 200);
-
-      // Server field
-      builder
-        .matchFieldsWithName('Server')
-        .overrideCustomFieldConfig('width', 150);
-
-      // Disk field
-      builder
-        .matchFieldsWithName('Disk')
+        .overrideCustomFieldConfig('cellOptions', { type: 'color-text' })
         .overrideCustomFieldConfig('width', 100);
-
-      // DiskId field
-      builder
-        .matchFieldsWithName('DiskId')
-        .overrideCustomFieldConfig('width', 80);
-
-      // Model field
-      builder
-        .matchFieldsWithName('Model')
-        .overrideCustomFieldConfig('width', 200);
-
-      // EncryptionStatus field
-      builder
-        .matchFieldsWithName('EncryptionStatus')
-        .overrideMappings([
-          {
-            type: 'value',
-            options: {
-              'Not Capable': { color: '#646464', index: 0, text: 'Not Capable' },
-              'Capable': { color: 'text', index: 1, text: 'Capable' },
-              'Enabled': { color: 'blue', index: 2, text: 'Enabled' },
-            },
-          },
-        ])
-        .overrideCustomFieldConfig('cellOptions', { type: 'color-text' });
-
-      // Presence field
-      builder
-        .matchFieldsWithName('Presence')
-        .overrideMappings([
-          {
-            type: 'value',
-            options: {
-              equipped: { color: 'green', index: 0, text: 'Equipped' },
-              missing: { color: 'dark-red', index: 1, text: 'Missing' },
-            },
-          },
-        ])
-        .overrideCustomFieldConfig('cellOptions', { type: 'color-text' });
 
       return builder.build();
     })
     .build();
 
-  return new SceneFlexLayout({
-    direction: 'column',
-    children: [
-      new SceneFlexItem({
-        ySizing: 'fill',
-        body: panel,
-      }),
-    ],
-  });
+  return panel;
 }
 
 // Helper function for Virtual Drives sub-tab (panel-206)
-export function getVirtualDrivesPanel() {
+export function getVirtualDrivesPanel(hideServerColumn: boolean = false, serverName: string = '') {
   const queryRunner = new SceneQueryRunner({
     datasource: { uid: '${Account}' },
     queries: [
@@ -972,11 +758,13 @@ export function getVirtualDrivesPanel() {
           { selector: 'StorageController.Model', text: 'StorageControllerModel', type: 'string' },
           { selector: 'StorageController.Name', text: 'StorageControllerName', type: 'string' },
           { selector: 'Parent.Parent.ComputeBlade.Name', text: 'ParentBlade', type: 'string' },
+          { selector: 'Parent.Parent.Name', text: 'ParentName', type: 'string' },
           { selector: 'Parent.Parent.ComputeRackUnit.Name', text: 'ParentRackUnit', type: 'string' },
           { selector: 'Parent.StorageController.Name', text: 'PhysicalDiskControllerName', type: 'string' },
         ],
         computed_columns: [
-          { selector: 'ParentBlade + ParentRackUnit', text: 'Server', type: 'string' },
+          { selector: 'ParentBlade + ParentName + ParentRackUnit', text: 'Server', type: 'string' },
+          { selector: 'StorageControllerName + \' \' + StorageControllerModel', text: 'StorageController', type: 'string' },
         ],
         url_options: {
           method: 'GET',
@@ -993,84 +781,97 @@ export function getVirtualDrivesPanel() {
         id: 'organize',
         options: {
           excludeByName: {
+            Server: hideServerColumn,
             Description: true,
             DriveCache: true,
+            DriveSecurity: true,
             Id: true,
+            IoPolicy: true,
+            OperState: true,
             ParentBlade: true,
+            ParentName: true,
             ParentRackUnit: true,
             PhysicalDiskControllerName: true,
+            Presence: true,
+            ReadPolicy: true,
             StripSize: true,
             StorageControllerModel: true,
             StorageControllerName: true,
+            VirtualDriveId: true,
+            WritePolicy: true,
           },
           includeByName: {},
           indexByName: {
-            AccessPolicy: 8,
-            Bootable: 9,
-            ConfigState: 4,
-            DriveState: 3,
-            DriveSecurity: 10,
-            IoPolicy: 11,
-            Name: 2,
-            OperState: 12,
-            Presence: 13,
-            ReadPolicy: 14,
-            Server: 1,
-            Size: 6,
+            Server: 0,
+            Name: 1,
+            DriveState: 2,
+            ConfigState: 3,
+            Size: 4,
             Type: 5,
-            VirtualDriveId: 0,
-            WritePolicy: 7,
+            Bootable: 6,
+            StorageController: 7,
+            AccessPolicy: 8,
           },
           renameByName: {
-            DriveState: 'State',
-            Type: 'RAID Type',
-            VirtualDriveId: 'ID',
+            Name: 'Virtual Drive',
+            DriveState: 'Drive State',
+            ConfigState: 'Config State',
           },
         },
       },
     ],
   });
 
+  const panelTitle = serverName
+    ? `Virtual Drives in ${serverName}`
+    : 'Virtual Drives in all selected servers';
+
   const panel = PanelBuilders.table()
-    .setTitle('')
+    .setTitle(panelTitle)
     .setData(dataTransformer)
     .setOption('cellHeight', 'sm')
     .setOverrides((builder) => {
-      // State field
+      // Drive State field (DriveState)
       builder
-        .matchFieldsWithName('State')
+        .matchFieldsWithName('Drive State')
         .overrideMappings([
           {
             type: 'value',
             options: {
               optimal: { color: 'green', index: 0, text: 'Optimal' },
+              Optimal: { color: 'green', index: 1, text: 'Optimal' },
+              NA: { color: 'orange', index: 2, text: 'NA' },
+              '': { color: 'dark-yellow', index: 3, text: 'Unknown' },
             },
           },
           {
             type: 'regex',
             options: {
               pattern: '(.*)',
-              result: { color: 'dark-red', index: 1, text: 'Error ($1)' },
+              result: { color: 'dark-red', index: 4, text: 'Error ($1)' },
             },
           },
         ])
         .overrideCustomFieldConfig('cellOptions', { type: 'color-text' });
 
-      // ConfigState field
+      // Config State field (ConfigState)
       builder
-        .matchFieldsWithName('ConfigState')
+        .matchFieldsWithName('Config State')
         .overrideMappings([
           {
             type: 'value',
             options: {
-              applied: { color: 'green', index: 0, text: 'Applied' },
+              optimal: { color: 'green', index: 0, text: 'Optimal' },
+              Optimal: { color: 'green', index: 1, text: 'Optimal' },
+              NA: { color: 'orange', index: 2, text: 'NA' },
+              '': { color: 'dark-yellow', index: 3, text: 'Unknown' },
             },
           },
           {
             type: 'regex',
             options: {
               pattern: '(.*)',
-              result: { color: 'dark-red', index: 1, text: 'Error ($1)' },
+              result: { color: 'dark-red', index: 4, text: '$1' },
             },
           },
         ])
@@ -1090,61 +891,30 @@ export function getVirtualDrivesPanel() {
         ])
         .overrideCustomFieldConfig('cellOptions', { type: 'color-text' });
 
-      // DriveSecurity field
-      builder
-        .matchFieldsWithName('DriveSecurity')
-        .overrideMappings([
-          {
-            type: 'value',
-            options: {
-              Disabled: { color: '#646464', index: 0, text: 'Disabled' },
-              Enabled: { color: 'blue', index: 1, text: 'Enabled' },
-            },
-          },
-        ])
-        .overrideCustomFieldConfig('cellOptions', { type: 'color-text' });
-
       return builder.build();
     })
     .build();
 
-  return new SceneFlexLayout({
-    direction: 'column',
-    children: [
-      new SceneFlexItem({
-        ySizing: 'fill',
-        body: panel,
-      }),
-    ],
-  });
+  return panel;
 }
 
 export function getStorageTab() {
-  // Create nested tabs for Storage sub-sections
-  const storageControllerTab = getStorageControllersPanel();
-  const ssdDisksTab = getSSDDisksPanel();
-  const hddDisksTab = getHDDDisksPanel();
-  const virtualDrivesTab = getVirtualDrivesPanel();
+  // Initialize with default panels (no column hiding, no server name)
+  const storageControllerTab = getStorageControllersPanel(false, '');
+  const ssdDisksTab = getSSDDisksPanel(false, '');
+  const virtualDrivesTab = getVirtualDrivesPanel(false, '');
 
-  const storageTabs = new TabbedScene({
+  const initialBody = new TabbedScene({
     tabs: [
       { id: 'storage-controllers', label: 'Storage Controllers', getBody: () => storageControllerTab },
       { id: 'ssd-disks', label: 'SSD Disks', getBody: () => ssdDisksTab },
-      { id: 'hdd-disks', label: 'HDD Disks', getBody: () => hddDisksTab },
       { id: 'virtual-drives', label: 'Virtual Drives', getBody: () => virtualDrivesTab },
     ],
     activeTab: 'storage-controllers',
     body: storageControllerTab,
   });
 
-  // Wrap the TabbedScene in a SceneFlexLayout as per Grafana Scenes pattern
-  return new SceneFlexLayout({
-    direction: 'column',
-    children: [
-      new SceneFlexItem({
-        ySizing: 'fill',
-        body: storageTabs,
-      }),
-    ],
+  return new DynamicStorageScene({
+    body: initialBody,
   });
 }

@@ -95,12 +95,11 @@ export function getTrafficBalanceTab() {
   });
 
   // Main layout with all collapsible rows
-  // Wrap SceneGridLayout in SceneFlexLayout to provide proper flex container context
-  // This ensures the grid layout renders correctly within the tab
   return new SceneFlexLayout({
     direction: 'column',
     children: [
       new SceneFlexItem({
+        minHeight: 1200,
         body: new SceneGridLayout({
           children: [
             ethernetOverviewRow,

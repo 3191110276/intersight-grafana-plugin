@@ -44,7 +44,7 @@ export function getStandaloneSceneBody() {
         source: 'url',
         parser: 'backend',
         format: 'table',
-        url: '/api/v1/compute/RackUnits?$filter=ManagementMode eq \'IntersightStandalone\'',
+        url: '/api/v1/compute/RackUnits?$filter=ManagementMode eq \'IntersightStandalone\' and not(startswith(Model,\'HX\')) and Vendor eq \'Cisco Systems Inc\'',
         root_selector: '$.Results',
         columns: [
           { selector: 'Name', text: 'Name', type: 'string' },

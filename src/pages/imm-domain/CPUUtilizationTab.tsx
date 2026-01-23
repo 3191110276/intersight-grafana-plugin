@@ -13,8 +13,10 @@ import {
   SceneGridLayout,
   SceneGridRow,
   SceneGridItem,
+  SceneDataTransformer,
 } from '@grafana/scenes';
 import { TabbedScene } from '../../components/TabbedScene';
+import { TableCellDisplayMode } from '@grafana/ui';
 
 export function getCPUUtilizationTab() {
   // Panel-7 from original dashboard - combines CPU utilization and temperature data
@@ -321,15 +323,7 @@ export function getCPUUtilizationTab() {
     })
     .build();
 
-  return new SceneFlexLayout({
-    direction: 'column',
-    children: [
-      new SceneFlexItem({
-        ySizing: 'fill',
-        body: tablePanel,
-      }),
-    ],
-  });
+  return tablePanel;
 }
 
 // ============================================================================
@@ -591,7 +585,7 @@ function getStorageControllersPanel() {
     direction: 'column',
     children: [
       new SceneFlexItem({
-        ySizing: 'fill',
+        minHeight: 600,
         body: panel,
       }),
     ],
@@ -924,7 +918,7 @@ function getSSDDisksPanel() {
     direction: 'column',
     children: [
       new SceneFlexItem({
-        ySizing: 'fill',
+        minHeight: 600,
         body: panel,
       }),
     ],
@@ -1257,7 +1251,7 @@ function getHDDDisksPanel() {
     direction: 'column',
     children: [
       new SceneFlexItem({
-        ySizing: 'fill',
+        minHeight: 600,
         body: panel,
       }),
     ],
@@ -1440,7 +1434,7 @@ function getVirtualDrivesPanel() {
     direction: 'column',
     children: [
       new SceneFlexItem({
-        ySizing: 'fill',
+        minHeight: 600,
         body: panel,
       }),
     ],

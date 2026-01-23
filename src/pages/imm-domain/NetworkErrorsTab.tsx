@@ -15,6 +15,19 @@ import {
   SceneGridItem,
 } from '@grafana/scenes';
 import { TabbedScene } from '../../components/TabbedScene';
+import {
+  getFIEthernetUplinkTXErrorsPanel,
+  getFIEthernetUplinkRXErrorsPanel,
+  getFIEthernetUplinkDetailTable,
+  getFIEthernetUplinkPortChannelTXErrorsPanel,
+  getFIEthernetUplinkPortChannelRXErrorsPanel,
+  getFIEthernetUplinkPortChannelDetailTable,
+  getFIDownlinksPanel,
+  getIFMUplinksPanel,
+  getIFMDownlinksPanel,
+  getVNICVHBAPanel,
+  getErrorDescriptionsPanel,
+} from './CongestionTab';
 
 export function getNetworkErrorsTab() {
   // Helper to create Ports tab layout
@@ -199,14 +212,22 @@ export function getNetworkErrorsTab() {
   });
 
   // Main layout with all collapsible rows
-  return new SceneGridLayout({
+  return new SceneFlexLayout({
+    direction: 'column',
     children: [
-      ethernetUplinksRow,
-      downlinksRow,
-      ifmUplinksRow,
-      ifmDownlinksRow,
-      vnicVhbaRow,
-      errorDescriptionsRow,
+      new SceneFlexItem({
+        minHeight: 1000,
+        body: new SceneGridLayout({
+          children: [
+            ethernetUplinksRow,
+            downlinksRow,
+            ifmUplinksRow,
+            ifmDownlinksRow,
+            vnicVhbaRow,
+            errorDescriptionsRow,
+          ],
+        }),
+      }),
     ],
   });
 }
