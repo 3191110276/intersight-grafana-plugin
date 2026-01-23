@@ -7,7 +7,6 @@ import { TabbedScene } from '../../components/TabbedScene';
 import { debugScene, debugVariable } from '../../utils/debug';
 
 // Import all tab functions
-import { getOverviewTab } from './OverviewTab';
 import { getInventoryTab } from './InventoryTab';
 import { getAlarmsTab } from './AlarmsTab';
 import { getActionsTab } from './ActionsTab';
@@ -19,7 +18,6 @@ import { getCPUUtilizationTab } from './CPUUtilizationTab';
 import { getStorageTab } from './StorageTab';
 
 const standaloneTabs = [
-  { id: 'overview', label: 'Overview**', getBody: getOverviewTab },
   { id: 'inventory', label: 'Inventory', getBody: getInventoryTab },
   { id: 'alarms', label: 'Alarms', getBody: getAlarmsTab },
   { id: 'actions', label: 'Actions', getBody: getActionsTab },
@@ -116,8 +114,8 @@ export function getStandaloneSceneBody() {
   return new TabbedScene({
     $variables: variables,
     tabs: standaloneTabs,
-    activeTab: 'overview',
-    body: getOverviewTab(),
+    activeTab: 'inventory',
+    body: getInventoryTab(),
     urlSync: true,
     isTopLevel: false,
     controls: [new VariableValueSelectors({})],

@@ -1,7 +1,7 @@
 /**
- * IMM Domain Scene - Main Entry Point
+ * Domain Scene - Main Entry Point
  *
- * This module provides the main scene body for the IMM Domain tab,
+ * This module provides the main scene body for the Domain tab,
  * which includes multiple sub-tabs for different aspects of domain management.
  */
 
@@ -27,13 +27,13 @@ import { getCPUUtilizationTab } from './CPUUtilizationTab';
 import { getStorageTab } from './StorageTab';
 
 /**
- * Main export function for the IMM Domain scene body.
+ * Main export function for the Domain scene body.
  * Creates the tab structure with domain selection variable.
  */
-export function getIMMDomainSceneBody() {
-  debugScene('Creating IMM Domain section scene');
+export function getDomainSceneBody() {
+  debugScene('Creating Domain section scene');
 
-  // Create DomainName variable - scoped to IMM Domain tab
+  // Create DomainName variable - scoped to Domain tab
   // Queries ElementSummaries with ManagementMode filter
   // Uses regex to extract domain name (removes " FI-A" suffix)
   const domainNameVariable = new QueryVariable({
@@ -67,7 +67,7 @@ export function getIMMDomainSceneBody() {
   });
 
   debugVariable('Initialized section variable: DomainName', {
-    section: 'imm-domain',
+    section: 'domain',
     isMulti: true,
     maxVisibleValues: 2,
     regex: '(?<text>.*) FI-A',
@@ -106,7 +106,7 @@ export function getIMMDomainSceneBody() {
   });
 
   debugVariable('Initialized hidden variable: RegisteredDevices', {
-    section: 'imm-domain',
+    section: 'domain',
     hide: 2,
     dependsOn: 'DomainName',
   });

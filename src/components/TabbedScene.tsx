@@ -75,7 +75,7 @@ function TabbedSceneRenderer({ model }: SceneComponentProps<TabbedScene>) {
     // BrowserRouter basename strips '/a/intersight-app', so:
     // URL '/a/intersight-app/standalone/alarms' becomes location.pathname '/standalone/alarms'
     const pathParts = location.pathname.split('/').filter(Boolean);
-    // pathParts[0] = section (e.g., 'standalone', 'imm-domain')
+    // pathParts[0] = section (e.g., 'standalone', 'domain')
     // pathParts[1] = sub-tab (e.g., 'alarms', 'overview')
 
     if (isTopLevel) {

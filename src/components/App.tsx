@@ -12,14 +12,14 @@ import {
 } from '@grafana/scenes';
 import { TabbedScene } from './TabbedScene';
 import { getHomeSceneBody } from '../pages/home';
-import { getIMMDomainSceneBody } from '../pages/imm-domain';
+import { getDomainSceneBody } from '../pages/domain';
 import { getStandaloneSceneBody } from '../pages/standalone';
 import { getUnifiedEdgeSceneBody } from '../pages/unified-edge';
 import { debugScene, debugVariable } from '../utils/debug';
 
 const tabs = [
   { id: 'home', label: 'Home', getBody: getHomeSceneBody },
-  { id: 'imm-domain', label: 'IMM Domain', getBody: getIMMDomainSceneBody },
+  { id: 'domain', label: 'Domain', getBody: getDomainSceneBody },
   { id: 'standalone', label: 'Standalone', getBody: getStandaloneSceneBody },
   { id: 'unified-edge', label: 'Unified Edge', getBody: getUnifiedEdgeSceneBody },
 ];
