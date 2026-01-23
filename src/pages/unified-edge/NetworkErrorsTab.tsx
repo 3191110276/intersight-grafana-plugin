@@ -4,7 +4,7 @@ import {
   PanelBuilders,
 } from '@grafana/scenes';
 
-export function getNetworkUtilizationTab() {
+export function getNetworkErrorsTab() {
   return new SceneFlexLayout({
     direction: 'column',
     children: [

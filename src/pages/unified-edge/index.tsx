@@ -1,5 +1,4 @@
 import {
-  SceneFlexLayout,
   QueryVariable,
   SceneVariableSet,
   VariableValueSelectors,
@@ -7,40 +6,35 @@ import {
 import { TabbedScene } from '../../components/TabbedScene';
 import { debugScene, debugVariable } from '../../utils/debug';
 
-// Import tab functions from same directory
-import { getOverviewTab } from './OverviewTab';
+// Import all 10 tab functions
 import { getInventoryTab } from './InventoryTab';
 import { getAlarmsTab } from './AlarmsTab';
 import { getActionsTab } from './ActionsTab';
 import { getPortsTab } from './PortsTab';
 import { getNetworkUtilizationTab } from './NetworkUtilizationTab';
-import { getCongestionTab } from './CongestionTab';
-
-// ============================================================================
-// TAB DEFINITIONS
-// ============================================================================
+import { getTrafficBalanceTab } from './TrafficBalanceTab';
+import { getNetworkErrorsTab } from './NetworkErrorsTab';
+import { getEnvironmentalTab } from './EnvironmentalTab';
+import { getCPUUtilizationTab } from './CPUUtilizationTab';
+import { getStorageTab } from './StorageTab';
 
 const unifiedEdgeTabs = [
-  { id: 'overview', label: 'Overview', getBody: getOverviewTab },
-  { id: 'inventory', label: 'Inventory', getBody: getInventoryTab },
-  { id: 'alarms', label: 'Alarms', getBody: getAlarmsTab },
-  { id: 'actions', label: 'Actions', getBody: getActionsTab },
-  { id: 'ports', label: 'Ports', getBody: getPortsTab },
-  { id: 'network-utilization', label: 'Network Utilization', getBody: getNetworkUtilizationTab },
-  { id: 'congestion', label: 'Traffic Balance', getBody: getCongestionTab },
+  { id: 'inventory', label: 'Inventory**', getBody: getInventoryTab },
+  { id: 'alarms', label: 'Alarms**', getBody: getAlarmsTab },
+  { id: 'actions', label: 'Actions**', getBody: getActionsTab },
+  { id: 'ports', label: 'Ports**', getBody: getPortsTab },
+  { id: 'network-utilization', label: 'Network Utilization**', getBody: getNetworkUtilizationTab },
+  { id: 'traffic-balance', label: 'Traffic Balance**', getBody: getTrafficBalanceTab },
+  { id: 'network-errors', label: 'Network Errors**', getBody: getNetworkErrorsTab },
+  { id: 'environmental', label: 'Environmental**', getBody: getEnvironmentalTab },
+  { id: 'cpu-utilization', label: 'CPU Utilization**', getBody: getCPUUtilizationTab },
+  { id: 'storage', label: 'Storage**', getBody: getStorageTab },
 ];
-
-// ============================================================================
-// SCENEAPP TABS EXPORT
-// ============================================================================
-// MAIN EXPORT FUNCTION
-// ============================================================================
 
 export function getUnifiedEdgeSceneBody() {
   debugScene('Creating Unified Edge section scene');
 
-  // Create ChassisName variable - scoped to Unified Edge tab
-  // Queries equipment/Chasses with Model filter for UCSXE-9305
+  // ChassisName variable - queries UCSXE-9305 chassis
   const chassisNameVariable = new QueryVariable({
     name: 'ChassisName',
     label: 'Chassis',
@@ -58,10 +52,7 @@ export function getUnifiedEdgeSceneBody() {
         columns: [
           { selector: 'Name', text: 'Name', type: 'string' },
         ],
-        url_options: {
-          method: 'GET',
-          data: '',
-        },
+        url_options: { method: 'GET', data: '' },
         filters: [],
       },
     },
@@ -74,11 +65,9 @@ export function getUnifiedEdgeSceneBody() {
     section: 'unified-edge',
     isMulti: true,
     maxVisibleValues: 2,
-    queryUrl: "/api/v1/equipment/Chasses?$filter=Model eq 'UCSXE-9305'",
   });
 
-  // Create RegisteredDevices variable - hidden, depends on ChassisName
-  // Used for filtering in downstream panels
+  // RegisteredDevices variable - hidden, depends on ChassisName
   const registeredDevicesVariable = new QueryVariable({
     name: 'RegisteredDevices',
     label: 'RegisteredDevices',
@@ -96,16 +85,13 @@ export function getUnifiedEdgeSceneBody() {
         columns: [
           { selector: 'RegisteredDevice.Moid', text: 'Moid', type: 'string' },
         ],
-        url_options: {
-          method: 'GET',
-          data: '',
-        },
+        url_options: { method: 'GET', data: '' },
         filters: [],
       },
     },
     isMulti: true,
     includeAll: false,
-    hide: 2, // hideVariable = 2 in Scenes
+    hide: 2,
   });
 
   debugVariable('Initialized hidden variable: RegisteredDevices', {
@@ -114,8 +100,7 @@ export function getUnifiedEdgeSceneBody() {
     dependsOn: 'ChassisName',
   });
 
-  // Create DomainName variable for Overview tab panels that repeat by domain
-  // For Unified Edge, this is derived from chassis names
+  // DomainName variable - hidden, used internally
   const domainNameVariable = new QueryVariable({
     name: 'DomainName',
     label: 'Domain',
@@ -133,35 +118,29 @@ export function getUnifiedEdgeSceneBody() {
         columns: [
           { selector: 'Name', text: 'Name', type: 'string' },
         ],
-        url_options: {
-          method: 'GET',
-          data: '',
-        },
+        url_options: { method: 'GET', data: '' },
         filters: [],
       },
     },
     isMulti: true,
     includeAll: false,
-    hide: 2, // Hidden - used internally for Overview tab panels
+    hide: 2,
   });
 
   debugVariable('Initialized hidden variable: DomainName', {
     section: 'unified-edge',
     hide: 2,
-    usedBy: 'Overview tab panels',
   });
 
-  // Create variable set for Unified Edge tab
   const variables = new SceneVariableSet({
     variables: [chassisNameVariable, registeredDevicesVariable, domainNameVariable],
   });
 
-  // Create the tabbed scene with controls on same line as tabs
   return new TabbedScene({
     $variables: variables,
     tabs: unifiedEdgeTabs,
-    activeTab: 'overview',
-    body: getOverviewTab(),
+    activeTab: 'inventory',
+    body: getInventoryTab(),
     urlSync: true,
     isTopLevel: false,
     controls: [new VariableValueSelectors({})],
