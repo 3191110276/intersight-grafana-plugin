@@ -507,6 +507,10 @@ function createSingleServerGraphsBody() {
         .matchFieldsByType('number')
         .overrideColor({ fixedColor: 'semi-dark-blue', mode: 'fixed' });
     })
+    .setOption('tooltip', {
+      mode: 'multi',
+      sort: 'desc',
+    })
     .build();
 
   // Combined Temperature Query Runner (CPU 1 + CPU 2)
@@ -532,6 +536,10 @@ function createSingleServerGraphsBody() {
         .matchFieldsWithNameByRegex('/^C Temperature/')
         .overrideDisplayName('CPU 2')
         .overrideColor({ fixedColor: 'semi-dark-red', mode: 'fixed' });
+    })
+    .setOption('tooltip', {
+      mode: 'multi',
+      sort: 'desc',
     })
     .build();
 
@@ -585,6 +593,10 @@ function createDrilldownView(serverName: string, scene: DynamicCPUUtilizationSce
         .matchFieldsByType('number')
         .overrideColor({ fixedColor: 'semi-dark-blue', mode: 'fixed' });
     })
+    .setOption('tooltip', {
+      mode: 'multi',
+      sort: 'desc',
+    })
     .build();
 
   // Combined CPU Temperature panel - matching single server view
@@ -605,6 +617,10 @@ function createDrilldownView(serverName: string, scene: DynamicCPUUtilizationSce
         .matchFieldsWithNameByRegex('/^C Temperature/')
         .overrideDisplayName('CPU 2')
         .overrideColor({ fixedColor: 'semi-dark-red', mode: 'fixed' });
+    })
+    .setOption('tooltip', {
+      mode: 'multi',
+      sort: 'desc',
     })
     .build();
 

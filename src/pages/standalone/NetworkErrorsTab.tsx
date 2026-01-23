@@ -187,6 +187,10 @@ export function getNetworkErrorsTab() {
         { value: 90, color: 'red' },
       ],
     })
+    .setOption('tooltip', {
+      mode: 'multi',
+      sort: 'desc',
+    })
     .build();
 
   // Row 1, Panel 2: Total receive errors per physical port (panel-221)
@@ -368,6 +372,10 @@ export function getNetworkErrorsTab() {
         { value: 70, color: '#EAB839' },
         { value: 90, color: 'red' },
       ],
+    })
+    .setOption('tooltip', {
+      mode: 'multi',
+      sort: 'desc',
     })
     .build();
 

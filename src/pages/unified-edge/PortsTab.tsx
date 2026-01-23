@@ -292,10 +292,6 @@ class DynamicPortsScene extends SceneObjectBase<DynamicPortsSceneState> {
       // Build filter string: 'moid1','moid2','moid3'
       if (moids.length > 0) {
         moidFilter = moids.map(m => `'${m}'`).join(',');
-        console.log('[UnifiedEdge PortsTab] Extracted Moids from RegisteredDevices variable options:', moids);
-        console.log('[UnifiedEdge PortsTab] Built filter string:', moidFilter);
-      } else {
-        console.warn('[UnifiedEdge PortsTab] No Moids found in RegisteredDevices variable options');
       }
     }
 

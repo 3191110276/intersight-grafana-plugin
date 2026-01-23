@@ -87,6 +87,10 @@ function getNetworkUtilizationPercentageTab() {
       b.matchFieldsWithName('Port').overrideMappings([{type: 'regex', options: {pattern: '^.*Nif[0-9]+/[0-9]+/([0-9]+).*$', result: {index: 0, text: '$1'}}}]);
       b.matchFieldsWithName('G').overrideDisplayName('Chassis').overrideMappings([{type: 'regex', options: {pattern: '^.*Nif([0-9]+)/[0-9]+/[0-9]+.*$', result: {index: 0, text: '$1'}}}]);
     })
+    .setOption('tooltip', {
+      mode: 'multi',
+      sort: 'desc',
+    })
     .build();
 
   // Row 1 Panel 2 (panel-212): Receive utilization in % per physical port
@@ -140,6 +144,10 @@ function getNetworkUtilizationPercentageTab() {
     .setOverrides((b) => {
       b.matchFieldsWithName('Port').overrideMappings([{type: 'regex', options: {pattern: '^.*Nif[0-9]+/[0-9]+/([0-9]+).*$', result: {index: 0, text: '$1'}}}]);
       b.matchFieldsWithName('G').overrideDisplayName('Chassis').overrideMappings([{type: 'regex', options: {pattern: '^.*Nif([0-9]+)/[0-9]+/[0-9]+.*$', result: {index: 0, text: '$1'}}}]);
+    })
+    .setOption('tooltip', {
+      mode: 'multi',
+      sort: 'desc',
     })
     .build();
 
@@ -195,6 +203,10 @@ function getNetworkUtilizationPercentageTab() {
       b.matchFieldsWithName('Port').overrideMappings([{type: 'regex', options: {pattern: '^.*Nif[0-9]+/[0-9]+/([0-9]+).*$', result: {index: 0, text: '$1'}}}]);
       b.matchFieldsWithName('G').overrideDisplayName('Chassis').overrideMappings([{type: 'regex', options: {pattern: '^.*Nif([0-9]+)/[0-9]+/[0-9]+.*$', result: {index: 0, text: '$1'}}}]);
     })
+    .setOption('tooltip', {
+      mode: 'multi',
+      sort: 'desc',
+    })
     .build();
 
   // Row 2 Panel 2 (panel-214): Receive utilization in % per virtual port
@@ -248,6 +260,10 @@ function getNetworkUtilizationPercentageTab() {
     .setOverrides((b) => {
       b.matchFieldsWithName('Port').overrideMappings([{type: 'regex', options: {pattern: '^.*Nif[0-9]+/[0-9]+/([0-9]+).*$', result: {index: 0, text: '$1'}}}]);
       b.matchFieldsWithName('G').overrideDisplayName('Chassis').overrideMappings([{type: 'regex', options: {pattern: '^.*Nif([0-9]+)/[0-9]+/[0-9]+.*$', result: {index: 0, text: '$1'}}}]);
+    })
+    .setOption('tooltip', {
+      mode: 'multi',
+      sort: 'desc',
     })
     .build();
 
@@ -338,6 +354,10 @@ function getNetworkUtilizationAbsoluteTab() {
       b.matchFieldsWithName('Port').overrideMappings([{type: 'regex', options: {pattern: '^.*Nif[0-9]+/[0-9]+/([0-9]+).*$', result: {index: 0, text: '$1'}}}]);
       b.matchFieldsWithName('G').overrideDisplayName('Chassis').overrideMappings([{type: 'regex', options: {pattern: '^.*Nif([0-9]+)/[0-9]+/[0-9]+.*$', result: {index: 0, text: '$1'}}}]);
     })
+    .setOption('tooltip', {
+      mode: 'multi',
+      sort: 'desc',
+    })
     .build();
 
   // Row 1 Panel 2 (panel-216): Receive utilization in bps per physical port
@@ -397,6 +417,10 @@ function getNetworkUtilizationAbsoluteTab() {
     .setOverrides((b) => {
       b.matchFieldsWithName('Port').overrideMappings([{type: 'regex', options: {pattern: '^.*Nif[0-9]+/[0-9]+/([0-9]+).*$', result: {index: 0, text: '$1'}}}]);
       b.matchFieldsWithName('G').overrideDisplayName('Chassis').overrideMappings([{type: 'regex', options: {pattern: '^.*Nif([0-9]+)/[0-9]+/[0-9]+.*$', result: {index: 0, text: '$1'}}}]);
+    })
+    .setOption('tooltip', {
+      mode: 'multi',
+      sort: 'desc',
     })
     .build();
 
@@ -458,6 +482,10 @@ function getNetworkUtilizationAbsoluteTab() {
       b.matchFieldsWithName('Port').overrideMappings([{type: 'regex', options: {pattern: '^.*Nif[0-9]+/[0-9]+/([0-9]+).*$', result: {index: 0, text: '$1'}}}]);
       b.matchFieldsWithName('G').overrideDisplayName('Chassis').overrideMappings([{type: 'regex', options: {pattern: '^.*Nif([0-9]+)/[0-9]+/[0-9]+.*$', result: {index: 0, text: '$1'}}}]);
     })
+    .setOption('tooltip', {
+      mode: 'multi',
+      sort: 'desc',
+    })
     .build();
 
   // Row 2 Panel 2 (panel-218): Receive utilization in bps per virtual port
@@ -517,6 +545,10 @@ function getNetworkUtilizationAbsoluteTab() {
     .setOverrides((b) => {
       b.matchFieldsWithName('Port').overrideMappings([{type: 'regex', options: {pattern: '^.*Nif[0-9]+/[0-9]+/([0-9]+).*$', result: {index: 0, text: '$1'}}}]);
       b.matchFieldsWithName('G').overrideDisplayName('Chassis').overrideMappings([{type: 'regex', options: {pattern: '^.*Nif([0-9]+)/[0-9]+/[0-9]+.*$', result: {index: 0, text: '$1'}}}]);
+    })
+    .setOption('tooltip', {
+      mode: 'multi',
+      sort: 'desc',
     })
     .build();
 

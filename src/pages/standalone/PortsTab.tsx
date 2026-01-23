@@ -82,7 +82,6 @@ class DynamicPortsScene extends SceneObjectBase<DynamicPortsSceneState> {
     const variable = this.getVariable('ServerName');
 
     if (!variable || variable.state.type !== 'query') {
-      console.warn('ServerName variable not found or not a query variable');
       return;
     }
 
@@ -138,10 +137,6 @@ class DynamicPortsScene extends SceneObjectBase<DynamicPortsSceneState> {
       // Build filter string: 'moid1','moid2','moid3'
       if (moids.length > 0) {
         moidFilter = moids.map(m => `'${m}'`).join(',');
-        console.log('[PortsTab] Extracted Moids from RegisteredDevices variable options:', moids);
-        console.log('[PortsTab] Built filter string:', moidFilter);
-      } else {
-        console.warn('[PortsTab] No Moids found in RegisteredDevices variable options');
       }
     }
 

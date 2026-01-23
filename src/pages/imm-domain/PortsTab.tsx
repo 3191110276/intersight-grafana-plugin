@@ -72,7 +72,6 @@ class DynamicPortsScene extends SceneObjectBase<DynamicPortsSceneState> {
     const variable = this.getVariable('DomainName');
 
     if (!variable || variable.state.type !== 'query') {
-      console.warn('DomainName variable not found or not a query variable');
       return;
     }
 
@@ -152,7 +151,6 @@ class DynamicPortsScene extends SceneObjectBase<DynamicPortsSceneState> {
     if (tab) {
       const newBody = tab.getBody();
       if (!newBody) {
-        console.warn('getBody returned null/undefined for tab:', tabId);
         return;
       }
       // Just update state - React will handle unmounting via the key prop

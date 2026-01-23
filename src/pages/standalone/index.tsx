@@ -19,13 +19,13 @@ import { getCPUUtilizationTab } from './CPUUtilizationTab';
 import { getStorageTab } from './StorageTab';
 
 const standaloneTabs = [
-  { id: 'overview', label: 'Overview', getBody: getOverviewTab },
+  { id: 'overview', label: 'Overview**', getBody: getOverviewTab },
   { id: 'inventory', label: 'Inventory', getBody: getInventoryTab },
   { id: 'alarms', label: 'Alarms', getBody: getAlarmsTab },
   { id: 'actions', label: 'Actions', getBody: getActionsTab },
-  { id: 'ports', label: 'Ports', getBody: getPortsTab },
-  { id: 'network-utilization', label: 'Network Utilization', getBody: getNetworkUtilizationTab },
-  { id: 'network-errors', label: 'Network Errors', getBody: getNetworkErrorsTab },
+  { id: 'ports', label: 'Ports**', getBody: getPortsTab },
+  { id: 'network-utilization', label: 'Network Utilization**', getBody: getNetworkUtilizationTab },
+  { id: 'network-errors', label: 'Network Errors**', getBody: getNetworkErrorsTab },
   { id: 'environmental', label: 'Environmental', getBody: getEnvironmentalTab },
   { id: 'cpu-utilization', label: 'CPU Utilization', getBody: getCPUUtilizationTab },
   { id: 'storage', label: 'Storage', getBody: getStorageTab },

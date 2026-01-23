@@ -38,20 +38,16 @@ class DynamicStorageScene extends SceneObjectBase<DynamicStorageSceneState> {
   }
 
   private rebuildBody() {
-    console.log('[StorageTab] rebuildBody() called');
-
     // Access ServerName variable using `this` instead of getRoot()
     const serverNameVariable = sceneGraph.lookupVariable('ServerName', this);
     if (!serverNameVariable) {
       // Variable not found, use default (no hiding)
-      console.warn('[StorageTab] ServerName variable not found, using defaults');
       this.buildBodyWithDefaults();
       return;
     }
 
     // Check if single server is selected
     const serverNameValue = serverNameVariable.getValue();
-    console.log('[StorageTab] ServerName value:', serverNameValue);
     const isSingleServer = Array.isArray(serverNameValue) && serverNameValue.length === 1;
     const shouldHideServerColumn = isSingleServer;
     const serverName = isSingleServer ? String(serverNameValue[0]) : '';
@@ -66,11 +62,6 @@ class DynamicStorageScene extends SceneObjectBase<DynamicStorageSceneState> {
 
       // Access the variable's options (all query results)
       const varState = registeredDevicesVariable.state as any;
-      console.log('[StorageTab] RegisteredDevices variable state:', {
-        hasOptions: !!varState.options,
-        optionsLength: varState.options?.length,
-        options: varState.options
-      });
 
       if (varState.options && Array.isArray(varState.options)) {
         // Extract all option values (these are the Moids from the query)
@@ -83,13 +74,7 @@ class DynamicStorageScene extends SceneObjectBase<DynamicStorageSceneState> {
       // Build filter string: 'moid1','moid2','moid3'
       if (moids.length > 0) {
         moidFilter = moids.map(m => `'${m}'`).join(',');
-        console.log('[StorageTab] ✓ Extracted Moids from RegisteredDevices variable options:', moids);
-        console.log('[StorageTab] ✓ Built filter string:', moidFilter);
-      } else {
-        console.warn('[StorageTab] ✗ No Moids found in RegisteredDevices variable options');
       }
-    } else {
-      console.warn('[StorageTab] RegisteredDevices variable not found or has no state');
     }
 
     // Rebuild panels with updated flags and moidFilter
