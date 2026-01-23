@@ -79,12 +79,10 @@ class FilterColumnsDataProvider extends SceneObjectBase<FilterColumnsDataProvide
     const filteredSeries = data.series.map((frame: DataFrame) => {
       // If table has data (alarm rows), show all columns
       if (frame.length > 0) {
-        console.log('[FilterColumns] Table has data, showing all columns');
         return frame;
       }
 
       // If table is empty (no alarm rows), HIDE Flapping and Acknowledged columns
-      console.log('[FilterColumns] Table is empty, hiding Flapping and Acknowledged columns');
       const filteredFields = frame.fields.filter(field => {
         return field.name !== 'Flapping' && field.name !== 'Acknowledged';
       });

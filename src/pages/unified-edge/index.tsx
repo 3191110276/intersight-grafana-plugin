@@ -83,7 +83,7 @@ export function getUnifiedEdgeSceneBody() {
         url: '/api/v1/equipment/Chasses?$top=1000&$filter=Name in (${ChassisName:singlequote})',
         root_selector: '$.Results',
         columns: [
-          { selector: 'RegisteredDevice.Moid', text: 'Moid', type: 'string' },
+          { selector: 'Moid', text: 'Moid', type: 'string' },
         ],
         url_options: { method: 'GET', data: '' },
         filters: [],
