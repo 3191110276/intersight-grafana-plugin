@@ -9,13 +9,13 @@ import {
   SceneFlexLayout,
   SceneFlexItem,
   PanelBuilders,
-  SceneQueryRunner,
-  SceneDataTransformer,
 } from '@grafana/scenes';
+import { LoggingQueryRunner } from '../../utils/LoggingQueryRunner';
+import { LoggingDataTransformer } from '../../utils/LoggingDataTransformer';
 import { TabbedScene } from '../../components/TabbedScene';
 
 export function getStorageControllersPanel() {
-  const queryRunner = new SceneQueryRunner({
+  const queryRunner = new LoggingQueryRunner({
     datasource: { uid: '${Account}' },
     queries: [
       {
@@ -74,7 +74,7 @@ export function getStorageControllersPanel() {
     ],
   });
 
-  const dataTransformer = new SceneDataTransformer({
+  const dataTransformer = new LoggingDataTransformer({
     $data: queryRunner,
     transformations: [
       {
@@ -285,7 +285,7 @@ export function getStorageControllersPanel() {
 
 // Helper function for SSD Disks sub-tab (panel-205)
 export function getSSDDisksPanel() {
-  const queryRunner = new SceneQueryRunner({
+  const queryRunner = new LoggingQueryRunner({
     datasource: { uid: '${Account}' },
     queries: [
       {
@@ -358,7 +358,7 @@ export function getSSDDisksPanel() {
     ],
   });
 
-  const dataTransformer = new SceneDataTransformer({
+  const dataTransformer = new LoggingDataTransformer({
     $data: queryRunner,
     transformations: [
       {
@@ -605,7 +605,7 @@ export function getSSDDisksPanel() {
 // Helper function for HDD Disks sub-tab (panel-208)
 export function getHDDDisksPanel() {
   // HDD panel is nearly identical to SSD panel, just with Type eq 'HDD' filter
-  const queryRunner = new SceneQueryRunner({
+  const queryRunner = new LoggingQueryRunner({
     datasource: { uid: '${Account}' },
     queries: [
       {
@@ -678,7 +678,7 @@ export function getHDDDisksPanel() {
     ],
   });
 
-  const dataTransformer = new SceneDataTransformer({
+  const dataTransformer = new LoggingDataTransformer({
     $data: queryRunner,
     transformations: [
       {
@@ -924,7 +924,7 @@ export function getHDDDisksPanel() {
 
 // Helper function for Virtual Drives sub-tab (panel-206)
 export function getVirtualDrivesPanel() {
-  const queryRunner = new SceneQueryRunner({
+  const queryRunner = new LoggingQueryRunner({
     datasource: { uid: '${Account}' },
     queries: [
       {
@@ -972,7 +972,7 @@ export function getVirtualDrivesPanel() {
     ],
   });
 
-  const dataTransformer = new SceneDataTransformer({
+  const dataTransformer = new LoggingDataTransformer({
     $data: queryRunner,
     transformations: [
       {

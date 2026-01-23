@@ -5,6 +5,7 @@ import {
   VariableValueSelectors,
 } from '@grafana/scenes';
 import { TabbedScene } from '../../components/TabbedScene';
+import { debugScene, debugVariable } from '../../utils/debug';
 
 // Import tab functions from same directory
 import { getOverviewTab } from './OverviewTab';
@@ -36,6 +37,8 @@ const unifiedEdgeTabs = [
 // ============================================================================
 
 export function getUnifiedEdgeSceneBody() {
+  debugScene('Creating Unified Edge section scene');
+
   // Create ChassisName variable - scoped to Unified Edge tab
   // Queries equipment/Chasses with Model filter for UCSXE-9305
   const chassisNameVariable = new QueryVariable({
@@ -67,6 +70,13 @@ export function getUnifiedEdgeSceneBody() {
     maxVisibleValues: 2,
   });
 
+  debugVariable('Initialized section variable: ChassisName', {
+    section: 'unified-edge',
+    isMulti: true,
+    maxVisibleValues: 2,
+    queryUrl: "/api/v1/equipment/Chasses?$filter=Model eq 'UCSXE-9305'",
+  });
+
   // Create RegisteredDevices variable - hidden, depends on ChassisName
   // Used for filtering in downstream panels
   const registeredDevicesVariable = new QueryVariable({
@@ -81,7 +91,7 @@ export function getUnifiedEdgeSceneBody() {
         source: 'url',
         parser: 'backend',
         format: 'table',
-        url: '/api/v1/equipment/Chasses?$filter=Name in (${ChassisName:singlequote})',
+        url: '/api/v1/equipment/Chasses?$top=1000&$filter=Name in (${ChassisName:singlequote})',
         root_selector: '$.Results',
         columns: [
           { selector: 'RegisteredDevice.Moid', text: 'Moid', type: 'string' },
@@ -93,9 +103,15 @@ export function getUnifiedEdgeSceneBody() {
         filters: [],
       },
     },
-    isMulti: false,
-    includeAll: true,
+    isMulti: true,
+    includeAll: false,
     hide: 2, // hideVariable = 2 in Scenes
+  });
+
+  debugVariable('Initialized hidden variable: RegisteredDevices', {
+    section: 'unified-edge',
+    hide: 2,
+    dependsOn: 'ChassisName',
   });
 
   // Create DomainName variable for Overview tab panels that repeat by domain
@@ -127,6 +143,12 @@ export function getUnifiedEdgeSceneBody() {
     isMulti: true,
     includeAll: false,
     hide: 2, // Hidden - used internally for Overview tab panels
+  });
+
+  debugVariable('Initialized hidden variable: DomainName', {
+    section: 'unified-edge',
+    hide: 2,
+    usedBy: 'Overview tab panels',
   });
 
   // Create variable set for Unified Edge tab

@@ -10,12 +10,12 @@ import {
   SceneFlexLayout,
   SceneFlexItem,
   PanelBuilders,
-  SceneQueryRunner,
-  SceneDataTransformer,
   SceneGridLayout,
   SceneGridRow,
   SceneGridItem,
 } from '@grafana/scenes';
+import { LoggingQueryRunner } from '../../utils/LoggingQueryRunner';
+import { LoggingDataTransformer } from '../../utils/LoggingDataTransformer';
 import { TabbedScene } from '../../components/TabbedScene';
 
 export function getNetworkUtilizationTab() {
@@ -191,7 +191,7 @@ function createNetworkUtilizationPanel(config: NetworkUtilPanelConfig) {
         }),
   };
 
-  const queryRunner = new SceneQueryRunner({
+  const queryRunner = new LoggingQueryRunner({
     datasource: { uid: '${Account}' },
     queries: [
       {
@@ -225,7 +225,7 @@ function createNetworkUtilizationPanel(config: NetworkUtilPanelConfig) {
   const panelBuilder = PanelBuilders.timeseries()
     .setTitle(title)
     .setData(
-      new SceneDataTransformer({
+      new LoggingDataTransformer({
         $data: queryRunner,
         transformations: [
           {

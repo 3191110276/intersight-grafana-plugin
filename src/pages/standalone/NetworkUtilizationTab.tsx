@@ -2,9 +2,9 @@ import {
   SceneFlexLayout,
   SceneFlexItem,
   PanelBuilders,
-  SceneQueryRunner,
-  SceneDataTransformer,
 } from '@grafana/scenes';
+import { LoggingQueryRunner } from '../../utils/LoggingQueryRunner';
+import { LoggingDataTransformer } from '../../utils/LoggingDataTransformer';
 import { TabbedScene } from '../../components/TabbedScene';
 
 export function getNetworkUtilizationTab() {
@@ -36,7 +36,7 @@ export function getNetworkUtilizationTab() {
 // Helper function for Percentage tab
 function getNetworkUtilizationPercentageTab() {
   // Row 1 Panel 1 (panel-129): Transmit utilization in % per physical port
-  const physTransmitQuery = new SceneQueryRunner({
+  const physTransmitQuery = new LoggingQueryRunner({
     datasource: { uid: '${Account}' },
     queries: [{
       refId: 'A', queryType: 'infinity', type: 'json', source: 'url', parser: 'backend', format: 'dataframe',
@@ -77,7 +77,7 @@ function getNetworkUtilizationPercentageTab() {
 
   const physTransmitPanel = PanelBuilders.timeseries()
     .setTitle('Transmit utilization in % per physical port')
-    .setData(new SceneDataTransformer({
+    .setData(new LoggingDataTransformer({
       $data: physTransmitQuery,
       transformations: [{id: 'groupingToMatrix', options: {columnField: 'Port', rowField: 'Time', valueField: 'Utilization (Max)'}}],
     }))
@@ -90,7 +90,7 @@ function getNetworkUtilizationPercentageTab() {
     .build();
 
   // Row 1 Panel 2 (panel-212): Receive utilization in % per physical port
-  const physReceiveQuery = new SceneQueryRunner({
+  const physReceiveQuery = new LoggingQueryRunner({
     datasource: { uid: '${Account}' },
     queries: [{
       refId: 'A', queryType: 'infinity', type: 'json', source: 'url', parser: 'backend', format: 'dataframe',
@@ -131,7 +131,7 @@ function getNetworkUtilizationPercentageTab() {
 
   const physReceivePanel = PanelBuilders.timeseries()
     .setTitle('Receive utilization in % per physical port')
-    .setData(new SceneDataTransformer({
+    .setData(new LoggingDataTransformer({
       $data: physReceiveQuery,
       transformations: [{id: 'groupingToMatrix', options: {columnField: 'Port', rowField: 'Time', valueField: 'Utilization (Max)'}}],
     }))
@@ -144,7 +144,7 @@ function getNetworkUtilizationPercentageTab() {
     .build();
 
   // Row 2 Panel 1 (panel-213): Transmit utilization in % per virtual port
-  const virtTransmitQuery = new SceneQueryRunner({
+  const virtTransmitQuery = new LoggingQueryRunner({
     datasource: { uid: '${Account}' },
     queries: [{
       refId: 'A', queryType: 'infinity', type: 'json', source: 'url', parser: 'backend', format: 'dataframe',
@@ -185,7 +185,7 @@ function getNetworkUtilizationPercentageTab() {
 
   const virtTransmitPanel = PanelBuilders.timeseries()
     .setTitle('Transmit utilization in % per virtual port')
-    .setData(new SceneDataTransformer({
+    .setData(new LoggingDataTransformer({
       $data: virtTransmitQuery,
       transformations: [{id: 'groupingToMatrix', options: {columnField: 'Port', rowField: 'Time', valueField: 'Utilization (Max)'}}],
     }))
@@ -198,7 +198,7 @@ function getNetworkUtilizationPercentageTab() {
     .build();
 
   // Row 2 Panel 2 (panel-214): Receive utilization in % per virtual port
-  const virtReceiveQuery = new SceneQueryRunner({
+  const virtReceiveQuery = new LoggingQueryRunner({
     datasource: { uid: '${Account}' },
     queries: [{
       refId: 'A', queryType: 'infinity', type: 'json', source: 'url', parser: 'backend', format: 'dataframe',
@@ -239,7 +239,7 @@ function getNetworkUtilizationPercentageTab() {
 
   const virtReceivePanel = PanelBuilders.timeseries()
     .setTitle('Receive utilization in % per virtual port')
-    .setData(new SceneDataTransformer({
+    .setData(new LoggingDataTransformer({
       $data: virtReceiveQuery,
       transformations: [{id: 'groupingToMatrix', options: {columnField: 'Port', rowField: 'Time', valueField: 'Utilization (Max)'}}],
     }))
@@ -281,7 +281,7 @@ function getNetworkUtilizationPercentageTab() {
 // Helper function for Absolute (bps) tab
 function getNetworkUtilizationAbsoluteTab() {
   // Row 1 Panel 1 (panel-215): Transmit utilization in bps per physical port
-  const physTransmitQuery = new SceneQueryRunner({
+  const physTransmitQuery = new LoggingQueryRunner({
     datasource: { uid: '${Account}' },
     queries: [{
       refId: 'A', queryType: 'infinity', type: 'json', source: 'url', parser: 'backend', format: 'dataframe',
@@ -328,7 +328,7 @@ function getNetworkUtilizationAbsoluteTab() {
 
   const physTransmitPanel = PanelBuilders.timeseries()
     .setTitle('Transmit utilization in bps per physical port')
-    .setData(new SceneDataTransformer({
+    .setData(new LoggingDataTransformer({
       $data: physTransmitQuery,
       transformations: [{id: 'groupingToMatrix', options: {columnField: 'Port', rowField: 'Time', valueField: 'Utilization (Max)'}}],
     }))
@@ -341,7 +341,7 @@ function getNetworkUtilizationAbsoluteTab() {
     .build();
 
   // Row 1 Panel 2 (panel-216): Receive utilization in bps per physical port
-  const physReceiveQuery = new SceneQueryRunner({
+  const physReceiveQuery = new LoggingQueryRunner({
     datasource: { uid: '${Account}' },
     queries: [{
       refId: 'A', queryType: 'infinity', type: 'json', source: 'url', parser: 'backend', format: 'dataframe',
@@ -388,7 +388,7 @@ function getNetworkUtilizationAbsoluteTab() {
 
   const physReceivePanel = PanelBuilders.timeseries()
     .setTitle('Receive utilization in bps per physical port')
-    .setData(new SceneDataTransformer({
+    .setData(new LoggingDataTransformer({
       $data: physReceiveQuery,
       transformations: [{id: 'groupingToMatrix', options: {columnField: 'Port', rowField: 'Time', valueField: 'Utilization (Max)'}}],
     }))
@@ -401,7 +401,7 @@ function getNetworkUtilizationAbsoluteTab() {
     .build();
 
   // Row 2 Panel 1 (panel-217): Transmit utilization in bps per virtual port
-  const virtTransmitQuery = new SceneQueryRunner({
+  const virtTransmitQuery = new LoggingQueryRunner({
     datasource: { uid: '${Account}' },
     queries: [{
       refId: 'A', queryType: 'infinity', type: 'json', source: 'url', parser: 'backend', format: 'dataframe',
@@ -448,7 +448,7 @@ function getNetworkUtilizationAbsoluteTab() {
 
   const virtTransmitPanel = PanelBuilders.timeseries()
     .setTitle('Transmit utilization in bps per physical port')
-    .setData(new SceneDataTransformer({
+    .setData(new LoggingDataTransformer({
       $data: virtTransmitQuery,
       transformations: [{id: 'groupingToMatrix', options: {columnField: 'Port', rowField: 'Time', valueField: 'Utilization (Max)'}}],
     }))
@@ -461,7 +461,7 @@ function getNetworkUtilizationAbsoluteTab() {
     .build();
 
   // Row 2 Panel 2 (panel-218): Receive utilization in bps per virtual port
-  const virtReceiveQuery = new SceneQueryRunner({
+  const virtReceiveQuery = new LoggingQueryRunner({
     datasource: { uid: '${Account}' },
     queries: [{
       refId: 'A', queryType: 'infinity', type: 'json', source: 'url', parser: 'backend', format: 'dataframe',
@@ -508,7 +508,7 @@ function getNetworkUtilizationAbsoluteTab() {
 
   const virtReceivePanel = PanelBuilders.timeseries()
     .setTitle('Receive utilization in bps per virtual port')
-    .setData(new SceneDataTransformer({
+    .setData(new LoggingDataTransformer({
       $data: virtReceiveQuery,
       transformations: [{id: 'groupingToMatrix', options: {columnField: 'Port', rowField: 'Time', valueField: 'Utilization (Max)'}}],
     }))

@@ -9,10 +9,10 @@ export function getOverviewTab() {
     direction: 'column',
     children: [
       new SceneFlexItem({
-        height: 300,
+        height: 100,
         body: PanelBuilders.text()
           .setTitle('Overview')
-          .setOption('content', 'Overview tab - to be implemented')
+          .setOption('content', 'TODO')
           .setOption('mode', 'markdown' as any)
           .build(),
       }),

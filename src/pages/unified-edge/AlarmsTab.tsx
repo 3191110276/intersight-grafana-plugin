@@ -2,14 +2,14 @@ import {
   SceneFlexLayout,
   SceneFlexItem,
   PanelBuilders,
-  SceneQueryRunner,
-  SceneDataTransformer,
   SceneObjectBase,
   SceneComponentProps,
   SceneObjectState,
   VariableDependencyConfig,
   sceneGraph,
 } from '@grafana/scenes';
+import { LoggingQueryRunner } from '../../utils/LoggingQueryRunner';
+import { LoggingDataTransformer } from '../../utils/LoggingDataTransformer';
 import React from 'react';
 import { TabsBar, Tab } from '@grafana/ui';
 
@@ -207,7 +207,7 @@ function getAlarmsPanelForChassis(chassisName: string) {
   const filterClause = `((startswith(AffectedMoDisplayName, '${chassisName}'))) and ((Severity ne 'Cleared') or (Severity eq 'Cleared' and ((CreateTime ge \${__from:date}) and (CreateTime le \${__to:date}) or (LastTransitionTime ge \${__from:date}) and (LastTransitionTime le \${__to:date}))))`;
 
   // Create query runner for Alarms
-  const baseQueryRunner = new SceneQueryRunner({
+  const baseQueryRunner = new LoggingQueryRunner({
     datasource: { uid: '${Account}' },
     queries: [
       {
@@ -256,7 +256,7 @@ function getAlarmsPanelForChassis(chassisName: string) {
   });
 
   // Apply transformations
-  const transformedData = new SceneDataTransformer({
+  const transformedData = new LoggingDataTransformer({
     $data: baseQueryRunner,
     transformations: [
       {

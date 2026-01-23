@@ -1,17 +1,30 @@
+import React from 'react';
 import {
   SceneFlexLayout,
   SceneFlexItem,
   PanelBuilders,
-  SceneQueryRunner,
-  SceneDataTransformer,
+  SceneObjectBase,
+  SceneComponentProps,
+  SceneObjectState,
+  VariableDependencyConfig,
+  sceneGraph,
 } from '@grafana/scenes';
+import { LoggingQueryRunner } from '../../utils/LoggingQueryRunner';
+import { LoggingDataTransformer } from '../../utils/LoggingDataTransformer';
 
 /**
  * Creates a panel for eCMC External Ports (panel-212 from original dashboard)
  * This panel displays physical ethernet ports for the chassis
  */
-function getEcmcExternalPortsPanel() {
-  const queryRunner = new SceneQueryRunner({
+function getEcmcExternalPortsPanel(moidFilter?: string) {
+  // Build URL with programmatic filter if available
+  const filterExpression = moidFilter
+    ? `Ancestors.Moid in (${moidFilter})`
+    : `Ancestors.Moid in (\${RegisteredDevices:singlequote})`;
+
+  const url = `/api/v1/ether/PhysicalPorts?$filter=${filterExpression}`;
+
+  const queryRunner = new LoggingQueryRunner({
     datasource: { uid: '${Account}' },
     queries: [
       {
@@ -21,7 +34,7 @@ function getEcmcExternalPortsPanel() {
         source: 'url',
         parser: 'backend',
         format: 'table',
-        url: '/api/v1/ether/PhysicalPorts?$filter=Ancestors.Moid in (${RegisteredDevices:singlequote})',
+        url: url,
         root_selector: '$.Results',
         columns: [
           { selector: 'MacAddress', text: 'MacAddress', type: 'string' },
@@ -45,7 +58,7 @@ function getEcmcExternalPortsPanel() {
     ],
   });
 
-  const transformedData = new SceneDataTransformer({
+  const transformedData = new LoggingDataTransformer({
     $data: queryRunner,
     transformations: [
       {
@@ -120,8 +133,15 @@ function getEcmcExternalPortsPanel() {
  * Creates a panel for Server Ports (panel-213 from original dashboard)
  * This panel displays adapter external ethernet interfaces for servers
  */
-function getServerPortsPanel() {
-  const queryRunner = new SceneQueryRunner({
+function getServerPortsPanel(moidFilter?: string) {
+  // Build URL with programmatic filter if available
+  const filterExpression = moidFilter
+    ? `Ancestors.Moid in (${moidFilter})`
+    : `Ancestors.Moid in (\${RegisteredDevices:singlequote})`;
+
+  const url = `/api/v1/adapter/ExtEthInterfaces?$filter=${filterExpression}&$expand=AdapterUnit($expand=ComputeBlade)`;
+
+  const queryRunner = new LoggingQueryRunner({
     datasource: { uid: '${Account}' },
     queries: [
       {
@@ -131,7 +151,7 @@ function getServerPortsPanel() {
         source: 'url',
         parser: 'backend',
         format: 'table',
-        url: '/api/v1/adapter/ExtEthInterfaces?$filter=Ancestors.Moid in (${RegisteredDevices:singlequote})&$expand=AdapterUnit($expand=ComputeBlade)',
+        url: url,
         root_selector: '$.Results',
         columns: [
           { selector: 'AdapterUnit.ComputeBlade.Name', text: 'Server', type: 'string' },
@@ -151,7 +171,7 @@ function getServerPortsPanel() {
     ],
   });
 
-  const transformedData = new SceneDataTransformer({
+  const transformedData = new LoggingDataTransformer({
     $data: queryRunner,
     transformations: [
       {
@@ -209,33 +229,108 @@ function getServerPortsPanel() {
     .build();
 }
 
+// ============================================================================
+// DYNAMIC PORTS SCENE - Extracts Moid values programmatically
+// ============================================================================
+
+interface DynamicPortsSceneState extends SceneObjectState {
+  body: SceneFlexLayout;
+}
+
 /**
- * Creates the Ports tab layout
- *
- * Structure from original dashboard (line 20465):
- * - Ports tab contains a nested TabsLayout that repeats by ChassisName variable
- * - Each chassis tab contains:
- *   - panel-212: eCMC External Ports
- *   - panel-213: Server Ports
- *
- * Note: The original dashboard uses a "repeat" mode with ChassisName variable.
- * In this Scenes implementation, we create a simplified layout with the panels.
- * For full variable-based tab repetition, additional logic would be needed
- * to dynamically create tabs based on ChassisName variable values.
+ * DynamicPortsScene - Custom scene that watches ChassisName variable
+ * and programmatically extracts Moid values from RegisteredDevices
+ */
+class DynamicPortsScene extends SceneObjectBase<DynamicPortsSceneState> {
+  public static Component = DynamicPortsSceneRenderer;
+
+  protected _variableDependency = new VariableDependencyConfig(this, {
+    variableNames: ['ChassisName', 'RegisteredDevices'],
+    onReferencedVariableValueChanged: () => {
+      if (this.isActive) {
+        this.rebuildBody();
+      }
+    },
+  });
+
+  public constructor(state: Partial<DynamicPortsSceneState>) {
+    super({
+      body: new SceneFlexLayout({ direction: 'column', children: [] }),
+      ...state,
+    });
+  }
+
+  public activate() {
+    const deactivate = super.activate();
+    this.rebuildBody();
+    return deactivate;
+  }
+
+  private rebuildBody() {
+    if (!this.isActive) {
+      return;
+    }
+
+    // APPROACH B: Extract Moid values from RegisteredDevices variable
+    // Access the variable's query results directly, not the selected value
+    const registeredDevicesVariable = sceneGraph.lookupVariable('RegisteredDevices', this);
+    let moidFilter: string | undefined = undefined;
+
+    if (registeredDevicesVariable && 'state' in registeredDevicesVariable) {
+      let moids: string[] = [];
+
+      // Access the variable's options (all query results)
+      const varState = registeredDevicesVariable.state as any;
+      if (varState.options && Array.isArray(varState.options)) {
+        // Extract all option values (these are the Moids from the query)
+        moids = varState.options
+          .map((opt: any) => opt.value)
+          .filter((v: any) => v && v !== '$__all')
+          .map((v: any) => String(v));
+      }
+
+      // Build filter string: 'moid1','moid2','moid3'
+      if (moids.length > 0) {
+        moidFilter = moids.map(m => `'${m}'`).join(',');
+        console.log('[UnifiedEdge PortsTab] Extracted Moids from RegisteredDevices variable options:', moids);
+        console.log('[UnifiedEdge PortsTab] Built filter string:', moidFilter);
+      } else {
+        console.warn('[UnifiedEdge PortsTab] No Moids found in RegisteredDevices variable options');
+      }
+    }
+
+    // Rebuild panels with moidFilter
+    const newBody = new SceneFlexLayout({
+      direction: 'column',
+      children: [
+        new SceneFlexItem({
+          height: 400,
+          ySizing: 'content',
+          body: getEcmcExternalPortsPanel(moidFilter),
+        }),
+        new SceneFlexItem({
+          ySizing: 'fill',
+          body: getServerPortsPanel(moidFilter),
+        }),
+      ],
+    });
+
+    this.setState({ body: newBody });
+  }
+}
+
+/**
+ * Renderer component for DynamicPortsScene
+ */
+function DynamicPortsSceneRenderer({ model }: SceneComponentProps<DynamicPortsScene>) {
+  const { body } = model.useState();
+  return <body.Component model={body} />;
+}
+
+/**
+ * Main export function for the Ports tab.
+ * Returns a DynamicPortsScene that programmatically builds queries with all Moid values.
  */
 export function getPortsTab() {
-  return new SceneFlexLayout({
-    direction: 'column',
-    children: [
-      new SceneFlexItem({
-        height: 400,
-        ySizing: 'content',
-        body: getEcmcExternalPortsPanel(),
-      }),
-      new SceneFlexItem({
-        ySizing: 'fill',
-        body: getServerPortsPanel(),
-      }),
-    ],
-  });
+  return new DynamicPortsScene({});
 }

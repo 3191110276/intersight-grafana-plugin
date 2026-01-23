@@ -2,9 +2,9 @@ import {
   SceneFlexLayout,
   SceneFlexItem,
   PanelBuilders,
-  SceneQueryRunner,
-  SceneDataTransformer,
 } from '@grafana/scenes';
+import { LoggingQueryRunner } from '../../utils/LoggingQueryRunner';
+import { LoggingDataTransformer } from '../../utils/LoggingDataTransformer';
 import { TabbedScene } from '../../components/TabbedScene';
 
 // ============================================================================
@@ -493,7 +493,7 @@ function createNetworkUtilizationPanel(config: NetworkUtilPanelConfig) {
     ]
   }`;
 
-  const queryRunner = new SceneQueryRunner({
+  const queryRunner = new LoggingQueryRunner({
     datasource: { uid: '${Account}' },
     queries: [
       {
@@ -520,7 +520,7 @@ function createNetworkUtilizationPanel(config: NetworkUtilPanelConfig) {
     ],
   });
 
-  const transformedData = new SceneDataTransformer({
+  const transformedData = new LoggingDataTransformer({
     $data: queryRunner,
     transformations: [
       {

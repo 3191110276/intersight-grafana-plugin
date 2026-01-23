@@ -11,6 +11,7 @@ import {
   VariableValueSelectors,
 } from '@grafana/scenes';
 import { TabbedScene } from '../../components/TabbedScene';
+import { debugScene, debugVariable } from '../../utils/debug';
 import { getOverviewTab } from './OverviewTab';
 import { getInventoryTab } from './InventoryTab';
 import { getAlarmsTab } from './AlarmsTab';
@@ -30,6 +31,8 @@ import { getStorageTab } from './StorageTab';
  * Creates the tab structure with domain selection variable.
  */
 export function getIMMDomainSceneBody() {
+  debugScene('Creating IMM Domain section scene');
+
   // Create DomainName variable - scoped to IMM Domain tab
   // Queries ElementSummaries with ManagementMode filter
   // Uses regex to extract domain name (removes " FI-A" suffix)
@@ -63,6 +66,14 @@ export function getIMMDomainSceneBody() {
     regex: '(?<text>.*) FI-A', // Extract domain name without " FI-A" suffix
   });
 
+  debugVariable('Initialized section variable: DomainName', {
+    section: 'imm-domain',
+    isMulti: true,
+    maxVisibleValues: 2,
+    regex: '(?<text>.*) FI-A',
+    queryUrl: '/api/v1/network/ElementSummaries?$filter=...',
+  });
+
   // Create RegisteredDevices variable - hidden, depends on DomainName
   // Used for filtering in downstream panels
   const registeredDevicesVariable = new QueryVariable({
@@ -77,7 +88,7 @@ export function getIMMDomainSceneBody() {
         source: 'url',
         parser: 'backend',
         format: 'table',
-        url: '/api/v1/asset/DeviceRegistrations?$filter=DeviceHostname in (${DomainName:singlequote})',
+        url: '/api/v1/asset/DeviceRegistrations?$top=1000&$filter=DeviceHostname in (${DomainName:singlequote})',
         root_selector: '$.Results',
         columns: [
           { selector: 'Moid', text: 'Moid', type: 'string' },
@@ -92,6 +103,12 @@ export function getIMMDomainSceneBody() {
     isMulti: true,
     includeAll: false,
     hide: 2, // Hide this variable from the UI
+  });
+
+  debugVariable('Initialized hidden variable: RegisteredDevices', {
+    section: 'imm-domain',
+    hide: 2,
+    dependsOn: 'DomainName',
   });
 
   // Create variable set with both variables

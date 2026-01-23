@@ -9,12 +9,12 @@ import {
   SceneFlexLayout,
   SceneFlexItem,
   PanelBuilders,
-  SceneQueryRunner,
-  SceneDataTransformer,
   SceneGridLayout,
   SceneGridRow,
   SceneGridItem,
 } from '@grafana/scenes';
+import { LoggingQueryRunner } from '../../utils/LoggingQueryRunner';
+import { LoggingDataTransformer } from '../../utils/LoggingDataTransformer';
 import { TabbedScene } from '../../components/TabbedScene';
 
 export function getSFPTab() {
@@ -194,13 +194,13 @@ function getSFPMetricsPanel() {
   };
 
   // Create query runner with all 5 queries
-  const queryRunner = new SceneQueryRunner({
+  const queryRunner = new LoggingQueryRunner({
     datasource: { uid: '${Account}' },
     queries: [queryA, queryB, queryC, queryD, queryE] as any[],
   });
 
   // Apply transformations: timeSeriesTable, joinByField, organize
-  const transformedData = new SceneDataTransformer({
+  const transformedData = new LoggingDataTransformer({
     $data: queryRunner,
     transformations: [
       {
@@ -299,7 +299,7 @@ function getSFPMetricsPanel() {
  * Displays the count of active power supplies - one color per device
  */
 function getPowerSupplyStatusPanel() {
-  const queryRunner = new SceneQueryRunner({
+  const queryRunner = new LoggingQueryRunner({
     datasource: { uid: '${Account}' },
     queries: [
       {
@@ -424,7 +424,7 @@ function getPowerSupplyStatusPanel() {
  * Displays power consumption aggregated at domain level
  */
 function getDomainPowerConsumptionPanel() {
-  const queryRunner = new SceneQueryRunner({
+  const queryRunner = new LoggingQueryRunner({
     datasource: { uid: '${Account}' },
     queries: [
       {
@@ -544,7 +544,7 @@ function getDomainPowerConsumptionPanel() {
  * Displays power consumption per Fabric Interconnect
  */
 function getFIPowerConsumptionPanel() {
-  const queryRunner = new SceneQueryRunner({
+  const queryRunner = new LoggingQueryRunner({
     datasource: { uid: '${Account}' },
     queries: [
       {
@@ -630,7 +630,7 @@ function getFIPowerConsumptionPanel() {
  * This is the FI pair power consumption (both FIs combined)
  */
 function getFIPairPowerConsumptionPanel() {
-  const queryRunner = new SceneQueryRunner({
+  const queryRunner = new LoggingQueryRunner({
     datasource: { uid: '${Account}' },
     queries: [
       {
@@ -742,7 +742,7 @@ function getFIPairPowerConsumptionPanel() {
  * Displays power consumption per chassis
  */
 function getChassisPowerConsumptionPanel() {
-  const queryRunner = new SceneQueryRunner({
+  const queryRunner = new LoggingQueryRunner({
     datasource: { uid: '${Account}' },
     queries: [
       {
@@ -858,7 +858,7 @@ function getChassisPowerConsumptionPanel() {
  * Displays power consumption per host (compute blades) in a table format
  */
 function getHostPowerConsumptionPanel() {
-  const queryRunner = new SceneQueryRunner({
+  const queryRunner = new LoggingQueryRunner({
     datasource: { uid: '${Account}' },
     queries: [
       {
@@ -954,7 +954,7 @@ function getHostPowerConsumptionPanel() {
  * Shows average fan speed for each Fabric Interconnect
  */
 function getFIFanSpeedPanel() {
-  const queryRunner = new SceneQueryRunner({
+  const queryRunner = new LoggingQueryRunner({
     datasource: { uid: '${Account}' },
     maxDataPoints: 500,
     queries: [
@@ -1044,7 +1044,7 @@ function getFIFanSpeedPanel() {
     ],
   });
 
-  const transformer = new SceneDataTransformer({
+  const transformer = new LoggingDataTransformer({
     $data: queryRunner,
     transformations: [
       {
@@ -1071,7 +1071,7 @@ function getFIFanSpeedPanel() {
  * Shows average fan speed for each Chassis
  */
 function getChassisFanSpeedPanel() {
-  const queryRunner = new SceneQueryRunner({
+  const queryRunner = new LoggingQueryRunner({
     datasource: { uid: '${Account}' },
     queries: [
       {
@@ -1165,7 +1165,7 @@ function getChassisFanSpeedPanel() {
     ],
   });
 
-  const transformer = new SceneDataTransformer({
+  const transformer = new LoggingDataTransformer({
     $data: queryRunner,
     transformations: [
       {
@@ -1193,7 +1193,7 @@ function getChassisFanSpeedPanel() {
  * Shows average intake temperature for Fabric Interconnects
  */
 function getFIIntakeTemperaturePanel() {
-  const queryRunner = new SceneQueryRunner({
+  const queryRunner = new LoggingQueryRunner({
     datasource: { uid: '${Account}' },
     maxDataPoints: 500,
     queries: [
@@ -1282,7 +1282,7 @@ function getFIIntakeTemperaturePanel() {
     ],
   });
 
-  const transformer = new SceneDataTransformer({
+  const transformer = new LoggingDataTransformer({
     $data: queryRunner,
     transformations: [
       {
@@ -1309,7 +1309,7 @@ function getFIIntakeTemperaturePanel() {
  * Shows average exhaust temperature for Fabric Interconnects
  */
 function getFIExhaustTemperaturePanel() {
-  const queryRunner = new SceneQueryRunner({
+  const queryRunner = new LoggingQueryRunner({
     datasource: { uid: '${Account}' },
     maxDataPoints: 500,
     queries: [
@@ -1398,7 +1398,7 @@ function getFIExhaustTemperaturePanel() {
     ],
   });
 
-  const transformer = new SceneDataTransformer({
+  const transformer = new LoggingDataTransformer({
     $data: queryRunner,
     transformations: [
       {
@@ -1425,7 +1425,7 @@ function getFIExhaustTemperaturePanel() {
  * Shows average CPU temperature for Fabric Interconnects
  */
 function getFICPUTemperaturePanel() {
-  const queryRunner = new SceneQueryRunner({
+  const queryRunner = new LoggingQueryRunner({
     datasource: { uid: '${Account}' },
     maxDataPoints: 500,
     queries: [
@@ -1514,7 +1514,7 @@ function getFICPUTemperaturePanel() {
     ],
   });
 
-  const transformer = new SceneDataTransformer({
+  const transformer = new LoggingDataTransformer({
     $data: queryRunner,
     transformations: [
       {
@@ -1541,7 +1541,7 @@ function getFICPUTemperaturePanel() {
  * Shows average ASIC temperature for Fabric Interconnects
  */
 function getFIASICTemperaturePanel() {
-  const queryRunner = new SceneQueryRunner({
+  const queryRunner = new LoggingQueryRunner({
     datasource: { uid: '${Account}' },
     maxDataPoints: 500,
     queries: [
@@ -1630,7 +1630,7 @@ function getFIASICTemperaturePanel() {
     ],
   });
 
-  const transformer = new SceneDataTransformer({
+  const transformer = new LoggingDataTransformer({
     $data: queryRunner,
     transformations: [
       {
@@ -1657,7 +1657,7 @@ function getFIASICTemperaturePanel() {
  * Shows average intake temperature for Chassis
  */
 function getChassisIntakeTemperaturePanel() {
-  const queryRunner = new SceneQueryRunner({
+  const queryRunner = new LoggingQueryRunner({
     datasource: { uid: '${Account}' },
     maxDataPoints: 500,
     queries: [
@@ -1751,7 +1751,7 @@ function getChassisIntakeTemperaturePanel() {
     ],
   });
 
-  const transformer = new SceneDataTransformer({
+  const transformer = new LoggingDataTransformer({
     $data: queryRunner,
     transformations: [
       {
@@ -1778,7 +1778,7 @@ function getChassisIntakeTemperaturePanel() {
  * Shows average exhaust temperature for Chassis
  */
 function getChassisExhaustTemperaturePanel() {
-  const queryRunner = new SceneQueryRunner({
+  const queryRunner = new LoggingQueryRunner({
     datasource: { uid: '${Account}' },
     maxDataPoints: 500,
     queries: [
@@ -1876,7 +1876,7 @@ function getChassisExhaustTemperaturePanel() {
     ],
   });
 
-  const transformer = new SceneDataTransformer({
+  const transformer = new LoggingDataTransformer({
     $data: queryRunner,
     transformations: [
       {
@@ -1903,7 +1903,7 @@ function getChassisExhaustTemperaturePanel() {
  * Complex multi-query table showing temperature data for compute blades
  */
 function getHostTemperaturePanel() {
-  const queryRunner = new SceneQueryRunner({
+  const queryRunner = new LoggingQueryRunner({
     datasource: { uid: '${Account}' },
     maxDataPoints: 500,
     queries: [
@@ -2202,7 +2202,7 @@ function getHostTemperaturePanel() {
     ],
   });
 
-  const transformer = new SceneDataTransformer({
+  const transformer = new LoggingDataTransformer({
     $data: queryRunner,
     transformations: [
       {
@@ -2259,7 +2259,7 @@ function getHostTemperaturePanel() {
  * Complex multi-query table showing temperature difference from threshold for compute blades
  */
 function getCoolingBudgetPanel() {
-  const queryRunner = new SceneQueryRunner({
+  const queryRunner = new LoggingQueryRunner({
     datasource: { uid: '${Account}' },
     maxDataPoints: 500,
     queries: [
@@ -2602,7 +2602,7 @@ function getCoolingBudgetPanel() {
     ],
   });
 
-  const transformer = new SceneDataTransformer({
+  const transformer = new LoggingDataTransformer({
     $data: queryRunner,
     transformations: [
       {

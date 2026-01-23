@@ -9,12 +9,12 @@ import {
   SceneFlexLayout,
   SceneFlexItem,
   PanelBuilders,
-  SceneQueryRunner,
-  SceneDataTransformer,
   SceneGridLayout,
   SceneGridRow,
   SceneGridItem,
 } from '@grafana/scenes';
+import { LoggingQueryRunner } from '../../utils/LoggingQueryRunner';
+import { LoggingDataTransformer } from '../../utils/LoggingDataTransformer';
 import { TabbedScene } from '../../components/TabbedScene';
 
 export function getCongestionTab() {
@@ -35,7 +35,7 @@ export function getCongestionTab() {
 
 // Panel 179: Transmit pause frames per port (Sum)
 function getCongestionTransmitPanel() {
-  const queryRunner = new SceneQueryRunner({
+  const queryRunner = new LoggingQueryRunner({
     datasource: { uid: '${Account}' },
     queries: [
       {
@@ -156,7 +156,7 @@ function getCongestionTransmitPanel() {
     ],
   });
 
-  const dataTransformer = new SceneDataTransformer({
+  const dataTransformer = new LoggingDataTransformer({
     $data: queryRunner,
     transformations: [
       {
@@ -405,7 +405,7 @@ function getCongestionTransmitPanel() {
 
 // Panel 180: Receive pause frames per port (Sum)
 function getCongestionReceivePanel() {
-  const queryRunner = new SceneQueryRunner({
+  const queryRunner = new LoggingQueryRunner({
     datasource: { uid: '${Account}' },
     queries: [
       {
@@ -526,7 +526,7 @@ function getCongestionReceivePanel() {
     ],
   });
 
-  const dataTransformer = new SceneDataTransformer({
+  const dataTransformer = new LoggingDataTransformer({
     $data: queryRunner,
     transformations: [
       {
@@ -780,7 +780,7 @@ function getCongestionReceivePanel() {
 
 // Helper function for Error Descriptions panel (panel-24)
 export function getErrorDescriptionsPanel() {
-  const queryRunner = new SceneQueryRunner({
+  const queryRunner = new LoggingQueryRunner({
     datasource: { uid: '${Account}' },
     queries: [
       {
@@ -816,7 +816,7 @@ export function getErrorDescriptionsPanel() {
     ],
   });
 
-  const transformer = new SceneDataTransformer({
+  const transformer = new LoggingDataTransformer({
     $data: queryRunner,
     transformations: [
       {
@@ -876,7 +876,7 @@ export function createNetworkErrorsQueryRunner(role: string, filterType: 'role' 
         ]
       };
 
-  return new SceneQueryRunner({
+  return new LoggingQueryRunner({
     datasource: { uid: '${Account}' },
     queries: [
       {
@@ -1047,7 +1047,7 @@ export function createNetworkErrorsQueryRunner(role: string, filterType: 'role' 
 export function getFIEthernetUplinkTXErrorsPanel(fiFilter: string) {
   const queryRunner = createNetworkErrorsQueryRunner('eth_uplink');
 
-  const transformer = new SceneDataTransformer({
+  const transformer = new LoggingDataTransformer({
     $data: queryRunner,
     transformations: [
       {
@@ -1078,7 +1078,7 @@ export function getFIEthernetUplinkTXErrorsPanel(fiFilter: string) {
 export function getFIEthernetUplinkRXErrorsPanel(fiFilter: string) {
   const queryRunner = createNetworkErrorsQueryRunner('eth_uplink');
 
-  const transformer = new SceneDataTransformer({
+  const transformer = new LoggingDataTransformer({
     $data: queryRunner,
     transformations: [
       {
@@ -1119,7 +1119,7 @@ export function getFIEthernetUplinkDetailTable() {
 export function getFIEthernetUplinkPortChannelTXErrorsPanel(fiFilter: string) {
   const queryRunner = createNetworkErrorsQueryRunner('eth_uplink_port_channel');
 
-  const transformer = new SceneDataTransformer({
+  const transformer = new LoggingDataTransformer({
     $data: queryRunner,
     transformations: [
       {
@@ -1150,7 +1150,7 @@ export function getFIEthernetUplinkPortChannelTXErrorsPanel(fiFilter: string) {
 export function getFIEthernetUplinkPortChannelRXErrorsPanel(fiFilter: string) {
   const queryRunner = createNetworkErrorsQueryRunner('eth_uplink_port_channel');
 
-  const transformer = new SceneDataTransformer({
+  const transformer = new LoggingDataTransformer({
     $data: queryRunner,
     transformations: [
       {
@@ -1194,7 +1194,7 @@ export function getFIEthernetUplinkPortChannelDetailTable() {
 // Base query runner for Network Errors - shared by multiple panels (panel-25 equivalent)
 // This query fetches all network error metrics from the NetworkInterfaces dataSource
 export function createNetworkErrorsBaseQueryRunner() {
-  return new SceneQueryRunner({
+  return new LoggingQueryRunner({
     datasource: { uid: '${Account}' },
     queries: [
       {
@@ -1357,7 +1357,7 @@ export function createNetworkErrorsBaseQueryRunner() {
 export function getFIDownlinksPanel() {
   const queryRunner = createNetworkErrorsBaseQueryRunner();
 
-  const transformer = new SceneDataTransformer({
+  const transformer = new LoggingDataTransformer({
     $data: queryRunner,
     transformations: [
       {
@@ -1516,7 +1516,7 @@ export function getFIDownlinksPanel() {
 export function getIFMUplinksPanel() {
   const queryRunner = createNetworkErrorsBaseQueryRunner();
 
-  const transformer = new SceneDataTransformer({
+  const transformer = new LoggingDataTransformer({
     $data: queryRunner,
     transformations: [
       {
@@ -1683,7 +1683,7 @@ export function getIFMUplinksPanel() {
 export function getIFMDownlinksPanel() {
   const queryRunner = createNetworkErrorsBaseQueryRunner();
 
-  const transformer = new SceneDataTransformer({
+  const transformer = new LoggingDataTransformer({
     $data: queryRunner,
     transformations: [
       {
@@ -1899,7 +1899,7 @@ export function getIFMDownlinksPanel() {
 export function getVNICVHBAPanel() {
   const queryRunner = createNetworkErrorsBaseQueryRunner();
 
-  const transformer = new SceneDataTransformer({
+  const transformer = new LoggingDataTransformer({
     $data: queryRunner,
     transformations: [
       {

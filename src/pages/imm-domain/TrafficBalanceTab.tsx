@@ -9,12 +9,12 @@ import {
   SceneFlexLayout,
   SceneFlexItem,
   PanelBuilders,
-  SceneQueryRunner,
-  SceneDataTransformer,
   SceneGridLayout,
   SceneGridRow,
   SceneGridItem,
 } from '@grafana/scenes';
+import { LoggingQueryRunner } from '../../utils/LoggingQueryRunner';
+import { LoggingDataTransformer } from '../../utils/LoggingDataTransformer';
 import { TabbedScene } from '../../components/TabbedScene';
 
 export function getTrafficBalanceTab() {
@@ -121,7 +121,7 @@ export function getTrafficBalanceTab() {
 
 // Panel 185: A: Eth transmit traffic (Sum)
 function getPanel185_EthTransmitTrafficA() {
-  const queryRunner = new SceneQueryRunner({
+  const queryRunner = new LoggingQueryRunner({
     datasource: { uid: '${Account}' },
     queries: [{
       refId: 'A',
@@ -198,7 +198,7 @@ function getPanel185_EthTransmitTrafficA() {
 
   return PanelBuilders.timeseries()
     .setTitle('A: Eth transmit traffic (Sum)')
-    .setData(new SceneDataTransformer({
+    .setData(new LoggingDataTransformer({
       $data: queryRunner,
       transformations: [
         {
@@ -219,7 +219,7 @@ function getPanel185_EthTransmitTrafficA() {
 
 // Panel 186: B: Eth transmit traffic (Sum)
 function getPanel186_EthTransmitTrafficB() {
-  const queryRunner = new SceneQueryRunner({
+  const queryRunner = new LoggingQueryRunner({
     datasource: { uid: '${Account}' },
     queries: [{
       refId: 'A',
@@ -296,7 +296,7 @@ function getPanel186_EthTransmitTrafficB() {
 
   return PanelBuilders.timeseries()
     .setTitle('B: Eth transmit traffic (Sum)')
-    .setData(new SceneDataTransformer({
+    .setData(new LoggingDataTransformer({
       $data: queryRunner,
       transformations: [
         {
@@ -317,7 +317,7 @@ function getPanel186_EthTransmitTrafficB() {
 
 // Panel 187: A: Eth receive traffic (Sum)
 function getPanel187_EthReceiveTrafficA() {
-  const queryRunner = new SceneQueryRunner({
+  const queryRunner = new LoggingQueryRunner({
     datasource: { uid: '${Account}' },
     queries: [{
       refId: 'A',
@@ -394,7 +394,7 @@ function getPanel187_EthReceiveTrafficA() {
 
   return PanelBuilders.timeseries()
     .setTitle('A: Eth receive traffic (Sum)')
-    .setData(new SceneDataTransformer({
+    .setData(new LoggingDataTransformer({
       $data: queryRunner,
       transformations: [
         {
@@ -415,7 +415,7 @@ function getPanel187_EthReceiveTrafficA() {
 
 // Panel 188: B: Eth receive traffic (Sum)
 function getPanel188_EthReceiveTrafficB() {
-  const queryRunner = new SceneQueryRunner({
+  const queryRunner = new LoggingQueryRunner({
     datasource: { uid: '${Account}' },
     queries: [{
       refId: 'A',
@@ -492,7 +492,7 @@ function getPanel188_EthReceiveTrafficB() {
 
   return PanelBuilders.timeseries()
     .setTitle('B: Eth receive traffic (Sum)')
-    .setData(new SceneDataTransformer({
+    .setData(new LoggingDataTransformer({
       $data: queryRunner,
       transformations: [
         {
@@ -513,7 +513,7 @@ function getPanel188_EthReceiveTrafficB() {
 
 // Panel 189: A: Eth transmit utilization per domain (Sum)
 function getPanel189_EthTransmitUtilPerDomainA() {
-  const queryRunner = new SceneQueryRunner({
+  const queryRunner = new LoggingQueryRunner({
     datasource: { uid: '${Account}' },
     queries: [{
       refId: 'A',
@@ -597,7 +597,7 @@ function getPanel189_EthTransmitUtilPerDomainA() {
 
   return PanelBuilders.timeseries()
     .setTitle('A: Eth transmit utilization per domain (Sum)')
-    .setData(new SceneDataTransformer({
+    .setData(new LoggingDataTransformer({
       $data: queryRunner,
       transformations: [
         {
@@ -618,7 +618,7 @@ function getPanel189_EthTransmitUtilPerDomainA() {
 
 // Panel 190: B: Eth transmit utilization per domain (Sum)
 function getPanel190_EthTransmitUtilPerDomainB() {
-  const queryRunner = new SceneQueryRunner({
+  const queryRunner = new LoggingQueryRunner({
     datasource: { uid: '${Account}' },
     queries: [{
       refId: 'A',
@@ -702,7 +702,7 @@ function getPanel190_EthTransmitUtilPerDomainB() {
 
   return PanelBuilders.timeseries()
     .setTitle('B: Eth transmit utilization per domain (Sum)')
-    .setData(new SceneDataTransformer({
+    .setData(new LoggingDataTransformer({
       $data: queryRunner,
       transformations: [
         {
@@ -723,7 +723,7 @@ function getPanel190_EthTransmitUtilPerDomainB() {
 
 // Panel 191: A: Eth receive utilization per domain (Sum)
 function getPanel191_EthReceiveUtilPerDomainA() {
-  const queryRunner = new SceneQueryRunner({
+  const queryRunner = new LoggingQueryRunner({
     datasource: { uid: '${Account}' },
     queries: [{
       refId: 'A',
@@ -807,7 +807,7 @@ function getPanel191_EthReceiveUtilPerDomainA() {
 
   return PanelBuilders.timeseries()
     .setTitle('A: Eth receive utilization per domain (Sum)')
-    .setData(new SceneDataTransformer({
+    .setData(new LoggingDataTransformer({
       $data: queryRunner,
       transformations: [
         {
@@ -828,7 +828,7 @@ function getPanel191_EthReceiveUtilPerDomainA() {
 
 // Panel 192: B: Eth receive utilization per domain (Sum)
 function getPanel192_EthReceiveUtilPerDomainB() {
-  const queryRunner = new SceneQueryRunner({
+  const queryRunner = new LoggingQueryRunner({
     datasource: { uid: '${Account}' },
     queries: [{
       refId: 'A',
@@ -912,7 +912,7 @@ function getPanel192_EthReceiveUtilPerDomainB() {
 
   return PanelBuilders.timeseries()
     .setTitle('B: Eth receive utilization per domain (Sum)')
-    .setData(new SceneDataTransformer({
+    .setData(new LoggingDataTransformer({
       $data: queryRunner,
       transformations: [
         {
@@ -933,7 +933,7 @@ function getPanel192_EthReceiveUtilPerDomainB() {
 
 // Panel 193: A: Storage transmit traffic (Sum)
 function getPanel193_StorageTransmitTrafficA() {
-  const queryRunner = new SceneQueryRunner({
+  const queryRunner = new LoggingQueryRunner({
     datasource: { uid: '${Account}' },
     queries: [{
       refId: 'A',
@@ -1016,7 +1016,7 @@ function getPanel193_StorageTransmitTrafficA() {
 
   return PanelBuilders.timeseries()
     .setTitle('A: Storage transmit traffic (Sum)')
-    .setData(new SceneDataTransformer({
+    .setData(new LoggingDataTransformer({
       $data: queryRunner,
       transformations: [
         {
@@ -1037,7 +1037,7 @@ function getPanel193_StorageTransmitTrafficA() {
 
 // Panel 194: B: Storage transmit traffic (Sum)
 function getPanel194_StorageTransmitTrafficB() {
-  const queryRunner = new SceneQueryRunner({
+  const queryRunner = new LoggingQueryRunner({
     datasource: { uid: '${Account}' },
     queries: [{
       refId: 'A',
@@ -1120,7 +1120,7 @@ function getPanel194_StorageTransmitTrafficB() {
 
   return PanelBuilders.timeseries()
     .setTitle('B: Storage transmit traffic (Sum)')
-    .setData(new SceneDataTransformer({
+    .setData(new LoggingDataTransformer({
       $data: queryRunner,
       transformations: [
         {
@@ -1141,7 +1141,7 @@ function getPanel194_StorageTransmitTrafficB() {
 
 // Panel 195: A: Storage receive traffic (Sum)
 function getPanel195_StorageReceiveTrafficA() {
-  const queryRunner = new SceneQueryRunner({
+  const queryRunner = new LoggingQueryRunner({
     datasource: { uid: '${Account}' },
     queries: [{
       refId: 'A',
@@ -1224,7 +1224,7 @@ function getPanel195_StorageReceiveTrafficA() {
 
   return PanelBuilders.timeseries()
     .setTitle('A: Storage receive traffic (Sum)')
-    .setData(new SceneDataTransformer({
+    .setData(new LoggingDataTransformer({
       $data: queryRunner,
       transformations: [
         {
@@ -1245,7 +1245,7 @@ function getPanel195_StorageReceiveTrafficA() {
 
 // Panel 196: B: Storage receive traffic (Sum)
 function getPanel196_StorageReceiveTrafficB() {
-  const queryRunner = new SceneQueryRunner({
+  const queryRunner = new LoggingQueryRunner({
     datasource: { uid: '${Account}' },
     queries: [{
       refId: 'A',
@@ -1328,7 +1328,7 @@ function getPanel196_StorageReceiveTrafficB() {
 
   return PanelBuilders.timeseries()
     .setTitle('B: Storage receive traffic (Sum)')
-    .setData(new SceneDataTransformer({
+    .setData(new LoggingDataTransformer({
       $data: queryRunner,
       transformations: [
         {
@@ -1349,7 +1349,7 @@ function getPanel196_StorageReceiveTrafficB() {
 
 // Panel 197: A: Storage transmit utilization per domain (Sum)
 function getPanel197_StorageTransmitUtilPerDomainA() {
-  const queryRunner = new SceneQueryRunner({
+  const queryRunner = new LoggingQueryRunner({
     datasource: { uid: '${Account}' },
     queries: [{
       refId: 'A',
@@ -1439,7 +1439,7 @@ function getPanel197_StorageTransmitUtilPerDomainA() {
 
   return PanelBuilders.timeseries()
     .setTitle('A: Storage transmit utilization per domain (Sum)')
-    .setData(new SceneDataTransformer({
+    .setData(new LoggingDataTransformer({
       $data: queryRunner,
       transformations: [
         {
@@ -1460,7 +1460,7 @@ function getPanel197_StorageTransmitUtilPerDomainA() {
 
 // Panel 198: B: Storage transmit utilization per domain (Sum)
 function getPanel198_StorageTransmitUtilPerDomainB() {
-  const queryRunner = new SceneQueryRunner({
+  const queryRunner = new LoggingQueryRunner({
     datasource: { uid: '${Account}' },
     queries: [{
       refId: 'A',
@@ -1550,7 +1550,7 @@ function getPanel198_StorageTransmitUtilPerDomainB() {
 
   return PanelBuilders.timeseries()
     .setTitle('B: Storage transmit utilization per domain (Sum)')
-    .setData(new SceneDataTransformer({
+    .setData(new LoggingDataTransformer({
       $data: queryRunner,
       transformations: [
         {
@@ -1571,7 +1571,7 @@ function getPanel198_StorageTransmitUtilPerDomainB() {
 
 // Panel 199: A: Storage receive utilization per domain (Sum)
 function getPanel199_StorageReceiveUtilPerDomainA() {
-  const queryRunner = new SceneQueryRunner({
+  const queryRunner = new LoggingQueryRunner({
     datasource: { uid: '${Account}' },
     queries: [{
       refId: 'A',
@@ -1661,7 +1661,7 @@ function getPanel199_StorageReceiveUtilPerDomainA() {
 
   return PanelBuilders.timeseries()
     .setTitle('A: Storage receive utilization per domain (Sum)')
-    .setData(new SceneDataTransformer({
+    .setData(new LoggingDataTransformer({
       $data: queryRunner,
       transformations: [
         {
@@ -1682,7 +1682,7 @@ function getPanel199_StorageReceiveUtilPerDomainA() {
 
 // Panel 200: B: Storage receive utilization per domain (Sum)
 function getPanel200_StorageReceiveUtilPerDomainB() {
-  const queryRunner = new SceneQueryRunner({
+  const queryRunner = new LoggingQueryRunner({
     datasource: { uid: '${Account}' },
     queries: [{
       refId: 'A',
@@ -1772,7 +1772,7 @@ function getPanel200_StorageReceiveUtilPerDomainB() {
 
   return PanelBuilders.timeseries()
     .setTitle('B: Storage receive utilization per domain (Sum)')
-    .setData(new SceneDataTransformer({
+    .setData(new LoggingDataTransformer({
       $data: queryRunner,
       transformations: [
         {

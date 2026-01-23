@@ -2,12 +2,12 @@ import {
   SceneFlexLayout,
   SceneFlexItem,
   PanelBuilders,
-  SceneQueryRunner,
-  SceneDataTransformer,
   SceneGridLayout,
   SceneGridRow,
   SceneGridItem,
 } from '@grafana/scenes';
+import { LoggingQueryRunner } from '../../utils/LoggingQueryRunner';
+import { LoggingDataTransformer } from '../../utils/LoggingDataTransformer';
 import { TabbedScene } from '../../components/TabbedScene';
 
 // ============================================================================
@@ -189,7 +189,7 @@ export function getOverviewTab() {
 
 // Panel 173 - Alarms (repeated by DomainName)
 function getAlarmsPanel() {
-  const queryRunner = new SceneQueryRunner({
+  const queryRunner = new LoggingQueryRunner({
     datasource: { uid: '${Account}' },
     queries: [
       {
@@ -211,7 +211,7 @@ function getAlarmsPanel() {
     ],
   });
 
-  const transformedData = new SceneDataTransformer({
+  const transformedData = new LoggingDataTransformer({
     $data: queryRunner,
     transformations: [
       {
@@ -276,7 +276,7 @@ function getAlarmsPanel() {
 
 // Panel 176 - Actions (repeated by DomainName)
 function getActionsPanel() {
-  const queryRunner = new SceneQueryRunner({
+  const queryRunner = new LoggingQueryRunner({
     datasource: { uid: '${Account}' },
     queries: [
       {
@@ -298,7 +298,7 @@ function getActionsPanel() {
     ],
   });
 
-  const transformedData = new SceneDataTransformer({
+  const transformedData = new LoggingDataTransformer({
     $data: queryRunner,
     transformations: [
       {
@@ -407,7 +407,7 @@ function getNetworkUtilizationTabs() {
 
 // Panel 181 - Transmit utilization in % per port
 function getTransmitUtilizationPercentPanel() {
-  const queryRunner = new SceneQueryRunner({
+  const queryRunner = new LoggingQueryRunner({
     datasource: { uid: '${Account}' },
     queries: [
       {
@@ -439,7 +439,7 @@ function getTransmitUtilizationPercentPanel() {
     ],
   });
 
-  const transformedData = new SceneDataTransformer({
+  const transformedData = new LoggingDataTransformer({
     $data: queryRunner,
     transformations: [
       {
@@ -552,7 +552,7 @@ function getTransmitUtilizationPercentPanel() {
 
 // Panel 182 - Receive utilization in % per port
 function getReceiveUtilizationPercentPanel() {
-  const queryRunner = new SceneQueryRunner({
+  const queryRunner = new LoggingQueryRunner({
     datasource: { uid: '${Account}' },
     queries: [
       {
@@ -584,7 +584,7 @@ function getReceiveUtilizationPercentPanel() {
     ],
   });
 
-  const transformedData = new SceneDataTransformer({
+  const transformedData = new LoggingDataTransformer({
     $data: queryRunner,
     transformations: [
       {
@@ -698,7 +698,7 @@ function getReceiveUtilizationPercentPanel() {
 
 // Panel 183 - Transmit utilization in bps per port
 function getTransmitUtilizationBpsPanel() {
-  const queryRunner = new SceneQueryRunner({
+  const queryRunner = new LoggingQueryRunner({
     datasource: { uid: '${Account}' },
     queries: [
       {
@@ -730,7 +730,7 @@ function getTransmitUtilizationBpsPanel() {
     ],
   });
 
-  const transformedData = new SceneDataTransformer({
+  const transformedData = new LoggingDataTransformer({
     $data: queryRunner,
     transformations: [
       {
@@ -854,7 +854,7 @@ function getTransmitUtilizationBpsPanel() {
 
 // Panel 184 - Receive utilization in bps per port
 function getReceiveUtilizationBpsPanel() {
-  const queryRunner = new SceneQueryRunner({
+  const queryRunner = new LoggingQueryRunner({
     datasource: { uid: '${Account}' },
     queries: [
       {
@@ -886,7 +886,7 @@ function getReceiveUtilizationBpsPanel() {
     ],
   });
 
-  const transformedData = new SceneDataTransformer({
+  const transformedData = new LoggingDataTransformer({
     $data: queryRunner,
     transformations: [
       {
@@ -1010,7 +1010,7 @@ function getReceiveUtilizationBpsPanel() {
 
 // Panel 179 - Transmit pause frames per port (Sum)
 function getTransmitPausePanel() {
-  const queryRunner = new SceneQueryRunner({
+  const queryRunner = new LoggingQueryRunner({
     datasource: { uid: '${Account}' },
     queries: [
       {
@@ -1042,7 +1042,7 @@ function getTransmitPausePanel() {
     ],
   });
 
-  const transformedData = new SceneDataTransformer({
+  const transformedData = new LoggingDataTransformer({
     $data: queryRunner,
     transformations: [
       {
@@ -1181,7 +1181,7 @@ function getTransmitPausePanel() {
 
 // Panel 180 - Receive pause frames per port (Sum)
 function getReceivePausePanel() {
-  const queryRunner = new SceneQueryRunner({
+  const queryRunner = new LoggingQueryRunner({
     datasource: { uid: '${Account}' },
     queries: [
       {
@@ -1213,7 +1213,7 @@ function getReceivePausePanel() {
     ],
   });
 
-  const transformedData = new SceneDataTransformer({
+  const transformedData = new LoggingDataTransformer({
     $data: queryRunner,
     transformations: [
       {
@@ -1352,7 +1352,7 @@ function getReceivePausePanel() {
 
 // Panel 178 - Network Errors
 function getNetworkErrorsPanel() {
-  const queryRunner = new SceneQueryRunner({
+  const queryRunner = new LoggingQueryRunner({
     datasource: { uid: '${Account}' },
     queries: [
       {
@@ -1393,7 +1393,7 @@ function getNetworkErrorsPanel() {
     ],
   });
 
-  const transformedData = new SceneDataTransformer({
+  const transformedData = new LoggingDataTransformer({
     $data: queryRunner,
     transformations: [
       {
@@ -1521,7 +1521,7 @@ function getNetworkErrorsPanel() {
 
 // Panel 174 - CPU Utilization per Domain
 function getCPUUtilizationPerDomainPanel() {
-  const queryRunner = new SceneQueryRunner({
+  const queryRunner = new LoggingQueryRunner({
     datasource: { uid: '${Account}' },
     queries: [
       {
@@ -1549,7 +1549,7 @@ function getCPUUtilizationPerDomainPanel() {
     ],
   });
 
-  const transformedData = new SceneDataTransformer({
+  const transformedData = new LoggingDataTransformer({
     $data: queryRunner,
     transformations: [
       {
@@ -1599,7 +1599,7 @@ function getCPUUtilizationPerDomainPanel() {
 
 // Panel 177 - Top Servers by CPU Utilization
 function getTopServersByCPUPanel() {
-  const queryRunner = new SceneQueryRunner({
+  const queryRunner = new LoggingQueryRunner({
     datasource: { uid: '${Account}' },
     queries: [
       {
@@ -1627,7 +1627,7 @@ function getTopServersByCPUPanel() {
     ],
   });
 
-  const transformedData = new SceneDataTransformer({
+  const transformedData = new LoggingDataTransformer({
     $data: queryRunner,
     transformations: [
       {

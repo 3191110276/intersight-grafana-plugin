@@ -15,6 +15,7 @@ import { getHomeSceneBody } from '../pages/home';
 import { getIMMDomainSceneBody } from '../pages/imm-domain';
 import { getStandaloneSceneBody } from '../pages/standalone';
 import { getUnifiedEdgeSceneBody } from '../pages/unified-edge';
+import { debugScene, debugVariable } from '../utils/debug';
 
 const tabs = [
   { id: 'home', label: 'Home', getBody: getHomeSceneBody },
@@ -25,6 +26,8 @@ const tabs = [
 
 export function App(props: AppRootProps) {
   const scene = useMemo(() => {
+    debugScene('Creating EmbeddedScene', { timeRange: { from: 'now-6h', to: 'now' } });
+
     const timeRange = new SceneTimeRange({
       from: 'now-6h',
       to: 'now',
@@ -36,8 +39,20 @@ export function App(props: AppRootProps) {
       pluginId: 'yesoreyeram-infinity-datasource',
     });
 
+    debugVariable('Initialized global variable: Account', {
+      type: 'DataSourceVariable',
+      pluginId: 'yesoreyeram-infinity-datasource',
+    });
+
     const variables = new SceneVariableSet({
       variables: [accountVariable],
+    });
+
+    debugScene('Creating top-level TabbedScene', {
+      tabCount: tabs.length,
+      tabs: tabs.map((t) => ({ id: t.id, label: t.label })),
+      activeTab: 'home',
+      urlSync: true,
     });
 
     const tabbedScene = new TabbedScene({

@@ -2,14 +2,14 @@ import {
   SceneFlexLayout,
   SceneFlexItem,
   PanelBuilders,
-  SceneQueryRunner,
-  SceneDataTransformer,
   SceneObjectBase,
   SceneComponentProps,
   SceneObjectState,
   VariableDependencyConfig,
   sceneGraph,
 } from '@grafana/scenes';
+import { LoggingQueryRunner } from '../../utils/LoggingQueryRunner';
+import { LoggingDataTransformer } from '../../utils/LoggingDataTransformer';
 import React from 'react';
 import { TabbedScene } from '../../components/TabbedScene';
 
@@ -20,7 +20,7 @@ interface DynamicStorageSceneState extends SceneObjectState {
 
 class DynamicStorageScene extends SceneObjectBase<DynamicStorageSceneState> {
   protected _variableDependency = new VariableDependencyConfig(this, {
-    variableNames: ['ServerName'],
+    variableNames: ['ServerName', 'RegisteredDevices'],
     onReferencedVariableValueChanged: () => {
       this.rebuildBody();
     },
@@ -38,31 +38,64 @@ class DynamicStorageScene extends SceneObjectBase<DynamicStorageSceneState> {
   }
 
   private rebuildBody() {
-    // Try to get the root scene
-    const scene = this.getRoot();
-    if (!scene) {
-      // Scene not connected yet, skip rebuild
-      return;
-    }
+    console.log('[StorageTab] rebuildBody() called');
 
-    // Access ServerName variable
-    const serverNameVariable = sceneGraph.lookupVariable('ServerName', scene);
+    // Access ServerName variable using `this` instead of getRoot()
+    const serverNameVariable = sceneGraph.lookupVariable('ServerName', this);
     if (!serverNameVariable) {
       // Variable not found, use default (no hiding)
+      console.warn('[StorageTab] ServerName variable not found, using defaults');
       this.buildBodyWithDefaults();
       return;
     }
 
     // Check if single server is selected
     const serverNameValue = serverNameVariable.getValue();
+    console.log('[StorageTab] ServerName value:', serverNameValue);
     const isSingleServer = Array.isArray(serverNameValue) && serverNameValue.length === 1;
     const shouldHideServerColumn = isSingleServer;
     const serverName = isSingleServer ? String(serverNameValue[0]) : '';
 
-    // Rebuild panels with updated flags
-    const storageControllerTab = getStorageControllersPanel(shouldHideServerColumn, serverName);
-    const ssdDisksTab = getSSDDisksPanel(shouldHideServerColumn, serverName);
-    const virtualDrivesTab = getVirtualDrivesPanel(shouldHideServerColumn, serverName);
+    // APPROACH B: Extract Moid values from RegisteredDevices variable
+    // Access the variable's query results directly, not the selected value
+    const registeredDevicesVariable = sceneGraph.lookupVariable('RegisteredDevices', this);
+    let moidFilter: string | undefined = undefined;
+
+    if (registeredDevicesVariable && 'state' in registeredDevicesVariable) {
+      let moids: string[] = [];
+
+      // Access the variable's options (all query results)
+      const varState = registeredDevicesVariable.state as any;
+      console.log('[StorageTab] RegisteredDevices variable state:', {
+        hasOptions: !!varState.options,
+        optionsLength: varState.options?.length,
+        options: varState.options
+      });
+
+      if (varState.options && Array.isArray(varState.options)) {
+        // Extract all option values (these are the Moids from the query)
+        moids = varState.options
+          .map((opt: any) => opt.value)
+          .filter((v: any) => v && v !== '$__all')
+          .map((v: any) => String(v));
+      }
+
+      // Build filter string: 'moid1','moid2','moid3'
+      if (moids.length > 0) {
+        moidFilter = moids.map(m => `'${m}'`).join(',');
+        console.log('[StorageTab] ✓ Extracted Moids from RegisteredDevices variable options:', moids);
+        console.log('[StorageTab] ✓ Built filter string:', moidFilter);
+      } else {
+        console.warn('[StorageTab] ✗ No Moids found in RegisteredDevices variable options');
+      }
+    } else {
+      console.warn('[StorageTab] RegisteredDevices variable not found or has no state');
+    }
+
+    // Rebuild panels with updated flags and moidFilter
+    const storageControllerTab = getStorageControllersPanel(shouldHideServerColumn, serverName, moidFilter);
+    const ssdDisksTab = getSSDDisksPanel(shouldHideServerColumn, serverName, moidFilter);
+    const virtualDrivesTab = getVirtualDrivesPanel(shouldHideServerColumn, serverName, moidFilter);
 
     // Create new TabbedScene with updated panels
     const newBody = new TabbedScene({
@@ -98,8 +131,15 @@ class DynamicStorageScene extends SceneObjectBase<DynamicStorageSceneState> {
   }
 }
 
-export function getStorageControllersPanel(hideServerColumn: boolean = false, serverName: string = '') {
-  const queryRunner = new SceneQueryRunner({
+export function getStorageControllersPanel(hideServerColumn: boolean = false, serverName: string = '', moidFilter?: string) {
+  // Build URL with programmatic filter if available
+  const filterExpression = moidFilter
+    ? `Owners in (${moidFilter})`
+    : `Owners in (\${RegisteredDevices:singlequote})`;
+
+  const url = `/api/v1/storage/Controllers?$top=1000&$filter=${filterExpression} and ControllerId ne 'NVMe-direct-U.2-drives'&$expand=BackupBatteryUnit,ComputeBlade,ComputeRackUnit,ComputeBoard($expand=ComputeBlade,ComputeRackUnit)`;
+
+  const queryRunner = new LoggingQueryRunner({
     datasource: { uid: '${Account}' },
     queries: [
       {
@@ -109,7 +149,7 @@ export function getStorageControllersPanel(hideServerColumn: boolean = false, se
         source: 'url',
         parser: 'backend',
         format: 'table',
-        url: '/api/v1/storage/Controllers?$top=1000&$filter=Owners in (${RegisteredDevices:singlequote}) and ControllerId ne \'NVMe-direct-U.2-drives\'&$expand=BackupBatteryUnit,ComputeBlade,ComputeRackUnit,ComputeBoard($expand=ComputeBlade,ComputeRackUnit)',
+        url: url,
         root_selector: '$.Results',
         columns: [
           { selector: 'BackupBatteryUnit.IsBatteryPresent', text: 'BackupBatteryUnitPresence', type: 'string' },
@@ -158,7 +198,7 @@ export function getStorageControllersPanel(hideServerColumn: boolean = false, se
     ],
   });
 
-  const dataTransformer = new SceneDataTransformer({
+  const dataTransformer = new LoggingDataTransformer({
     $data: queryRunner,
     transformations: [
       {
@@ -373,8 +413,15 @@ export function getStorageControllersPanel(hideServerColumn: boolean = false, se
 }
 
 // Helper function for SSD Disks sub-tab (panel-205)
-export function getSSDDisksPanel(hideServerColumn: boolean = false, serverName: string = '') {
-  const queryRunner = new SceneQueryRunner({
+export function getSSDDisksPanel(hideServerColumn: boolean = false, serverName: string = '', moidFilter?: string) {
+  // Build URL with programmatic filter if available
+  const filterExpression = moidFilter
+    ? `Owners in (${moidFilter})`
+    : `Owners in (\${RegisteredDevices:singlequote})`;
+
+  const url = `/api/v1/storage/PhysicalDisks?$top=1000&$filter=Type eq 'SSD' and ${filterExpression}&$expand=Parent($expand=Parent($expand=ComputeBlade,ComputeRackUnit))`;
+
+  const queryRunner = new LoggingQueryRunner({
     datasource: { uid: '${Account}' },
     queries: [
       {
@@ -384,7 +431,7 @@ export function getSSDDisksPanel(hideServerColumn: boolean = false, serverName: 
         source: 'url',
         parser: 'backend',
         format: 'table',
-        url: '/api/v1/storage/PhysicalDisks?$top=1000&$filter=Type eq \'SSD\' and Owners in (${RegisteredDevices:singlequote})&$expand=Parent($expand=Parent($expand=ComputeBlade,ComputeRackUnit))',
+        url: url,
         root_selector: '$.Results',
         columns: [
           { selector: 'Bootable', text: '', type: 'string' },
@@ -446,7 +493,7 @@ export function getSSDDisksPanel(hideServerColumn: boolean = false, serverName: 
     ],
   });
 
-  const dataTransformer = new SceneDataTransformer({
+  const dataTransformer = new LoggingDataTransformer({
     $data: queryRunner,
     transformations: [
       {
@@ -723,8 +770,15 @@ export function getSSDDisksPanel(hideServerColumn: boolean = false, serverName: 
 }
 
 // Helper function for Virtual Drives sub-tab (panel-206)
-export function getVirtualDrivesPanel(hideServerColumn: boolean = false, serverName: string = '') {
-  const queryRunner = new SceneQueryRunner({
+export function getVirtualDrivesPanel(hideServerColumn: boolean = false, serverName: string = '', moidFilter?: string) {
+  // Build URL with programmatic filter if available
+  const filterExpression = moidFilter
+    ? `Owners in (${moidFilter})`
+    : `Owners in (\${RegisteredDevices:singlequote})`;
+
+  const url = `/api/v1/storage/VirtualDrives?$top=1000&$filter=${filterExpression}&$expand=StorageController,Parent($expand=Parent($expand=ComputeBlade,ComputeRackUnit))`;
+
+  const queryRunner = new LoggingQueryRunner({
     datasource: { uid: '${Account}' },
     queries: [
       {
@@ -734,7 +788,7 @@ export function getVirtualDrivesPanel(hideServerColumn: boolean = false, serverN
         source: 'url',
         parser: 'backend',
         format: 'table',
-        url: '/api/v1/storage/VirtualDrives?$top=1000&$filter=Owners in (${RegisteredDevices:singlequote})&$expand=StorageController,Parent($expand=Parent($expand=ComputeBlade,ComputeRackUnit))',
+        url: url,
         root_selector: '$.Results',
         columns: [
           { selector: 'AccessPolicy', text: '', type: 'string' },
@@ -774,7 +828,7 @@ export function getVirtualDrivesPanel(hideServerColumn: boolean = false, serverN
     ],
   });
 
-  const dataTransformer = new SceneDataTransformer({
+  const dataTransformer = new LoggingDataTransformer({
     $data: queryRunner,
     transformations: [
       {

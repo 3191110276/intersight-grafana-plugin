@@ -9,11 +9,11 @@ import {
   SceneFlexLayout,
   SceneFlexItem,
   PanelBuilders,
-  SceneQueryRunner,
   SceneGridLayout,
   SceneGridRow,
   SceneGridItem,
 } from '@grafana/scenes';
+import { LoggingQueryRunner } from '../../utils/LoggingQueryRunner';
 import { TabbedScene } from '../../components/TabbedScene';
 
 export function getEnvironmentalTab() {
@@ -419,7 +419,7 @@ function getPowerSupplyStatusPanel() {
   return PanelBuilders.timeseries()
     .setTitle('Active PSUs per device')
     .setData(
-      new SceneQueryRunner({
+      new LoggingQueryRunner({
         datasource: { uid: '${Account}' },
         queries: [
           {
@@ -472,7 +472,7 @@ function getDomainPowerConsumptionPanel() {
   return PanelBuilders.timeseries()
     .setTitle('Power consumption per Domain (Max)')
     .setData(
-      new SceneQueryRunner({
+      new LoggingQueryRunner({
         datasource: { uid: '${Account}' },
         queries: [
           {
@@ -512,7 +512,7 @@ function getFIPowerConsumptionPanel() {
   return PanelBuilders.timeseries()
     .setTitle('Power consumption per FI (Max)')
     .setData(
-      new SceneQueryRunner({
+      new LoggingQueryRunner({
         datasource: { uid: '${Account}' },
         queries: [
           {
@@ -552,7 +552,7 @@ function getFIPairPowerConsumptionPanel() {
   return PanelBuilders.timeseries()
     .setTitle('Power consumption per Domain (Max)')
     .setData(
-      new SceneQueryRunner({
+      new LoggingQueryRunner({
         datasource: { uid: '${Account}' },
         queries: [
           {
@@ -585,7 +585,7 @@ function getChassisPowerConsumptionPanel() {
   return PanelBuilders.timeseries()
     .setTitle('Power consumption per Chassis (Max)')
     .setData(
-      new SceneQueryRunner({
+      new LoggingQueryRunner({
         datasource: { uid: '${Account}' },
         queries: [
           {
@@ -617,7 +617,7 @@ function getChassisPowerConsumptionPanel() {
 function getHostPowerConsumptionPanel() {
   return PanelBuilders.table()
     .setData(
-      new SceneQueryRunner({
+      new LoggingQueryRunner({
         datasource: { uid: '${Account}' },
         queries: [
           {
@@ -657,7 +657,7 @@ function getFIFanSpeedPanel() {
   return PanelBuilders.timeseries()
     .setTitle('Fan Speed per FI (Avg)')
     .setData(
-      new SceneQueryRunner({
+      new LoggingQueryRunner({
         datasource: { uid: '${Account}' },
         queries: [
           {
@@ -704,7 +704,7 @@ function getChassisFanSpeedPanel() {
   return PanelBuilders.timeseries()
     .setTitle('Fan Speed per Chassis (Avg)')
     .setData(
-      new SceneQueryRunner({
+      new LoggingQueryRunner({
         datasource: { uid: '${Account}' },
         queries: [
           {
@@ -751,7 +751,7 @@ function getFIIntakeTemperaturePanel() {
   return PanelBuilders.timeseries()
     .setTitle('FI Intake Temperature (Max)')
     .setData(
-      new SceneQueryRunner({
+      new LoggingQueryRunner({
         datasource: { uid: '${Account}' },
         queries: [
           {
@@ -799,7 +799,7 @@ function getFIExhaustTemperaturePanel() {
   return PanelBuilders.timeseries()
     .setTitle('FI Exhaust Temperature (Max)')
     .setData(
-      new SceneQueryRunner({
+      new LoggingQueryRunner({
         datasource: { uid: '${Account}' },
         queries: [
           {
@@ -847,7 +847,7 @@ function getFICPUTemperaturePanel() {
   return PanelBuilders.timeseries()
     .setTitle('FI CPU Temperature (Max)')
     .setData(
-      new SceneQueryRunner({
+      new LoggingQueryRunner({
         datasource: { uid: '${Account}' },
         queries: [
           {
@@ -895,7 +895,7 @@ function getFIASICTemperaturePanel() {
   return PanelBuilders.timeseries()
     .setTitle('FI ASIC Temperature (Max)')
     .setData(
-      new SceneQueryRunner({
+      new LoggingQueryRunner({
         datasource: { uid: '${Account}' },
         queries: [
           {
@@ -943,7 +943,7 @@ function getChassisIntakeTemperaturePanel() {
   return PanelBuilders.timeseries()
     .setTitle('Chassis Intake Temperature (Max)')
     .setData(
-      new SceneQueryRunner({
+      new LoggingQueryRunner({
         datasource: { uid: '${Account}' },
         queries: [
           {
@@ -991,7 +991,7 @@ function getChassisExhaustTemperaturePanel() {
   return PanelBuilders.timeseries()
     .setTitle('Chassis Exhaust Temperature (Max)')
     .setData(
-      new SceneQueryRunner({
+      new LoggingQueryRunner({
         datasource: { uid: '${Account}' },
         queries: [
           {
@@ -1038,7 +1038,7 @@ function getChassisExhaustTemperaturePanel() {
 function getHostTemperaturePanel() {
   return PanelBuilders.table()
     .setData(
-      new SceneQueryRunner({
+      new LoggingQueryRunner({
         datasource: { uid: '${Account}' },
         queries: [
           {
@@ -1125,7 +1125,7 @@ function getHostTemperaturePanel() {
 function getCoolingBudgetPanel() {
   return PanelBuilders.table()
     .setData(
-      new SceneQueryRunner({
+      new LoggingQueryRunner({
         datasource: { uid: '${Account}' },
         queries: [
           {

@@ -2,14 +2,14 @@ import {
   SceneFlexLayout,
   SceneFlexItem,
   PanelBuilders,
-  SceneQueryRunner,
-  SceneDataTransformer,
   SceneObjectBase,
   SceneComponentProps,
   SceneObjectState,
   VariableDependencyConfig,
   sceneGraph,
 } from '@grafana/scenes';
+import { LoggingQueryRunner } from '../../utils/LoggingQueryRunner';
+import { LoggingDataTransformer } from '../../utils/LoggingDataTransformer';
 import React from 'react';
 import { TabsBar, Tab } from '@grafana/ui';
 
@@ -29,7 +29,7 @@ function getFabricInterconnectAPanel(domainName?: string) {
     ? `Name eq '${domainName} FI-A'`
     : `Name eq '\${DomainName} FI-A'`;
 
-  const queryRunner = new SceneQueryRunner({
+  const queryRunner = new LoggingQueryRunner({
     datasource: { uid: '${Account}' },
     queries: [
       {
@@ -77,7 +77,7 @@ function getFabricInterconnectAPanel(domainName?: string) {
     ],
   });
 
-  const transformedData = new SceneDataTransformer({
+  const transformedData = new LoggingDataTransformer({
     $data: queryRunner,
     transformations: [
       {
@@ -189,7 +189,7 @@ function getFabricInterconnectBPanel(domainName?: string) {
     ? `Name eq '${domainName} FI-B'`
     : `Name eq '\${DomainName} FI-B'`;
 
-  const queryRunner = new SceneQueryRunner({
+  const queryRunner = new LoggingQueryRunner({
     datasource: { uid: '${Account}' },
     queries: [
       {
@@ -237,7 +237,7 @@ function getFabricInterconnectBPanel(domainName?: string) {
     ],
   });
 
-  const transformedData = new SceneDataTransformer({
+  const transformedData = new LoggingDataTransformer({
     $data: queryRunner,
     transformations: [
       {
@@ -349,7 +349,7 @@ function getChassisInventoryPanel(domainName?: string) {
     ? `startswith(Name, '${domainName}')`
     : `startswith(Name, '\${DomainName}')`;
 
-  const queryRunner = new SceneQueryRunner({
+  const queryRunner = new LoggingQueryRunner({
     datasource: { uid: '${Account}' },
     queries: [
       {
@@ -395,7 +395,7 @@ function getChassisInventoryPanel(domainName?: string) {
     ],
   });
 
-  const transformedData = new SceneDataTransformer({
+  const transformedData = new LoggingDataTransformer({
     $data: queryRunner,
     transformations: [
       {
@@ -543,7 +543,7 @@ function getServerInventoryPanel(domainName?: string) {
     ? `startswith(Name, '${domainName}')`
     : `startswith(Name, '\${DomainName}')`;
 
-  const queryRunner = new SceneQueryRunner({
+  const queryRunner = new LoggingQueryRunner({
     datasource: { uid: '${Account}' },
     queries: [
       {
@@ -615,7 +615,7 @@ function getServerInventoryPanel(domainName?: string) {
     ],
   });
 
-  const transformedData = new SceneDataTransformer({
+  const transformedData = new LoggingDataTransformer({
     $data: queryRunner,
     transformations: [
       {

@@ -1,15 +1,196 @@
+/**
+ * Ports Tab - Standalone Scene
+ *
+ * This module provides the Ports tab functionality for the Standalone scene.
+ * Shows all network ports (Ethernet and Fibre Channel) in a single table.
+ */
+
+import React from 'react';
 import {
   SceneFlexLayout,
   SceneFlexItem,
   PanelBuilders,
-  SceneQueryRunner,
-  SceneDataTransformer,
+  SceneObjectBase,
+  SceneComponentProps,
+  SceneObjectState,
+  VariableDependencyConfig,
+  sceneGraph,
 } from '@grafana/scenes';
+import { LoggingQueryRunner } from '../../utils/LoggingQueryRunner';
+import { LoggingDataTransformer } from '../../utils/LoggingDataTransformer';
 
-export function getPortsTab() {
+// ============================================================================
+// DYNAMIC PORTS SCENE - Shows all ports in a single table for all selected servers
+// ============================================================================
+
+interface DynamicPortsSceneState extends SceneObjectState {
+  body: any;
+}
+
+/**
+ * DynamicPortsScene - Custom scene that reads the ServerName variable
+ * and shows all ports in a single table.
+ */
+class DynamicPortsScene extends SceneObjectBase<DynamicPortsSceneState> {
+  public static Component = DynamicPortsSceneRenderer;
+  private _dataSubscription?: () => void;
+
+  protected _variableDependency = new VariableDependencyConfig(this, {
+    variableNames: ['ServerName', 'RegisteredDevices'],
+    onReferencedVariableValueChanged: () => {
+      // Only rebuild if the scene is still active
+      if (this.isActive) {
+        this.rebuildBody();
+      }
+    },
+  });
+
+  public constructor(state: Partial<DynamicPortsSceneState>) {
+    super({
+      body: new SceneFlexLayout({ children: [] }),
+      ...state,
+    });
+  }
+
+  public activate() {
+    const deactivate = super.activate();
+    this.rebuildBody();
+
+    return () => {
+      // Unsubscribe from data changes
+      if (this._dataSubscription) {
+        this._dataSubscription();
+        this._dataSubscription = undefined;
+      }
+      deactivate();
+    };
+  }
+
+  private rebuildBody() {
+    // Skip if scene is not active (prevents race conditions during deactivation)
+    if (!this.isActive) {
+      return;
+    }
+
+    // Unsubscribe from previous data subscription
+    if (this._dataSubscription) {
+      this._dataSubscription();
+      this._dataSubscription = undefined;
+    }
+
+    // Get the ServerName variable from the scene's variable set
+    const variable = this.getVariable('ServerName');
+
+    if (!variable || variable.state.type !== 'query') {
+      console.warn('ServerName variable not found or not a query variable');
+      return;
+    }
+
+    // Get the current value(s) from the variable
+    const value = variable.state.value;
+    let serverNames: string[] = [];
+
+    if (Array.isArray(value)) {
+      serverNames = value.map(v => String(v));
+    } else if (value && value !== '$__all') {
+      serverNames = [String(value)];
+    }
+
+    // If no servers selected, show a message
+    if (serverNames.length === 0) {
+      const emptyBody = new SceneFlexLayout({
+        direction: 'column',
+        children: [
+          new SceneFlexItem({
+            height: 200,
+            body: PanelBuilders.text()
+              .setTitle('')
+              .setOption('content', '### No Servers Selected\n\nPlease select one or more servers from the Server filter above.')
+              .setOption('mode', 'markdown' as any)
+              .setDisplayMode('transparent')
+              .build(),
+          }),
+        ],
+      });
+
+      this.setState({ body: emptyBody });
+      return;
+    }
+
+    // APPROACH B: Extract Moid values from RegisteredDevices variable
+    // Access the variable's query results directly, not the selected value
+    const registeredDevicesVariable = sceneGraph.lookupVariable('RegisteredDevices', this);
+    let moidFilter: string | undefined = undefined;
+
+    if (registeredDevicesVariable && 'state' in registeredDevicesVariable) {
+      let moids: string[] = [];
+
+      // Access the variable's options (all query results)
+      const varState = registeredDevicesVariable.state as any;
+      if (varState.options && Array.isArray(varState.options)) {
+        // Extract all option values (these are the Moids from the query)
+        moids = varState.options
+          .map((opt: any) => opt.value)
+          .filter((v: any) => v && v !== '$__all')
+          .map((v: any) => String(v));
+      }
+
+      // Build filter string: 'moid1','moid2','moid3'
+      if (moids.length > 0) {
+        moidFilter = moids.map(m => `'${m}'`).join(',');
+        console.log('[PortsTab] Extracted Moids from RegisteredDevices variable options:', moids);
+        console.log('[PortsTab] Built filter string:', moidFilter);
+      } else {
+        console.warn('[PortsTab] No Moids found in RegisteredDevices variable options');
+      }
+    }
+
+    // Determine if only one server is selected
+    const isSingleServer = serverNames.length === 1;
+
+    // Create the ports table with moidFilter and single server flag
+    const newBody = createPortsBody(moidFilter, isSingleServer);
+
+    this.setState({ body: newBody });
+  }
+
+  private getVariable(name: string): any {
+    // Use sceneGraph to lookup variable in parent scope
+    return sceneGraph.lookupVariable(name, this);
+  }
+}
+
+/**
+ * Renderer component for DynamicPortsScene
+ */
+function DynamicPortsSceneRenderer({ model }: SceneComponentProps<DynamicPortsScene>) {
+  const { body } = model.useState();
+
+  return (
+    <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column' }}>
+      {body && body.Component && <body.Component model={body} />}
+    </div>
+  );
+}
+
+/**
+ * Creates the ports table layout
+ */
+function createPortsBody(moidFilter?: string, isSingleServer: boolean = false): SceneFlexLayout {
+  // Build filter expressions for queries
+  const ethFilterExpression = moidFilter
+    ? `DeviceMoId in (${moidFilter})`
+    : `DeviceMoId in (\${RegisteredDevices:singlequote})`;
+
+  const fcFilterExpression = moidFilter
+    ? `DeviceMoId in (${moidFilter})`
+    : `DeviceMoId in (\${RegisteredDevices:singlequote})`;
+
+  const ethUrl = `/api/v1/adapter/HostEthInterfaces?$filter=${ethFilterExpression}&$expand=Parent($expand=Parent)`;
+  const fcUrl = `/api/v1/adapter/HostFcInterfaces?$filter=${fcFilterExpression}&$expand=Parent($expand=Parent)`;
+
   // Create query runner with both Ethernet and Fibre Channel queries
-  // Using transformations to merge instead of SQL expression (which has compatibility issues in Scenes)
-  const baseQueryRunner = new SceneQueryRunner({
+  const baseQueryRunner = new LoggingQueryRunner({
     datasource: { uid: '${Account}' },
     queries: [
       // Query A: HostEthInterfaces (Ethernet)
@@ -20,27 +201,16 @@ export function getPortsTab() {
         source: 'url',
         parser: 'backend',
         format: 'table',
-        url: '/api/v1/adapter/HostEthInterfaces?$filter=DeviceMoId in (${RegisteredDevices:singlequote})&$expand=Parent($expand=Parent)',
+        url: ethUrl,
         root_selector: '$.Results',
         columns: [
-          { selector: 'AcknowledgedPeerInterface', text: 'AcknowledgedPeerInterface', type: 'string' },
-          { selector: 'ActiveOperState', text: 'ActiveOperState', type: 'string' },
-          { selector: 'AdapterUnit', text: 'AdapterUnit', type: 'string' },
-          { selector: 'AdminState', text: 'AdminState', type: 'string' },
-          { selector: 'Ancestors', text: 'Ancestors', type: 'string' },
-          { selector: 'HostEthInterfaceId', text: 'HostEthInterfaceId', type: 'string' },
-          { selector: 'InterfaceType', text: 'InterfaceType', type: 'string' },
-          { selector: 'MacAddress', text: 'MacAddress', type: 'string' },
-          { selector: 'Name', text: 'Name', type: 'string' },
-          { selector: 'OperReason', text: 'OperReason', type: 'string' },
-          { selector: 'OperState', text: 'OperState', type: 'string' },
-          { selector: 'Operability', text: 'Operability', type: 'string' },
-          { selector: 'OriginalMacAddress', text: 'OriginalMacAddress', type: 'string' },
-          { selector: 'Parent', text: 'Parent', type: 'string' },
-          { selector: 'PciAddr', text: 'PciAddr', type: 'string' },
-          { selector: 'QinqEnabled', text: 'QinqEnabled', type: 'string' },
-          { selector: 'QinqVlan', text: 'QinqVlan', type: 'string' },
           { selector: 'Parent.Parent.Name', text: 'Hostname', type: 'string' },
+          { selector: 'Name', text: 'Port', type: 'string' },
+          { selector: 'MacAddress', text: 'MAC Address', type: 'string' },
+          { selector: 'InterfaceType', text: 'Interface Type', type: 'string' },
+          { selector: '"Ethernet"', text: 'Type', type: 'string' },
+          { selector: 'QinqEnabled', text: 'QinQ Enabled?', type: 'string' },
+          { selector: 'QinqVlan', text: 'QinQ VLAN', type: 'string' },
         ],
         url_options: {
           method: 'GET',
@@ -55,27 +225,16 @@ export function getPortsTab() {
         source: 'url',
         parser: 'backend',
         format: 'table',
-        url: '/api/v1/adapter/HostFcInterfaces?$filter=DeviceMoId in (${RegisteredDevices:singlequote})&$expand=Parent($expand=Parent)',
+        url: fcUrl,
         root_selector: '$.Results',
         columns: [
-          { selector: 'AcknowledgedPeerInterface', text: 'AcknowledgedPeerInterface', type: 'string' },
-          { selector: 'ActiveOperState', text: 'ActiveOperState', type: 'string' },
-          { selector: 'AdapterUnit', text: 'AdapterUnit', type: 'string' },
-          { selector: 'AdminState', text: 'AdminState', type: 'string' },
-          { selector: 'Ancestors', text: 'Ancestors', type: 'string' },
-          { selector: 'HostEthInterfaceId', text: 'HostEthInterfaceId', type: 'string' },
-          { selector: 'InterfaceType', text: 'InterfaceType', type: 'string' },
-          { selector: 'MacAddress', text: 'MacAddress', type: 'string' },
-          { selector: 'Name', text: 'Name', type: 'string' },
-          { selector: 'OperReason', text: 'OperReason', type: 'string' },
-          { selector: 'OperState', text: 'OperState', type: 'string' },
-          { selector: 'Operability', text: 'Operability', type: 'string' },
-          { selector: 'OriginalMacAddress', text: 'OriginalMacAddress', type: 'string' },
-          { selector: 'Parent', text: 'Parent', type: 'string' },
-          { selector: 'PciAddr', text: 'PciAddr', type: 'string' },
-          { selector: 'QinqEnabled', text: 'QinqEnabled', type: 'string' },
-          { selector: 'QinqVlan', text: 'QinqVlan', type: 'string' },
           { selector: 'Parent.Parent.Name', text: 'Hostname', type: 'string' },
+          { selector: 'Name', text: 'Port', type: 'string' },
+          { selector: 'MacAddress', text: 'MAC Address', type: 'string' },
+          { selector: 'InterfaceType', text: 'Interface Type', type: 'string' },
+          { selector: '"Fibre Channel"', text: 'Type', type: 'string' },
+          { selector: 'QinqEnabled', text: 'QinQ Enabled?', type: 'string' },
+          { selector: 'QinqVlan', text: 'QinQ VLAN', type: 'string' },
         ],
         url_options: {
           method: 'GET',
@@ -85,82 +244,92 @@ export function getPortsTab() {
     ],
   });
 
-  // Wrap with transformer to merge both queries and organize columns
-  const queryRunner = new SceneDataTransformer({
+  // Apply transformations: merge queries, organize columns
+  const transformedData = new LoggingDataTransformer({
     $data: baseQueryRunner,
     transformations: [
-      // First, merge/concatenate both query results
       {
         id: 'merge',
         options: {},
       },
-      // Then organize columns as in original
       {
         id: 'organize',
         options: {
           excludeByName: {
-            'AcknowledgedPeerInterface': true,
-            'ActiveOperState': true,
-            'AdapterUnit': true,
-            'AdminState': true,
-            'Ancestors': true,
-            'OperReason': true,
-            'OperState': true,
-            'Operability': true,
-            'OriginalMacAddress': true,
-            'Parent': true,
-            'PciAddr': true,
+            Hostname: isSingleServer,
           },
           includeByName: {},
           indexByName: {
-            'AcknowledgedPeerInterface': 5,
-            'ActiveOperState': 6,
-            'AdapterUnit': 7,
-            'AdminState': 8,
-            'Ancestors': 9,
-            'HostEthInterfaceId': 2,
-            'Hostname': 0,
-            'InterfaceType': 4,
-            'MacAddress': 3,
-            'Name': 1,
-            'OperReason': 10,
-            'OperState': 11,
-            'Operability': 12,
-            'OriginalMacAddress': 13,
-            'Parent': 14,
-            'PciAddr': 15,
-            'QinqEnabled': 16,
-            'QinqVlan': 17,
+            Hostname: 0,
+            Port: 1,
+            'MAC Address': 2,
+            'Interface Type': 3,
+            Type: 4,
+            'QinQ Enabled?': 5,
+            'QinQ VLAN': 6,
           },
-          renameByName: {
-            'HostEthInterfaceId': '',
-            'InterfaceType': 'Interface Type',
-            'MacAddress': 'MAC Address',
-            'Name': 'Port',
-            'QinqEnabled': 'QinQ Enabled?',
-            'QinqVlan': 'QinQ VLAN',
-          },
+          renameByName: {},
         },
       },
     ],
   });
 
-  // Create table panel
-  const tablePanel = PanelBuilders.table()
-    .setTitle('')
-    .setData(queryRunner)
+  // Build the ports table panel
+  const portsPanel = PanelBuilders.table()
+    .setTitle('Network Ports')
+    .setData(transformedData)
     .setOption('showHeader', true)
     .setOption('cellHeight', 'sm')
-    .setOption('sortBy', [{ displayName: 'Hostname', desc: false }])
+    .setOption('enablePagination', true)
+    .setNoValue('-')
+    .setCustomFieldConfig('align', 'auto')
+    .setCustomFieldConfig('cellOptions', { type: 'auto' })
+    .setCustomFieldConfig('filterable', true)
+    .setCustomFieldConfig('inspect', false)
+    .setOverrides((builder) => {
+      // Add color transformation for QinQ Enabled field
+      builder
+        .matchFieldsWithName('QinQ Enabled?')
+        .overrideMappings([
+          {
+            type: 'value',
+            options: {
+              '': { color: '#646464', index: 0, text: '-' },
+              '-': { color: '#646464', index: 1, text: '-' },
+              null: { color: '#646464', index: 2, text: '-' },
+              'null': { color: '#646464', index: 3, text: '-' },
+              'false': { color: '#646464', index: 4, text: 'False' },
+              false: { color: '#646464', index: 5, text: 'False' },
+              'true': { color: 'blue', index: 6, text: 'True' },
+              true: { color: 'blue', index: 7, text: 'True' },
+            },
+          },
+        ])
+        .overrideColor({
+          mode: 'fixed',
+          fixedColor: '#646464',
+        })
+        .overrideCustomFieldConfig('cellOptions', { type: 'color-text' });
+    })
     .build();
 
+  // Return layout with the ports panel
   return new SceneFlexLayout({
     direction: 'column',
     children: [
       new SceneFlexItem({
         ySizing: 'fill',
-        body: tablePanel,
+        body: portsPanel,
       }),
     ],
   });
+}
+
+/**
+ * Main export function for the Ports tab.
+ * Returns a DynamicPortsScene that shows all ports in a single table.
+ */
+export function getPortsTab() {
+  // Return the dynamic ports scene that shows all ports in a single table
+  return new DynamicPortsScene({});
 }

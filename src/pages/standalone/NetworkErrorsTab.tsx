@@ -2,13 +2,13 @@ import {
   SceneFlexLayout,
   SceneFlexItem,
   PanelBuilders,
-  SceneQueryRunner,
-  SceneDataTransformer,
 } from '@grafana/scenes';
+import { LoggingQueryRunner } from '../../utils/LoggingQueryRunner';
+import { LoggingDataTransformer } from '../../utils/LoggingDataTransformer';
 
 export function getNetworkErrorsTab() {
   // Row 1, Panel 1: Total transmit errors per physical port (panel-219)
-  const txErrorsQueryRunner = new SceneQueryRunner({
+  const txErrorsQueryRunner = new LoggingQueryRunner({
     datasource: { uid: '${Account}' },
     queries: [
       {
@@ -158,7 +158,7 @@ export function getNetworkErrorsTab() {
     ],
   });
 
-  const txErrorsTransformer = new SceneDataTransformer({
+  const txErrorsTransformer = new LoggingDataTransformer({
     $data: txErrorsQueryRunner,
     transformations: [
       {
@@ -190,7 +190,7 @@ export function getNetworkErrorsTab() {
     .build();
 
   // Row 1, Panel 2: Total receive errors per physical port (panel-221)
-  const rxErrorsQueryRunner = new SceneQueryRunner({
+  const rxErrorsQueryRunner = new LoggingQueryRunner({
     datasource: { uid: '${Account}' },
     queries: [
       {
@@ -340,7 +340,7 @@ export function getNetworkErrorsTab() {
     ],
   });
 
-  const rxErrorsTransformer = new SceneDataTransformer({
+  const rxErrorsTransformer = new LoggingDataTransformer({
     $data: rxErrorsQueryRunner,
     transformations: [
       {
@@ -372,7 +372,7 @@ export function getNetworkErrorsTab() {
     .build();
 
   // Row 1, Panel 3: Detailed error counts table (panel-28)
-  const errorDetailsQueryRunner = new SceneQueryRunner({
+  const errorDetailsQueryRunner = new LoggingQueryRunner({
     datasource: { uid: '${Account}' },
     queries: [
       {
@@ -513,7 +513,7 @@ export function getNetworkErrorsTab() {
     ],
   });
 
-  const errorDetailsTransformer = new SceneDataTransformer({
+  const errorDetailsTransformer = new LoggingDataTransformer({
     $data: errorDetailsQueryRunner,
     transformations: [
       {
@@ -735,7 +735,7 @@ export function getNetworkErrorsTab() {
     .build();
 
   // Row 3: Error Descriptions (panel-24)
-  const errorDescriptionsQueryRunner = new SceneQueryRunner({
+  const errorDescriptionsQueryRunner = new LoggingQueryRunner({
     datasource: { uid: '${Account}' },
     queries: [
       {
@@ -771,7 +771,7 @@ export function getNetworkErrorsTab() {
     ],
   });
 
-  const errorDescriptionsTransformer = new SceneDataTransformer({
+  const errorDescriptionsTransformer = new LoggingDataTransformer({
     $data: errorDescriptionsQueryRunner,
     transformations: [
       {

@@ -10,14 +10,92 @@ import {
   SceneFlexLayout,
   SceneFlexItem,
   PanelBuilders,
-  SceneQueryRunner,
-  SceneDataTransformer,
   SceneObjectBase,
   SceneComponentProps,
   SceneObjectState,
   VariableDependencyConfig,
   sceneGraph,
+  SceneDataProvider,
+  SceneDataState,
 } from '@grafana/scenes';
+import { LoggingQueryRunner } from '../../utils/LoggingQueryRunner';
+import { LoggingDataTransformer } from '../../utils/LoggingDataTransformer';
+import { DataFrame, LoadingState, PanelData } from '@grafana/data';
+
+// ============================================================================
+// CUSTOM DATA PROVIDER - Filters columns based on data presence
+// ============================================================================
+
+interface FilterColumnsDataProviderState extends SceneDataState {
+  $data?: SceneDataProvider;
+}
+
+/**
+ * Custom data provider that wraps another data provider and filters columns
+ * based on data presence. Specifically hides the Server column when no data
+ * is returned (empty result set).
+ */
+class FilterColumnsDataProvider extends SceneObjectBase<FilterColumnsDataProviderState> implements SceneDataProvider {
+  public constructor(source: SceneDataProvider) {
+    super({
+      $data: source,
+      data: {
+        state: LoadingState.NotStarted,
+        series: [],
+        timeRange: source.state.data?.timeRange!,
+      },
+    });
+
+    this.addActivationHandler(() => {
+      const sub = this.subscribeToSource();
+      return () => sub.unsubscribe();
+    });
+  }
+
+  private subscribeToSource() {
+    const source = this.state.$data!;
+
+    return source.subscribeToState((newState) => {
+      if (newState.data) {
+        const filteredData = this.filterColumns(newState.data);
+        this.setState({ data: filteredData });
+      }
+    });
+  }
+
+  /**
+   * Filters columns by hiding Server column when the table is empty (no data).
+   * When there's actual workflow data, show all columns (respects organize transformation).
+   */
+  private filterColumns(data: PanelData): PanelData {
+    // Don't filter if data is still loading or there's no data series
+    if (!data.series || data.series.length === 0 || data.state !== LoadingState.Done) {
+      return data;
+    }
+
+    const filteredSeries = data.series.map((frame: DataFrame) => {
+      // If table has data (rows), show all columns (respects organize transformation)
+      if (frame.length > 0) {
+        return frame;
+      }
+
+      // If table is empty (no data rows), HIDE Server column
+      const filteredFields = frame.fields.filter(field => {
+        return field.name !== 'Server';
+      });
+
+      return {
+        ...frame,
+        fields: filteredFields,
+      };
+    });
+
+    return {
+      ...data,
+      series: filteredSeries,
+    };
+  }
+}
 
 // ============================================================================
 // DYNAMIC ACTIONS SCENE - Shows all actions in a single table for all selected servers
@@ -159,7 +237,7 @@ function DynamicActionsSceneRenderer({ model }: SceneComponentProps<DynamicActio
 function buildActionsBodyWithQueryRunner(
   serverNames: string[],
   showServerColumn: boolean,
-  queryRunner: SceneQueryRunner
+  queryRunner: LoggingQueryRunner
 ): SceneFlexLayout {
   const panelTitle = serverNames.length === 1
     ? `Workflows executed in ${serverNames[0]}`
@@ -220,7 +298,7 @@ function buildActionsBodyWithQueryRunner(
       };
 
   // Apply transformations: merge queries, organize columns
-  const transformedData = new SceneDataTransformer({
+  const baseTransformedData = new LoggingDataTransformer({
     $data: queryRunner,
     transformations: [
       {
@@ -272,6 +350,9 @@ function buildActionsBodyWithQueryRunner(
       },
     ],
   });
+
+  // Wrap with custom data provider to hide Server column when no data
+  const transformedData = new FilterColumnsDataProvider(baseTransformedData);
 
   // Build the actions table panel
   const actionsPanel = PanelBuilders.table()
@@ -395,7 +476,7 @@ function buildActionsBodyWithQueryRunner(
  * Helper function to create Actions panel for all selected servers
  * Returns both the layout body and the query runner for data subscription
  */
-function getAllServersActionsPanel(serverNames: string[], showServerColumn: boolean): { body: SceneFlexLayout; queryRunner: SceneQueryRunner } {
+function getAllServersActionsPanel(serverNames: string[], showServerColumn: boolean): { body: SceneFlexLayout; queryRunner: LoggingQueryRunner } {
   // Create a query for each server
   const queries = serverNames.map((serverName, index) => {
     const refId = String.fromCharCode(65 + index); // A, B, C, etc.
@@ -457,7 +538,7 @@ function getAllServersActionsPanel(serverNames: string[], showServerColumn: bool
   });
 
   // Create query runner for all servers
-  const baseQueryRunner = new SceneQueryRunner({
+  const baseQueryRunner = new LoggingQueryRunner({
     datasource: { uid: '${Account}' },
     queries: queries,
   });

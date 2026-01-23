@@ -11,14 +11,14 @@ import {
   SceneFlexLayout,
   SceneFlexItem,
   PanelBuilders,
-  SceneQueryRunner,
-  SceneDataTransformer,
   SceneObjectBase,
   SceneComponentProps,
   SceneObjectState,
   VariableDependencyConfig,
   sceneGraph,
 } from '@grafana/scenes';
+import { LoggingQueryRunner } from '../../utils/LoggingQueryRunner';
+import { LoggingDataTransformer } from '../../utils/LoggingDataTransformer';
 import { TabsBar, Tab } from '@grafana/ui';
 
 // ============================================================================
@@ -235,7 +235,7 @@ function DynamicPortsSceneRenderer({ model }: SceneComponentProps<DynamicPortsSc
  * Helper function to create Ports panel for a specific domain
  */
 function getPortsPanelForDomain(domainName: string) {
-  const baseQueryRunner = new SceneQueryRunner({
+  const baseQueryRunner = new LoggingQueryRunner({
     datasource: { uid: '${Account}' },
     queries: [
       // Query A: FI-A Ports
@@ -514,7 +514,7 @@ function getPortsPanelForDomain(domainName: string) {
   });
 
   // Using transformations to merge FI-A and FI-B data and create computed columns
-  const queryRunner = new SceneDataTransformer({
+  const queryRunner = new LoggingDataTransformer({
     $data: baseQueryRunner,
     transformations: [
       // Transformation 1: Join Query A and Query B by port field

@@ -11,8 +11,6 @@ import {
   SceneFlexLayout,
   SceneFlexItem,
   PanelBuilders,
-  SceneQueryRunner,
-  SceneDataTransformer,
   SceneObjectBase,
   SceneComponentProps,
   SceneObjectState,
@@ -21,6 +19,8 @@ import {
   SceneDataProvider,
   SceneDataState,
 } from '@grafana/scenes';
+import { LoggingQueryRunner } from '../../utils/LoggingQueryRunner';
+import { LoggingDataTransformer } from '../../utils/LoggingDataTransformer';
 import { DataFrame, LoadingState, PanelData } from '@grafana/data';
 import { Observable } from 'rxjs';
 import { map } from 'rxjs/operators';
@@ -218,13 +218,13 @@ function getAllServersAlarmsPanel(serverNames: string[]) {
   const showServerColumn = serverNames.length > 1;
 
   // Create one query per server per severity for the table
-  // This creates consistent ordering: Critical > Warning > Info > Cleared, grouped by server
+  // This creates consistent ordering: Critical > Warning > Info > Cleared, across all servers
   const severities = ['Critical', 'Warning', 'Info', 'Cleared'];
   const tableQueries: any[] = [];
 
   // Generate queries for table - one per server per severity
-  serverNames.forEach((serverName) => {
-    severities.forEach((severity) => {
+  severities.forEach((severity, severityIndex) => {
+    serverNames.forEach((serverName) => {
       let severityFilterClause;
 
       if (severity === 'Cleared') {
@@ -236,6 +236,9 @@ function getAllServersAlarmsPanel(serverNames: string[]) {
       }
 
       const filterClause = `(startswith(AffectedMoDisplayName, '${serverName}')) and (${severityFilterClause})`;
+
+      // Map severity to numeric order for sorting (Critical=1, Warning=2, Info=3, Cleared=4)
+      const severityOrder = severityIndex + 1;
 
       tableQueries.push({
         refId: `TBL_${serverName}_${severity}`, // Unique ref ID per server per severity
@@ -275,6 +278,10 @@ function getAllServersAlarmsPanel(serverNames: string[]) {
           { selector: "Flap + ' (' + FlappingCount + ')'", text: 'Flapping', type: 'string' },
           // Inject server name as a computed column
           { selector: `'${serverName}'`, text: 'Server', type: 'string' },
+          // Add numeric severity order for sorting (Critical=1, Warning=2, Info=3, Cleared=4)
+          { selector: `${severityOrder}`, text: 'SeverityOrder', type: 'number' },
+          // Add timestamp as number for reliable sorting
+          { selector: 'LastTransitionTime', text: 'TimestampSort', type: 'number' },
         ],
         url_options: {
           method: 'GET',
@@ -353,44 +360,45 @@ function getAllServersAlarmsPanel(serverNames: string[]) {
   });
 
   // Create separate query runners for each stat widget (using statQueries)
-  const criticalQueryRunner = new SceneQueryRunner({
+  const criticalQueryRunner = new LoggingQueryRunner({
     datasource: { uid: '${Account}' },
     queries: [statQueries[0]], // A - Critical
   });
 
-  const warningQueryRunner = new SceneQueryRunner({
+  const warningQueryRunner = new LoggingQueryRunner({
     datasource: { uid: '${Account}' },
     queries: [statQueries[1]], // B - Warning
   });
 
-  const infoQueryRunner = new SceneQueryRunner({
+  const infoQueryRunner = new LoggingQueryRunner({
     datasource: { uid: '${Account}' },
     queries: [statQueries[2]], // C - Info
   });
 
-  const clearedQueryRunner = new SceneQueryRunner({
+  const clearedQueryRunner = new LoggingQueryRunner({
     datasource: { uid: '${Account}' },
     queries: [statQueries[3]], // D - Cleared
   });
 
-  const suppressedQueryRunner = new SceneQueryRunner({
+  const suppressedQueryRunner = new LoggingQueryRunner({
     datasource: { uid: '${Account}' },
     queries: [statQueries[4]], // E - Suppressed
   });
 
-  const acknowledgedQueryRunner = new SceneQueryRunner({
+  const acknowledgedQueryRunner = new LoggingQueryRunner({
     datasource: { uid: '${Account}' },
     queries: [statQueries[5]], // F - Acknowledged
   });
 
   // Query runner for table (uses all tableQueries - one per server per severity)
-  const baseQueryRunner = new SceneQueryRunner({
+  const baseQueryRunner = new LoggingQueryRunner({
     datasource: { uid: '${Account}' },
     queries: tableQueries,
   });
 
   // Apply transformations: merge queries, organize columns and format time
-  const baseTransformedData = new SceneDataTransformer({
+  // Note: Sorting is handled by the table panel's sortBy option, not by a transformation
+  const baseTransformedData = new LoggingDataTransformer({
     $data: baseQueryRunner,
     transformations: [
       {
@@ -418,6 +426,8 @@ function getAllServersAlarmsPanel(serverNames: string[]) {
             Owners: true,
             RegisteredDevice: true,
             Server: !showServerColumn, // Hide Server column if only one server selected
+            TimestampSort: true, // Hide the timestamp sorting helper field
+            // Note: SeverityOrder is kept visible for table sorting, but will be hidden via field override
           },
           includeByName: {},
           indexByName: {
@@ -690,12 +700,20 @@ function getAllServersAlarmsPanel(serverNames: string[]) {
     .setOption('cellHeight', 'sm')
     .setOption('enablePagination', true)
     .setNoValue('No Alarms in the selected time period')
-    // No sortBy needed - data is pre-sorted by query order: Critical > Warning > Info > Cleared, then by Last Transition within each group
+    .setOption('sortBy', [
+      { displayName: 'SeverityOrder', desc: false },      // Sort by severity: Critical (1) -> Warning (2) -> Info (3) -> Cleared (4)
+      { displayName: 'Last Transition', desc: true },     // Then by time: newest first
+    ])
     .setCustomFieldConfig('align', 'auto')
     .setCustomFieldConfig('cellOptions', { type: 'auto' })
     .setCustomFieldConfig('filterable', true)
     .setCustomFieldConfig('inspect', false)
     .setOverrides((builder) => {
+      // SeverityOrder column - hidden but used for sorting
+      builder.matchFieldsWithName('SeverityOrder')
+        .overrideCustomFieldConfig('width', 0)  // Hide by setting width to 0
+        .overrideCustomFieldConfig('hidden', true);
+
       // Severity column - color-coded text
       builder.matchFieldsWithName('Severity')
         .overrideCustomFieldConfig('cellOptions', { type: 'color-text' })

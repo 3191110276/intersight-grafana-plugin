@@ -9,18 +9,18 @@ import {
   SceneFlexLayout,
   SceneFlexItem,
   PanelBuilders,
-  SceneQueryRunner,
   SceneGridLayout,
   SceneGridRow,
   SceneGridItem,
-  SceneDataTransformer,
 } from '@grafana/scenes';
+import { LoggingQueryRunner } from '../../utils/LoggingQueryRunner';
+import { LoggingDataTransformer } from '../../utils/LoggingDataTransformer';
 import { TabbedScene } from '../../components/TabbedScene';
 import { TableCellDisplayMode } from '@grafana/ui';
 
 export function getCPUUtilizationTab() {
   // Panel-7 from original dashboard - combines CPU utilization and temperature data
-  const queryRunner = new SceneQueryRunner({
+  const queryRunner = new LoggingQueryRunner({
     datasource: { uid: '${Account}' },
     queries: [
       // Query A: CPU Utilization
@@ -245,7 +245,7 @@ export function getCPUUtilizationTab() {
   });
 
   // Apply transformations to join data and organize columns
-  const transformedData = new SceneDataTransformer({
+  const transformedData = new LoggingDataTransformer({
     $data: queryRunner,
     transformations: [
       {
@@ -332,7 +332,7 @@ export function getCPUUtilizationTab() {
 
 // Helper function for Storage Controllers sub-tab (panel-204)
 function getStorageControllersPanel() {
-  const queryRunner = new SceneQueryRunner({
+  const queryRunner = new LoggingQueryRunner({
     datasource: { uid: '${Account}' },
     queries: [
       {
@@ -391,7 +391,7 @@ function getStorageControllersPanel() {
     ],
   });
 
-  const dataTransformer = new SceneDataTransformer({
+  const dataTransformer = new LoggingDataTransformer({
     $data: queryRunner,
     transformations: [
       {
@@ -594,7 +594,7 @@ function getStorageControllersPanel() {
 
 // Helper function for SSD Disks sub-tab (panel-205)
 function getSSDDisksPanel() {
-  const queryRunner = new SceneQueryRunner({
+  const queryRunner = new LoggingQueryRunner({
     datasource: { uid: '${Account}' },
     queries: [
       {
@@ -669,7 +669,7 @@ function getSSDDisksPanel() {
     ],
   });
 
-  const dataTransformer = new SceneDataTransformer({
+  const dataTransformer = new LoggingDataTransformer({
     $data: queryRunner,
     transformations: [
       {
@@ -927,7 +927,7 @@ function getSSDDisksPanel() {
 
 // Helper function for HDD Disks sub-tab (panel-208)
 function getHDDDisksPanel() {
-  const queryRunner = new SceneQueryRunner({
+  const queryRunner = new LoggingQueryRunner({
     datasource: { uid: '${Account}' },
     queries: [
       {
@@ -1002,7 +1002,7 @@ function getHDDDisksPanel() {
     ],
   });
 
-  const dataTransformer = new SceneDataTransformer({
+  const dataTransformer = new LoggingDataTransformer({
     $data: queryRunner,
     transformations: [
       {
@@ -1260,7 +1260,7 @@ function getHDDDisksPanel() {
 
 // Helper function for Virtual Drives sub-tab (panel-206)
 function getVirtualDrivesPanel() {
-  const queryRunner = new SceneQueryRunner({
+  const queryRunner = new LoggingQueryRunner({
     datasource: { uid: '${Account}' },
     queries: [
       {
@@ -1308,7 +1308,7 @@ function getVirtualDrivesPanel() {
     ],
   });
 
-  const dataTransformer = new SceneDataTransformer({
+  const dataTransformer = new LoggingDataTransformer({
     $data: queryRunner,
     transformations: [
       {

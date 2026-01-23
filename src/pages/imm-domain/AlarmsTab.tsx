@@ -10,14 +10,14 @@ import {
   SceneFlexLayout,
   SceneFlexItem,
   PanelBuilders,
-  SceneQueryRunner,
-  SceneDataTransformer,
   SceneObjectBase,
   SceneComponentProps,
   SceneObjectState,
   VariableDependencyConfig,
   sceneGraph,
 } from '@grafana/scenes';
+import { LoggingQueryRunner } from '../../utils/LoggingQueryRunner';
+import { LoggingDataTransformer } from '../../utils/LoggingDataTransformer';
 
 // ============================================================================
 // DYNAMIC ALARMS SCENE - Shows all alarms in a single table for all selected domains
@@ -245,44 +245,44 @@ function getAllDomainsAlarmsPanel(domainNames: string[]) {
   });
 
   // Create separate query runners for each stat widget
-  const criticalQueryRunner = new SceneQueryRunner({
+  const criticalQueryRunner = new LoggingQueryRunner({
     datasource: { uid: '${Account}' },
     queries: [queries[0]], // A - Critical
   });
 
-  const warningQueryRunner = new SceneQueryRunner({
+  const warningQueryRunner = new LoggingQueryRunner({
     datasource: { uid: '${Account}' },
     queries: [queries[1]], // B - Warning
   });
 
-  const infoQueryRunner = new SceneQueryRunner({
+  const infoQueryRunner = new LoggingQueryRunner({
     datasource: { uid: '${Account}' },
     queries: [queries[2]], // C - Info
   });
 
-  const clearedQueryRunner = new SceneQueryRunner({
+  const clearedQueryRunner = new LoggingQueryRunner({
     datasource: { uid: '${Account}' },
     queries: [queries[3]], // D - Cleared
   });
 
-  const suppressedQueryRunner = new SceneQueryRunner({
+  const suppressedQueryRunner = new LoggingQueryRunner({
     datasource: { uid: '${Account}' },
     queries: [queries[4]], // E - Suppressed
   });
 
-  const acknowledgedQueryRunner = new SceneQueryRunner({
+  const acknowledgedQueryRunner = new LoggingQueryRunner({
     datasource: { uid: '${Account}' },
     queries: [queries[5]], // F - Acknowledged
   });
 
   // Query runner for table (uses A-D only)
-  const baseQueryRunner = new SceneQueryRunner({
+  const baseQueryRunner = new LoggingQueryRunner({
     datasource: { uid: '${Account}' },
     queries: queries.slice(0, 4), // Only A-D for table
   });
 
   // Apply transformations: merge queries, organize columns and format time
-  const transformedData = new SceneDataTransformer({
+  const transformedData = new LoggingDataTransformer({
     $data: baseQueryRunner,
     transformations: [
       {
@@ -370,7 +370,7 @@ function getAllDomainsAlarmsPanel(domainNames: string[]) {
 
   // Build stat panels for alarm counts with transformers
   // Critical stat (Query A)
-  const criticalTransformedData = new SceneDataTransformer({
+  const criticalTransformedData = new LoggingDataTransformer({
     $data: criticalQueryRunner,
     transformations: [
       {
@@ -414,7 +414,7 @@ function getAllDomainsAlarmsPanel(domainNames: string[]) {
     .build();
 
   // Warning stat (Query B)
-  const warningTransformedData = new SceneDataTransformer({
+  const warningTransformedData = new LoggingDataTransformer({
     $data: warningQueryRunner,
     transformations: [
       {
@@ -458,7 +458,7 @@ function getAllDomainsAlarmsPanel(domainNames: string[]) {
     .build();
 
   // Info stat (Query C)
-  const infoTransformedData = new SceneDataTransformer({
+  const infoTransformedData = new LoggingDataTransformer({
     $data: infoQueryRunner,
     transformations: [
       {
@@ -502,7 +502,7 @@ function getAllDomainsAlarmsPanel(domainNames: string[]) {
     .build();
 
   // Cleared stat (Query D)
-  const clearedTransformedData = new SceneDataTransformer({
+  const clearedTransformedData = new LoggingDataTransformer({
     $data: clearedQueryRunner,
     transformations: [
       {

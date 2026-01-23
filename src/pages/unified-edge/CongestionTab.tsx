@@ -5,9 +5,9 @@ import {
   SceneGridRow,
   SceneGridItem,
   PanelBuilders,
-  SceneQueryRunner,
-  SceneDataTransformer,
 } from '@grafana/scenes';
+import { LoggingQueryRunner } from '../../utils/LoggingQueryRunner';
+import { LoggingDataTransformer } from '../../utils/LoggingDataTransformer';
 
 // ============================================================================
 // CONGESTION TAB (Traffic Balance)
@@ -76,7 +76,7 @@ export function getCongestionTab() {
 
 // Panel 185: A: Eth transmit traffic (Sum)
 function getPanel185_EthTransmitTrafficA() {
-  const queryRunner = new SceneQueryRunner({
+  const queryRunner = new LoggingQueryRunner({
     datasource: { uid: '${Account}' },
     queries: [{
       refId: 'A',
@@ -151,7 +151,7 @@ function getPanel185_EthTransmitTrafficA() {
     } as any],
   });
 
-  const transformedData = new SceneDataTransformer({
+  const transformedData = new LoggingDataTransformer({
     $data: queryRunner,
     transformations: [
       {
@@ -189,7 +189,7 @@ function getPanel185_EthTransmitTrafficA() {
 
 // Panel 186: B: Eth transmit traffic (Sum)
 function getPanel186_EthTransmitTrafficB() {
-  const queryRunner = new SceneQueryRunner({
+  const queryRunner = new LoggingQueryRunner({
     datasource: { uid: '${Account}' },
     queries: [{
       refId: 'A',
@@ -264,7 +264,7 @@ function getPanel186_EthTransmitTrafficB() {
     } as any],
   });
 
-  const transformedData = new SceneDataTransformer({
+  const transformedData = new LoggingDataTransformer({
     $data: queryRunner,
     transformations: [
       {
@@ -302,7 +302,7 @@ function getPanel186_EthTransmitTrafficB() {
 
 // Panel 187: A: Eth receive traffic (Sum)
 function getPanel187_EthReceiveTrafficA() {
-  const queryRunner = new SceneQueryRunner({
+  const queryRunner = new LoggingQueryRunner({
     datasource: { uid: '${Account}' },
     queries: [{
       refId: 'A',
@@ -377,7 +377,7 @@ function getPanel187_EthReceiveTrafficA() {
     } as any],
   });
 
-  const transformedData = new SceneDataTransformer({
+  const transformedData = new LoggingDataTransformer({
     $data: queryRunner,
     transformations: [
       {
@@ -416,7 +416,7 @@ function getPanel187_EthReceiveTrafficA() {
 
 // Panel 188: B: Eth receive traffic (Sum)
 function getPanel188_EthReceiveTrafficB() {
-  const queryRunner = new SceneQueryRunner({
+  const queryRunner = new LoggingQueryRunner({
     datasource: { uid: '${Account}' },
     queries: [{
       refId: 'A',
@@ -491,7 +491,7 @@ function getPanel188_EthReceiveTrafficB() {
     } as any],
   });
 
-  const transformedData = new SceneDataTransformer({
+  const transformedData = new LoggingDataTransformer({
     $data: queryRunner,
     transformations: [
       {
@@ -533,7 +533,7 @@ function getPanel188_EthReceiveTrafficB() {
 
 // Panel 189: A: Eth uplink transmit utilization per chassis (Sum)
 function getPanel189_EthTransmitUtilPerChassisA() {
-  const queryRunner = new SceneQueryRunner({
+  const queryRunner = new LoggingQueryRunner({
     datasource: { uid: '${Account}' },
     queries: [{
       refId: 'A',
@@ -617,7 +617,7 @@ function getPanel189_EthTransmitUtilPerChassisA() {
     } as any],
   });
 
-  const transformedData = new SceneDataTransformer({
+  const transformedData = new LoggingDataTransformer({
     $data: queryRunner,
     transformations: [
       {
@@ -656,7 +656,7 @@ function getPanel189_EthTransmitUtilPerChassisA() {
 
 // Panel 190: B: Eth uplink transmit utilization per chassis (Sum)
 function getPanel190_EthTransmitUtilPerChassisB() {
-  const queryRunner = new SceneQueryRunner({
+  const queryRunner = new LoggingQueryRunner({
     datasource: { uid: '${Account}' },
     queries: [{
       refId: 'A',
@@ -740,7 +740,7 @@ function getPanel190_EthTransmitUtilPerChassisB() {
     } as any],
   });
 
-  const transformedData = new SceneDataTransformer({
+  const transformedData = new LoggingDataTransformer({
     $data: queryRunner,
     transformations: [
       {
@@ -783,7 +783,7 @@ function getPanel190_EthTransmitUtilPerChassisB() {
 
 // Panel 191: A: Eth uplink receive utilization per chassis (Sum)
 function getPanel191_EthReceiveUtilPerChassisA() {
-  const queryRunner = new SceneQueryRunner({
+  const queryRunner = new LoggingQueryRunner({
     datasource: { uid: '${Account}' },
     queries: [{
       refId: 'A',
@@ -867,7 +867,7 @@ function getPanel191_EthReceiveUtilPerChassisA() {
     } as any],
   });
 
-  const transformedData = new SceneDataTransformer({
+  const transformedData = new LoggingDataTransformer({
     $data: queryRunner,
     transformations: [
       {
@@ -906,7 +906,7 @@ function getPanel191_EthReceiveUtilPerChassisA() {
 
 // Panel 192: B: Eth uplink receive utilization per chassis (Sum)
 function getPanel192_EthReceiveUtilPerChassisB() {
-  const queryRunner = new SceneQueryRunner({
+  const queryRunner = new LoggingQueryRunner({
     datasource: { uid: '${Account}' },
     queries: [{
       refId: 'A',
@@ -990,7 +990,7 @@ function getPanel192_EthReceiveUtilPerChassisB() {
     } as any],
   });
 
-  const transformedData = new SceneDataTransformer({
+  const transformedData = new LoggingDataTransformer({
     $data: queryRunner,
     transformations: [
       {

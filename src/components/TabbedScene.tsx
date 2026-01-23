@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { SceneObjectBase, SceneComponentProps, SceneObjectState } from '@grafana/scenes';
 import { TabsBar, Tab } from '@grafana/ui';
 import { css } from '@emotion/css';
+import { debugTab, debugUrl } from '../utils/debug';
 
 interface TabDefinition {
   id: string;
@@ -23,8 +24,16 @@ export class TabbedScene extends SceneObjectBase<TabbedSceneState> {
   public static Component = TabbedSceneRenderer;
 
   public setActiveTab(tabId: string, updateUrl: boolean = true) {
+    debugTab('Tab transition', {
+      from: this.state.activeTab,
+      to: tabId,
+      updateUrl,
+      isTopLevel: this.state.isTopLevel,
+    });
+
     const tab = this.state.tabs.find((t) => t.id === tabId);
     if (tab) {
+      debugTab('Loading tab body', { tabId, label: tab.label });
       const newBody = tab.getBody();
       this.setState({ activeTab: tabId, body: newBody });
     }
@@ -56,6 +65,12 @@ function TabbedSceneRenderer({ model }: SceneComponentProps<TabbedScene>) {
   // Sync URL to state on mount and location changes
   useEffect(() => {
     if (!urlSync) return;
+
+    debugUrl('URL changed, syncing to state', {
+      pathname: location.pathname,
+      currentActiveTab: activeTab,
+      isTopLevel,
+    });
 
     // BrowserRouter basename strips '/a/intersight-app', so:
     // URL '/a/intersight-app/standalone/alarms' becomes location.pathname '/standalone/alarms'
@@ -94,6 +109,16 @@ function TabbedSceneRenderer({ model }: SceneComponentProps<TabbedScene>) {
 
   const handleTabChange = (tabId: string) => {
     if (urlSync) {
+      const newPath = isTopLevel
+        ? (tabId === 'home' ? '/' : `/${tabId}`)
+        : `/${location.pathname.split('/').filter(Boolean)[0]}/${tabId}`;
+
+      debugUrl('Updating URL from tab change', {
+        tabId,
+        newPath,
+        isTopLevel,
+      });
+
       if (isTopLevel) {
         // Update URL for top-level tab
         if (tabId === 'home') {

@@ -2,14 +2,14 @@ import {
   SceneFlexLayout,
   SceneFlexItem,
   PanelBuilders,
-  SceneQueryRunner,
-  SceneDataTransformer,
   SceneObjectBase,
   SceneComponentProps,
   SceneObjectState,
   VariableDependencyConfig,
   sceneGraph,
 } from '@grafana/scenes';
+import { LoggingQueryRunner } from '../../utils/LoggingQueryRunner';
+import { LoggingDataTransformer } from '../../utils/LoggingDataTransformer';
 import React from 'react';
 import { TabsBar, Tab } from '@grafana/ui';
 
@@ -25,7 +25,7 @@ function getChassisPanel(chassisName?: string) {
     ? `Name eq '${chassisName}'`
     : `Name eq '\${ChassisName}'`;
 
-  const queryRunner = new SceneQueryRunner({
+  const queryRunner = new LoggingQueryRunner({
     datasource: { uid: '${Account}' },
     queries: [
       {
@@ -72,7 +72,7 @@ function getChassisPanel(chassisName?: string) {
     ],
   });
 
-  const transformedData = new SceneDataTransformer({
+  const transformedData = new LoggingDataTransformer({
     $data: queryRunner,
     transformations: [
       {
@@ -226,7 +226,7 @@ function getServerPanel(chassisName?: string) {
     ? `startswith(Name, '${chassisName}')`
     : `startswith(Name, '\${ChassisName}')`;
 
-  const queryRunner = new SceneQueryRunner({
+  const queryRunner = new LoggingQueryRunner({
     datasource: { uid: '${Account}' },
     queries: [
       {
@@ -299,7 +299,7 @@ function getServerPanel(chassisName?: string) {
     ],
   });
 
-  const transformedData = new SceneDataTransformer({
+  const transformedData = new LoggingDataTransformer({
     $data: queryRunner,
     transformations: [
       {

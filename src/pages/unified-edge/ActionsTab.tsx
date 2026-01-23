@@ -2,14 +2,14 @@ import {
   SceneFlexLayout,
   SceneFlexItem,
   PanelBuilders,
-  SceneQueryRunner,
-  SceneDataTransformer,
   SceneObjectBase,
   SceneComponentProps,
   SceneObjectState,
   VariableDependencyConfig,
   sceneGraph,
 } from '@grafana/scenes';
+import { LoggingQueryRunner } from '../../utils/LoggingQueryRunner';
+import { LoggingDataTransformer } from '../../utils/LoggingDataTransformer';
 import React from 'react';
 import { TabsBar, Tab } from '@grafana/ui';
 
@@ -219,7 +219,7 @@ function getActionsPanelForChassis(chassisName: string) {
   // Query for workflow actions filtered by chassis name
   // Note: Using the chassisName parameter directly in the filter since we're creating
   // a panel for each chassis separately
-  const queryRunner = new SceneQueryRunner({
+  const queryRunner = new LoggingQueryRunner({
     datasource: { uid: '${Account}' },
     queries: [
       {
@@ -264,7 +264,7 @@ function getActionsPanelForChassis(chassisName: string) {
     ],
   });
 
-  const transformedData = new SceneDataTransformer({
+  const transformedData = new LoggingDataTransformer({
     $data: queryRunner,
     transformations: [
       {

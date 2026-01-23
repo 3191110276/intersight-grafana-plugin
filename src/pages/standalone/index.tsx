@@ -4,6 +4,7 @@ import {
   VariableValueSelectors,
 } from '@grafana/scenes';
 import { TabbedScene } from '../../components/TabbedScene';
+import { debugScene, debugVariable } from '../../utils/debug';
 
 // Import all tab functions
 import { getOverviewTab } from './OverviewTab';
@@ -31,6 +32,8 @@ const standaloneTabs = [
 ];
 
 export function getStandaloneSceneBody() {
+  debugScene('Creating Standalone section scene');
+
   // Create ServerName variable - scoped to Standalone tab
   const serverNameVariable = new QueryVariable({
     name: 'ServerName',
@@ -61,6 +64,13 @@ export function getStandaloneSceneBody() {
     maxVisibleValues: 2,
   });
 
+  debugVariable('Initialized section variable: ServerName', {
+    section: 'standalone',
+    isMulti: true,
+    maxVisibleValues: 2,
+    queryUrl: '/api/v1/compute/RackUnits?$filter=...',
+  });
+
   // Create RegisteredDevices variable - hidden, depends on ServerName
   const registeredDevicesVariable = new QueryVariable({
     name: 'RegisteredDevices',
@@ -74,7 +84,7 @@ export function getStandaloneSceneBody() {
         source: 'url',
         parser: 'backend',
         format: 'table',
-        url: '/api/v1/asset/DeviceRegistrations?$filter=DeviceHostname in (${ServerName:singlequote})',
+        url: '/api/v1/asset/DeviceRegistrations?$top=1000&$filter=DeviceHostname in (${ServerName:singlequote})',
         root_selector: '$.Results',
         columns: [
           { selector: 'Moid', text: 'Moid', type: 'string' },
@@ -86,9 +96,15 @@ export function getStandaloneSceneBody() {
         filters: [],
       },
     },
-    isMulti: false,
-    includeAll: true,
+    isMulti: true,
+    includeAll: false,
     hide: 2, // hideVariable = 2 in Scenes
+  });
+
+  debugVariable('Initialized hidden variable: RegisteredDevices', {
+    section: 'standalone',
+    hide: 2,
+    dependsOn: 'ServerName',
   });
 
   // Create variable set for Standalone tab

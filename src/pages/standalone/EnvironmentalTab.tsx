@@ -2,14 +2,14 @@ import {
   SceneFlexLayout,
   SceneFlexItem,
   PanelBuilders,
-  SceneQueryRunner,
-  SceneDataTransformer,
 } from '@grafana/scenes';
+import { LoggingQueryRunner } from '../../utils/LoggingQueryRunner';
+import { LoggingDataTransformer } from '../../utils/LoggingDataTransformer';
 import { TabbedScene } from '../../components/TabbedScene';
 
 export function getEnvironmentalTab() {
   // Row 1: Power Supply Status Panel (panel-6)
-  const powerSupplyQueryRunner = new SceneQueryRunner({
+  const powerSupplyQueryRunner = new LoggingQueryRunner({
     datasource: { uid: '${Account}' },
     queries: [
       {
@@ -98,7 +98,7 @@ export function getEnvironmentalTab() {
     ],
   });
 
-  const powerSupplyDataTransformer = new SceneDataTransformer({
+  const powerSupplyDataTransformer = new LoggingDataTransformer({
     $data: powerSupplyQueryRunner,
     transformations: [
       {
@@ -134,7 +134,7 @@ export function getEnvironmentalTab() {
     .build();
 
   // Row 2: Host Power Consumption - Panel 1 (panel-203 - timeseries)
-  const powerConsumptionTimeseriesRunner = new SceneQueryRunner({
+  const powerConsumptionTimeseriesRunner = new LoggingQueryRunner({
     datasource: { uid: '${Account}' },
     queries: [
       {
@@ -224,7 +224,7 @@ export function getEnvironmentalTab() {
     ],
   });
 
-  const powerConsumptionTimeseriesTransformer = new SceneDataTransformer({
+  const powerConsumptionTimeseriesTransformer = new LoggingDataTransformer({
     $data: powerConsumptionTimeseriesRunner,
     transformations: [
       {
@@ -245,7 +245,7 @@ export function getEnvironmentalTab() {
     .build();
 
   // Row 2: Host Power Consumption - Panel 2 (panel-15 - table)
-  const powerConsumptionTableRunner = new SceneQueryRunner({
+  const powerConsumptionTableRunner = new LoggingQueryRunner({
     datasource: { uid: '${Account}' },
     queries: [
       {
@@ -316,7 +316,7 @@ export function getEnvironmentalTab() {
     ],
   });
 
-  const powerConsumptionTableTransformer = new SceneDataTransformer({
+  const powerConsumptionTableTransformer = new LoggingDataTransformer({
     $data: powerConsumptionTableRunner,
     transformations: [
       {
@@ -359,7 +359,7 @@ export function getEnvironmentalTab() {
     .build();
 
   // Row 3: Fan Speed Panel (panel-17)
-  const fanSpeedQueryRunner = new SceneQueryRunner({
+  const fanSpeedQueryRunner = new LoggingQueryRunner({
     datasource: { uid: '${Account}' },
     queries: [
       {
@@ -437,7 +437,7 @@ export function getEnvironmentalTab() {
     ],
   });
 
-  const fanSpeedDataTransformer = new SceneDataTransformer({
+  const fanSpeedDataTransformer = new LoggingDataTransformer({
     $data: fanSpeedQueryRunner,
     transformations: [
       {
@@ -515,7 +515,7 @@ export function getEnvironmentalTab() {
 
 // Helper function for Temperature tab (panel-9)
 export function getTemperatureTab() {
-  const temperatureQueryRunner = new SceneQueryRunner({
+  const temperatureQueryRunner = new LoggingQueryRunner({
     datasource: { uid: '${Account}' },
     maxDataPoints: 500,
     queries: [
@@ -724,7 +724,7 @@ export function getTemperatureTab() {
     ],
   });
 
-  const temperatureDataTransformer = new SceneDataTransformer({
+  const temperatureDataTransformer = new LoggingDataTransformer({
     $data: temperatureQueryRunner,
     transformations: [
       {
@@ -783,7 +783,7 @@ export function getTemperatureTab() {
 
 // Helper function for Cooling Budget tab (panel-21)
 export function getCoolingBudgetTab() {
-  const coolingBudgetQueryRunner = new SceneQueryRunner({
+  const coolingBudgetQueryRunner = new LoggingQueryRunner({
     datasource: { uid: '${Account}' },
     maxDataPoints: 500,
     queries: [
@@ -1030,7 +1030,7 @@ export function getCoolingBudgetTab() {
     ],
   });
 
-  const coolingBudgetDataTransformer = new SceneDataTransformer({
+  const coolingBudgetDataTransformer = new LoggingDataTransformer({
     $data: coolingBudgetQueryRunner,
     transformations: [
       {

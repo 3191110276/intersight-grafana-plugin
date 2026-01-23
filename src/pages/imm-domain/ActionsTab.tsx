@@ -10,14 +10,14 @@ import {
   SceneFlexLayout,
   SceneFlexItem,
   PanelBuilders,
-  SceneQueryRunner,
-  SceneDataTransformer,
   SceneObjectBase,
   SceneComponentProps,
   SceneObjectState,
   VariableDependencyConfig,
   sceneGraph,
 } from '@grafana/scenes';
+import { LoggingQueryRunner } from '../../utils/LoggingQueryRunner';
+import { LoggingDataTransformer } from '../../utils/LoggingDataTransformer';
 
 // ============================================================================
 // DYNAMIC ACTIONS SCENE - Shows all actions in a single table for all selected domains
@@ -159,7 +159,7 @@ function DynamicActionsSceneRenderer({ model }: SceneComponentProps<DynamicActio
 function buildActionsBodyWithQueryRunner(
   domainNames: string[],
   showDomainColumn: boolean,
-  queryRunner: SceneQueryRunner
+  queryRunner: LoggingQueryRunner
 ): SceneFlexLayout {
   const panelTitle = domainNames.length === 1
     ? `Workflows executed in ${domainNames[0]}`
@@ -220,7 +220,7 @@ function buildActionsBodyWithQueryRunner(
       };
 
   // Apply transformations: merge queries, organize columns
-  const transformedData = new SceneDataTransformer({
+  const transformedData = new LoggingDataTransformer({
     $data: queryRunner,
     transformations: [
       {
@@ -395,7 +395,7 @@ function buildActionsBodyWithQueryRunner(
  * Helper function to create Actions panel for all selected domains
  * Returns both the layout body and the query runner for data subscription
  */
-function getAllDomainsActionsPanel(domainNames: string[], showDomainColumn: boolean): { body: SceneFlexLayout; queryRunner: SceneQueryRunner } {
+function getAllDomainsActionsPanel(domainNames: string[], showDomainColumn: boolean): { body: SceneFlexLayout; queryRunner: LoggingQueryRunner } {
   // Create a query for each domain
   const queries = domainNames.map((domainName, index) => {
     const refId = String.fromCharCode(65 + index); // A, B, C, etc.
@@ -457,7 +457,7 @@ function getAllDomainsActionsPanel(domainNames: string[], showDomainColumn: bool
   });
 
   // Create query runner for all domains
-  const baseQueryRunner = new SceneQueryRunner({
+  const baseQueryRunner = new LoggingQueryRunner({
     datasource: { uid: '${Account}' },
     queries: queries,
   });

@@ -9,7 +9,6 @@ import {
   SceneFlexLayout,
   SceneFlexItem,
   PanelBuilders,
-  SceneQueryRunner,
   SceneGridLayout,
   SceneGridRow,
   SceneGridItem,
