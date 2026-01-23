@@ -220,11 +220,131 @@ const queryC = {
 } as any;
 
 // ============================================================================
+// DRILLDOWN QUERY HELPER
+// ============================================================================
+
+/**
+ * Creates a drilldown query by replacing variable interpolation with a hardcoded server name
+ */
+function createDrilldownQuery(baseQuery: any, serverName: string): any {
+  // Deep clone the base query (use structured clone to avoid reference issues)
+  const drilldownQuery = JSON.parse(JSON.stringify(baseQuery));
+
+  // Replace the ServerName variable reference with the hardcoded server name
+  // The variable is referenced as: [\${ServerName:doublequote}]
+  // We need to replace it with: ["serverName"]
+  const escapedServerName = JSON.stringify(serverName); // Properly escape the server name
+  drilldownQuery.url_options.data = drilldownQuery.url_options.data.replace(
+    /\[\$\{ServerName:doublequote\}\]/g,
+    `[${escapedServerName}]`
+  );
+
+  return drilldownQuery;
+}
+
+// ============================================================================
+// DRILLDOWN HEADER COMPONENT (Header + Back Button)
+// ============================================================================
+
+interface DrilldownHeaderControlState extends SceneObjectState {
+  serverName: string;
+  onBack: () => void;
+}
+
+class DrilldownHeaderControl extends SceneObjectBase<DrilldownHeaderControlState> {
+  public static Component = DrilldownHeaderRenderer;
+}
+
+function DrilldownHeaderRenderer({ model }: SceneComponentProps<DrilldownHeaderControl>) {
+  const { serverName, onBack } = model.useState();
+
+  return (
+    <div style={{
+      padding: '12px 0',
+      display: 'flex',
+      alignItems: 'center',
+      gap: '20px',
+      borderBottom: '1px solid rgba(204, 204, 220, 0.15)',
+    }}>
+      <button
+        onClick={onBack}
+        style={{
+          padding: '6px 12px',
+          cursor: 'pointer',
+          background: 'transparent',
+          border: '1px solid rgba(204, 204, 220, 0.25)',
+          borderRadius: '2px',
+          color: 'inherit',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '6px',
+          fontSize: '14px',
+        }}
+      >
+        <span>&larr;</span>
+        <span>Back to Table</span>
+      </button>
+      <div style={{
+        fontSize: '18px',
+        fontWeight: 500,
+      }}>
+        Drilldown: {serverName}
+      </div>
+    </div>
+  );
+}
+
+// ============================================================================
+// CLICKABLE TABLE WRAPPER COMPONENT
+// ============================================================================
+
+interface ClickableTableWrapperState extends SceneObjectState {
+  tablePanel: any;
+  onRowClick: (serverName: string) => void;
+}
+
+class ClickableTableWrapper extends SceneObjectBase<ClickableTableWrapperState> {
+  public static Component = ClickableTableWrapperRenderer;
+}
+
+function ClickableTableWrapperRenderer({ model }: SceneComponentProps<ClickableTableWrapper>) {
+  const { tablePanel, onRowClick } = model.useState();
+
+  const handleClick = (event: React.MouseEvent) => {
+    // Find the closest grid row (React Data Grid uses role="row")
+    const row = (event.target as HTMLElement).closest('[role="row"]');
+
+    if (!row) {
+      return;
+    }
+
+    // Extract server name from the first gridcell (aria-colindex="1")
+    const firstCell = row.querySelector('[role="gridcell"][aria-colindex="1"]');
+
+    if (firstCell) {
+      const serverName = firstCell.textContent?.trim();
+
+      if (serverName) {
+        onRowClick(serverName);
+      }
+    }
+  };
+
+  return (
+    <div onClick={handleClick} style={{ cursor: 'pointer', width: '100%', height: '100%' }}>
+      <tablePanel.Component model={tablePanel} />
+    </div>
+  );
+}
+
+// ============================================================================
 // DYNAMIC CPU UTILIZATION SCENE - Conditional rendering based on ServerName
 // ============================================================================
 
 interface DynamicCPUUtilizationSceneState extends SceneObjectState {
   body: any;
+  drilldownServer?: string;  // Server name when in drilldown mode
+  isDrilldown?: boolean;      // True when viewing drilldown (from table click)
 }
 
 /**
@@ -258,9 +378,38 @@ class DynamicCPUUtilizationScene extends SceneObjectBase<DynamicCPUUtilizationSc
     this.rebuildBody();
   }
 
+  /**
+   * Drills down to a specific server's detailed view
+   */
+  public drillToServer(serverName: string) {
+    this.setState({
+      drilldownServer: serverName,
+      isDrilldown: true,
+    });
+    this.rebuildBody();
+  }
+
+  /**
+   * Exits drilldown mode and returns to table view
+   */
+  public exitDrilldown() {
+    this.setState({
+      drilldownServer: undefined,
+      isDrilldown: false,
+    });
+    this.rebuildBody();
+  }
+
   private rebuildBody() {
     // Skip if scene is not active (prevents race conditions during deactivation)
     if (!this.isActive) {
+      return;
+    }
+
+    // Check for drilldown mode first
+    if (this.state.isDrilldown && this.state.drilldownServer) {
+      const drilldownBody = createDrilldownView(this.state.drilldownServer, this);
+      this.setState({ body: drilldownBody });
       return;
     }
 
@@ -311,7 +460,7 @@ class DynamicCPUUtilizationScene extends SceneObjectBase<DynamicCPUUtilizationSc
     }
 
     // If multiple servers, show table with sparklines
-    const multiServerBody = createMultiServerTableBody();
+    const multiServerBody = createMultiServerTableBody(this);
     this.setState({ body: multiServerBody });
   }
 
@@ -397,10 +546,93 @@ function createSingleServerGraphsBody() {
 }
 
 // ============================================================================
+// DRILLDOWN VIEW - Detailed graphs for a single server (from table click)
+// ============================================================================
+
+function createDrilldownView(serverName: string, scene: DynamicCPUUtilizationScene) {
+  // Create combined header with back button
+  const drilldownHeader = new DrilldownHeaderControl({
+    serverName: serverName,
+    onBack: () => scene.exitDrilldown(),
+  });
+
+  // Create queries with hardcoded server filter (bypass variable)
+  const drilldownQueryA = createDrilldownQuery(queryA, serverName);
+  const drilldownQueryB = createDrilldownQuery(queryB, serverName);
+  const drilldownQueryC = createDrilldownQuery(queryC, serverName);
+
+  // Create query runners with drilldown queries
+  const cpuUtilQueryRunner = new LoggingQueryRunner({
+    datasource: { uid: '${Account}' },
+    queries: [drilldownQueryA],
+  });
+
+  // Combined Temperature Query Runner (CPU 1 + CPU 2) - matching single server view
+  const cpuTempQueryRunner = new LoggingQueryRunner({
+    datasource: { uid: '${Account}' },
+    queries: [drilldownQueryB, drilldownQueryC],
+  });
+
+  // Create panels (matching single-server view)
+  const cpuUtilizationPanel = PanelBuilders.timeseries()
+    .setTitle('CPU Utilization')
+    .setData(cpuUtilQueryRunner)
+    .setUnit('percentunit')
+    .setCustomFieldConfig('axisSoftMin', 0)
+    .setCustomFieldConfig('axisSoftMax', 1)
+    .setOverrides((builder) => {
+      builder
+        .matchFieldsByType('number')
+        .overrideColor({ fixedColor: 'semi-dark-blue', mode: 'fixed' });
+    })
+    .build();
+
+  // Combined CPU Temperature panel - matching single server view
+  const cpuTemperaturePanel = PanelBuilders.timeseries()
+    .setTitle('CPU Temperature')
+    .setData(cpuTempQueryRunner)
+    .setUnit('celsius')
+    .setCustomFieldConfig('axisSoftMin', 0)
+    .setOverrides((builder) => {
+      // CPU 1 series - Orange
+      builder
+        .matchFieldsWithNameByRegex('/^B Temperature/')
+        .overrideDisplayName('CPU 1')
+        .overrideColor({ fixedColor: 'semi-dark-orange', mode: 'fixed' });
+
+      // CPU 2 series - Red (to distinguish)
+      builder
+        .matchFieldsWithNameByRegex('/^C Temperature/')
+        .overrideDisplayName('CPU 2')
+        .overrideColor({ fixedColor: 'semi-dark-red', mode: 'fixed' });
+    })
+    .build();
+
+  // Layout with combined header/back button + graphs
+  return new SceneFlexLayout({
+    direction: 'column',
+    children: [
+      new SceneFlexItem({
+        height: 50,
+        body: drilldownHeader,
+      }),
+      new SceneFlexItem({
+        height: 280,
+        body: cpuUtilizationPanel,
+      }),
+      new SceneFlexItem({
+        height: 280,
+        body: cpuTemperaturePanel,
+      }),
+    ],
+  });
+}
+
+// ============================================================================
 // MULTI-SERVER VIEW - Table with sparklines
 // ============================================================================
 
-function createMultiServerTableBody() {
+function createMultiServerTableBody(scene: DynamicCPUUtilizationScene) {
   // Create query runner with all 3 timeseries queries
   const baseQueryRunner = new LoggingQueryRunner({
     datasource: { uid: '${Account}' },
@@ -486,12 +718,20 @@ function createMultiServerTableBody() {
     })
     .build();
 
+  // Wrap table in clickable wrapper
+  const clickableTable = new ClickableTableWrapper({
+    tablePanel: tablePanel,
+    onRowClick: (serverName: string) => {
+      scene.drillToServer(serverName);
+    },
+  });
+
   return new SceneFlexLayout({
     direction: 'column',
     children: [
       new SceneFlexItem({
         ySizing: 'fill',
-        body: tablePanel,
+        body: clickableTable,
       }),
     ],
   });
