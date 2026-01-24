@@ -623,7 +623,7 @@ function createMultiServerPanels(scene: DynamicPowerConsumptionScene) {
   });
 
   const tablePanel = PanelBuilders.table()
-    .setTitle('Power consumption per Host')
+    .setTitle('Power consumption per Host - Click row to drill down')
     .setData(tableTransformer)
     .setUnit('watt')
     .setOverrides((builder) => {
@@ -1302,7 +1302,7 @@ function createFanSpeedTableView(scene: DynamicFanSpeedScene) {
   });
 
   const tablePanel = PanelBuilders.table()
-    .setTitle('Fan speed per Host (Avg)')
+    .setTitle('Fan speed per Host (Avg) - Click row to drill down')
     .setData(dataTransformer)
     .setUnit('rotrpm')
     .setOption('cellHeight', 'lg')
@@ -1811,7 +1811,7 @@ function createTemperatureTableView(scene: DynamicTemperatureScene) {
   });
 
   const tablePanel = PanelBuilders.table()
-    .setTitle('')
+    .setTitle('Host Temperature Details - Click row to drill down')
     .setData(dataTransformer)
     .setOption('cellHeight', 'lg')
     .setOverrides((builder) => {

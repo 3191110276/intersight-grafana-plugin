@@ -13,7 +13,7 @@ A Grafana Scenes-based app plugin for Cisco Intersight dashboards, targeting Gra
 ### 1. Install Dependencies
 
 ```bash
-cd myorg-scenesapp-app
+cd intersight-app
 npm install
 ```
 
@@ -54,16 +54,18 @@ For active development with auto-rebuild:
 npm run dev
 ```
 
+**Important**: Keep `npm run dev` running while developing. It watches for file changes and automatically rebuilds the plugin. After webpack finishes rebuilding, simply hard refresh your browser (Ctrl+Shift+R) to see changes. **No container restart is needed.**
+
 ## Commands
 
 | Command | Description |
 |---------|-------------|
-| `npm run dev` | Start webpack in watch mode |
+| `npm run dev` | Start webpack in watch mode for development (auto-rebuild on changes) |
 | `npm run build` | Production build |
 | `npm run typecheck` | TypeScript type checking |
 | `docker compose up -d` | Start Grafana |
 | `docker compose down` | Stop Grafana |
-| `docker compose restart` | Restart Grafana (reload plugin) |
+| `docker compose restart` | Restart Grafana container (troubleshooting only - use if Grafana seems stuck) |
 | `docker logs grafana-scenes-dev` | View Grafana logs |
 
 ## Project Structure
@@ -101,8 +103,15 @@ myorg-scenesapp-app/
 3. Hard refresh browser (Ctrl+Shift+R)
 
 ### Changes not reflecting
-1. Run `npm run build` (or ensure `npm run dev` is running)
-2. Hard refresh browser (Ctrl+Shift+R)
+1. **Verify `npm run dev` is running** - this is required for auto-rebuild during development
+2. Wait for webpack to finish rebuilding (check terminal output for "webpack compiled successfully")
+3. Hard refresh browser (Ctrl+Shift+R)
+4. **Note**: Docker restart is NOT needed - the dist/ folder is mounted as a volume, changes are immediately available
+
+### Grafana unresponsive or in bad state (troubleshooting only)
+1. Check logs: `docker logs grafana-scenes-dev`
+2. If Grafana seems stuck, try restarting: `docker compose restart`
+3. If issues persist: `docker compose down && docker compose up -d`
 
 ### Build errors
 Run `npm run typecheck` to see TypeScript errors

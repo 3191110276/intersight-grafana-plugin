@@ -574,14 +574,16 @@ export function getSSDDisksPanel(hideServerColumn: boolean = false, serverName: 
               'OK/Online': { color: 'green', index: 1, text: 'OK' },
               'OK/Jbod': { color: 'green', index: 2, text: 'OK' },
               'OK/Enabled': { color: 'green', index: 3, text: 'OK' },
-              '/Enabled': { color: 'blue', index: 4, text: 'Enabled' },
+              'OK/ENABLED': { color: 'green', index: 4, text: 'OK' },
+              'OK/': { color: 'green', index: 5, text: 'OK' },
+              '/Enabled': { color: 'blue', index: 6, text: 'Enabled' },
             },
           },
           {
             type: 'regex',
             options: {
               pattern: '(.*)',
-              result: { color: 'dark-red', index: 5, text: '$1' },
+              result: { color: 'dark-red', index: 7, text: '$1' },
             },
           },
         ])

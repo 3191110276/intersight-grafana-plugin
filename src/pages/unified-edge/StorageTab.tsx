@@ -49,7 +49,7 @@ class DynamicStorageScene extends SceneObjectBase<DynamicStorageSceneState> {
     // Check if single chassis is selected
     const chassisNameValue = chassisNameVariable.getValue();
     const isSingleChassis = Array.isArray(chassisNameValue) && chassisNameValue.length === 1;
-    const shouldHideChassisColumn = isSingleChassis;
+    const shouldHideChassisColumn = false; // Always show Server column
     const chassisName = isSingleChassis ? String(chassisNameValue[0]) : '';
 
     // APPROACH B: Extract Moid values from RegisteredDevices variable
@@ -190,7 +190,6 @@ export function getStorageControllersPanel(hideChassisColumn: boolean = false, c
         id: 'organize',
         options: {
           excludeByName: {
-            Server: hideChassisColumn,
             ComputeBlade: true,
             ComputeBoard: true,
             ComputeBoardBlade: true,
@@ -484,7 +483,6 @@ export function getSSDDisksPanel(hideChassisColumn: boolean = false, chassisName
         id: 'organize',
         options: {
           excludeByName: {
-            Parent: hideChassisColumn,
             Bootable: true,
             Description: true,
             DiskState: true,
@@ -572,14 +570,16 @@ export function getSSDDisksPanel(hideChassisColumn: boolean = false, chassisName
               'OK/Online': { color: 'green', index: 1, text: 'OK' },
               'OK/Jbod': { color: 'green', index: 2, text: 'OK' },
               'OK/Enabled': { color: 'green', index: 3, text: 'OK' },
-              '/Enabled': { color: 'blue', index: 4, text: 'Enabled' },
+              'OK/ENABLED': { color: 'green', index: 4, text: 'OK' },
+              'OK/': { color: 'green', index: 5, text: 'OK' },
+              '/Enabled': { color: 'blue', index: 6, text: 'Enabled' },
             },
           },
           {
             type: 'regex',
             options: {
               pattern: '(.*)',
-              result: { color: 'dark-red', index: 5, text: '$1' },
+              result: { color: 'dark-red', index: 7, text: '$1' },
             },
           },
         ])
@@ -818,7 +818,6 @@ export function getVirtualDrivesPanel(hideChassisColumn: boolean = false, chassi
         id: 'organize',
         options: {
           excludeByName: {
-            Parent: hideChassisColumn,
             Description: true,
             DriveCache: true,
             DriveSecurity: true,
@@ -850,6 +849,7 @@ export function getVirtualDrivesPanel(hideChassisColumn: boolean = false, chassi
             AccessPolicy: 8,
           },
           renameByName: {
+            Parent: 'Server',
             Name: 'Virtual Drive',
             DriveState: 'Drive State',
             ConfigState: 'Config State',

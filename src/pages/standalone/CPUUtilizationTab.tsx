@@ -8,7 +8,9 @@ import {
   SceneObjectState,
   VariableDependencyConfig,
   sceneGraph,
+  behaviors,
 } from '@grafana/scenes';
+import { DashboardCursorSync } from '@grafana/data';
 import { LoggingQueryRunner } from '../../utils/LoggingQueryRunner';
 import { LoggingDataTransformer } from '../../utils/LoggingDataTransformer';
 import { TableCellDisplayMode } from '@grafana/ui';
@@ -550,6 +552,9 @@ function createSingleServerGraphsBody() {
       new SceneFlexItem({ height: 280, body: cpuUtilizationPanel }),
       new SceneFlexItem({ height: 280, body: cpuTemperaturePanel }),
     ],
+    $behaviors: [
+      new behaviors.CursorSync({ sync: DashboardCursorSync.Tooltip }),
+    ],
   });
 }
 
@@ -641,6 +646,9 @@ function createDrilldownView(serverName: string, scene: DynamicCPUUtilizationSce
         body: cpuTemperaturePanel,
       }),
     ],
+    $behaviors: [
+      new behaviors.CursorSync({ sync: DashboardCursorSync.Tooltip }),
+    ],
   });
 }
 
@@ -700,7 +708,7 @@ function createMultiServerTableBody(scene: DynamicCPUUtilizationScene) {
 
   // Create table panel with sparklines and field overrides
   const tablePanel = PanelBuilders.table()
-    .setTitle('CPU details for all Servers')
+    .setTitle('CPU details for all Servers - Click row to drill down')
     .setData(transformedData)
     .setOption('showHeader', true)
     .setOption('cellHeight', 'lg')
