@@ -26,7 +26,7 @@ const unifiedEdgeTabs = [
   { id: 'network-utilization', label: 'Network Utilization**', getBody: getNetworkUtilizationTab },
   { id: 'traffic-balance', label: 'Traffic Balance**', getBody: getTrafficBalanceTab },
   { id: 'network-errors', label: 'Network Errors**', getBody: getNetworkErrorsTab },
-  { id: 'environmental', label: 'Environmental**', getBody: getEnvironmentalTab },
+  { id: 'environmental', label: 'Environmental', getBody: getEnvironmentalTab },
   { id: 'cpu-utilization', label: 'CPU Utilization', getBody: getCPUUtilizationTab },
   { id: 'storage', label: 'Storage', getBody: getStorageTab },
 ];

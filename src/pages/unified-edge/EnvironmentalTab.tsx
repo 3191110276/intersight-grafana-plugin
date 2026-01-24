@@ -66,6 +66,23 @@ function createDrilldownQuery(baseQuery: any, chassisName: string): any {
 }
 
 /**
+ * Create host drilldown query by replacing ChassisName variable with specific hostname
+ * Pattern from host power consumption drilldown (lines 727-735)
+ */
+function createHostDrilldownQuery(baseQuery: any, hostName: string): any {
+  const drilldownQuery = JSON.parse(JSON.stringify(baseQuery));
+
+  // Replace the ChassisName regex pattern with specific hostname pattern
+  // Escape special regex characters in hostname
+  drilldownQuery.url_options.data = drilldownQuery.url_options.data.replace(
+    /"pattern": "\^\$\{ChassisName:regex\}"/g,
+    `"pattern": "^${hostName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}"`
+  );
+
+  return drilldownQuery;
+}
+
+/**
  * Get chassis count from ChassisName variable
  * Used to determine line graph vs table threshold
  */
@@ -359,7 +376,7 @@ class SynchronizedPowerConsumptionContainer extends SceneObjectBase<Synchronized
       children: children,
       ...(bothAreLineGraphs && {
         $behaviors: [
-          new behaviors.CursorSync({ sync: DashboardCursorSync.Tooltip }),
+          new behaviors.CursorSync({ key: 'power-consumption', sync: DashboardCursorSync.Tooltip }),
         ],
       }),
     });
@@ -1140,6 +1157,9 @@ function createChassisFanSpeedLineChartView() {
         body: panel,
       }),
     ],
+    $behaviors: [
+      new behaviors.CursorSync({ key: 'fan-speed-no-sync', sync: DashboardCursorSync.Off }),
+    ],
   });
 }
 
@@ -1264,6 +1284,1307 @@ function createChassisFanSpeedDrilldownView(chassisName: string, scene: DynamicC
       new SceneFlexItem({
         ySizing: 'fill',
         body: panel,
+      }),
+    ],
+    $behaviors: [
+      new behaviors.CursorSync({ key: 'fan-speed-no-sync', sync: DashboardCursorSync.Off }),
+    ],
+  });
+}
+
+// ============================================================================
+// CHASSIS TEMPERATURE QUERIES
+// ============================================================================
+
+// Intake temperature query (TEMP_FRONT sensor)
+const chassisIntakeTemperatureQuery = {
+  refId: 'A',
+  queryType: 'infinity',
+  type: 'json',
+  source: 'url',
+  parser: 'backend',
+  format: 'timeseries',
+  url: '/api/v1/telemetry/TimeSeries',
+  root_selector: '',
+  columns: [
+    { selector: 'timestamp', text: 'Time', type: 'timestamp' },
+    { selector: 'event.chassis_name', text: 'Chassis Name', type: 'string' },
+    { selector: 'event.hw-temperature-Avg', text: 'Temperature', type: 'number' },
+  ],
+  url_options: {
+    method: 'POST',
+    body_type: 'raw',
+    body_content_type: 'application/json',
+    data: `  {
+    "queryType": "groupBy",
+    "dataSource": "PhysicalEntities",
+    "granularity": {
+      "type": "duration",
+      "duration": $__interval_ms,
+      "timeZone": "$__timezone"
+    },
+    "intervals": ["\${__from:date}/\${__to:date}"],
+    "dimensions": ["domain_name","chassis_name"],
+    "virtualColumns": [{
+          "type": "nested-field",
+          "columnName": "intersight.domain.name",
+          "outputName": "domain_name",
+          "expectedType": "STRING",
+          "path": "$"
+        },{
+          "type": "expression",
+          "name": "chassis_name",
+          "expression": "substring(\\"host.name\\",0,strlen(\\"host.name\\")-2)",
+          "expectedType": "STRING"
+        }],
+    "filter": {
+      "type": "and",
+      "fields": [
+        {
+          "type": "regex",
+          "dimension": "host.name",
+          "pattern": "^$\{ChassisName:regex}"
+        },
+        {
+          "type": "selector",
+          "dimension": "instrument.name",
+          "value": "hw.temperature"
+        },
+        {
+          "type": "selector",
+          "dimension": "host.type",
+          "value": "compute.Blade"
+        },
+        {
+          "type": "selector",
+          "dimension": "name",
+          "value": "TEMP_FRONT"
+        }
+      ]
+    },
+    "aggregations": [
+      {
+        "type": "longSum",
+        "name": "count",
+        "fieldName": "hw.temperature_count"
+      },
+      {
+        "type": "doubleSum",
+        "name": "hw.temperature-Sum",
+        "fieldName": "hw.temperature"
+      }
+    ],
+    "postAggregations": [
+      {
+        "type": "expression",
+        "name": "hw-temperature-Avg",
+        "expression": "(\\"hw.temperature-Sum\\" / \\"count\\")"
+      }
+    ]
+  }`,
+  },
+} as any;
+
+// Exhaust temperature query (server_back sensor)
+const chassisExhaustTemperatureQuery = {
+  refId: 'B',
+  queryType: 'infinity',
+  type: 'json',
+  source: 'url',
+  parser: 'backend',
+  format: 'timeseries',
+  url: '/api/v1/telemetry/TimeSeries',
+  root_selector: '',
+  columns: [
+    { selector: 'timestamp', text: 'Time', type: 'timestamp' },
+    { selector: 'event.chassis_name', text: 'Chassis Name', type: 'string' },
+    { selector: 'event.hw-temperature-Avg', text: 'Temperature', type: 'number' },
+  ],
+  url_options: {
+    method: 'POST',
+    body_type: 'raw',
+    body_content_type: 'application/json',
+    data: `  {
+    "queryType": "groupBy",
+    "dataSource": "PhysicalEntities",
+    "granularity": {
+      "type": "duration",
+      "duration": $__interval_ms,
+      "timeZone": "$__timezone"
+    },
+    "intervals": ["\${__from:date}/\${__to:date}"],
+    "dimensions": ["domain_name","chassis_name"],
+    "virtualColumns": [{
+          "type": "nested-field",
+          "columnName": "intersight.domain.name",
+          "outputName": "domain_name",
+          "expectedType": "STRING",
+          "path": "$"
+        },{
+          "type": "expression",
+          "name": "chassis_name",
+          "expression": "substring(\\"host.name\\",0,strlen(\\"host.name\\")-2)",
+          "expectedType": "STRING"
+        }],
+    "filter": {
+      "type": "and",
+      "fields": [
+        {
+          "type": "regex",
+          "dimension": "host.name",
+          "pattern": "^$\{ChassisName:regex}"
+        },
+        {
+          "type": "selector",
+          "dimension": "instrument.name",
+          "value": "hw.temperature"
+        },
+        {
+          "type": "selector",
+          "dimension": "host.type",
+          "value": "compute.Blade"
+        },
+        {
+          "type": "selector",
+          "dimension": "sensor_location",
+          "value": "server_back"
+        }
+      ]
+    },
+    "aggregations": [
+      {
+        "type": "longSum",
+        "name": "count",
+        "fieldName": "hw.temperature_count"
+      },
+      {
+        "type": "doubleSum",
+        "name": "hw.temperature-Sum",
+        "fieldName": "hw.temperature"
+      }
+    ],
+    "postAggregations": [
+      {
+        "type": "expression",
+        "name": "hw-temperature-Avg",
+        "expression": "(\\"hw.temperature-Sum\\" / \\"count\\")"
+      }
+    ]
+  }`,
+  },
+} as any;
+
+// ============================================================================
+// DYNAMIC CHASSIS TEMPERATURE SCENE - Conditional rendering based on chassis count
+// ============================================================================
+
+interface DynamicChassisTemperatureSceneState extends SceneObjectState {
+  body: any;
+  drilldownChassis?: string;
+  isDrilldown?: boolean;
+}
+
+class DynamicChassisTemperatureScene extends SceneObjectBase<DynamicChassisTemperatureSceneState> {
+  public static Component = DynamicChassisTemperatureSceneRenderer;
+
+  protected _variableDependency = new VariableDependencyConfig(this, {
+    variableNames: ['ChassisName'],
+    onReferencedVariableValueChanged: () => {
+      if (this.isActive) {
+        // Reset drilldown if variable changes
+        if (this.state.isDrilldown) {
+          this.exitDrilldown();
+        }
+        this.rebuildBody();
+      }
+    },
+  });
+
+  public constructor(state: Partial<DynamicChassisTemperatureSceneState>) {
+    super({
+      body: new SceneFlexLayout({ children: [] }),
+      ...state,
+    });
+  }
+
+  public activate() {
+    super.activate();
+    this.rebuildBody();
+  }
+
+  public drillToChassis(chassisName: string) {
+    this.setState({
+      drilldownChassis: chassisName,
+      isDrilldown: true,
+    });
+    this.rebuildBody();
+  }
+
+  public exitDrilldown() {
+    this.setState({
+      drilldownChassis: undefined,
+      isDrilldown: false,
+    });
+    this.rebuildBody();
+  }
+
+  private rebuildBody() {
+    if (!this.isActive) {
+      return;
+    }
+
+    // Check for drilldown mode first
+    if (this.state.isDrilldown && this.state.drilldownChassis) {
+      const drilldownBody = createChassisTemperatureDrilldownView(this.state.drilldownChassis, this);
+      this.setState({ body: drilldownBody });
+      return;
+    }
+
+    // Get chassis count
+    const chassisCount = getChassisCount(this);
+
+    // No chassis selected
+    if (chassisCount === 0) {
+      const emptyBody = new SceneFlexLayout({
+        direction: 'column',
+        children: [
+          new SceneFlexItem({
+            height: 200,
+            body: PanelBuilders.text()
+              .setTitle('')
+              .setOption('content', '### No Chassis Selected\n\nPlease select one or more chassis from the Chassis filter above.')
+              .setOption('mode', 'markdown' as any)
+              .setDisplayMode('transparent')
+              .build(),
+          }),
+        ],
+      });
+      this.setState({ body: emptyBody });
+      return;
+    }
+
+    // If <= 15 chassis, show line chart
+    if (chassisCount <= 15) {
+      const lineChartBody = createChassisTemperatureLineChartView();
+      this.setState({ body: lineChartBody });
+      return;
+    }
+
+    // If > 15 chassis, show table with drilldown
+    const tableBody = createChassisTemperatureTableView(this);
+    this.setState({ body: tableBody });
+  }
+}
+
+function DynamicChassisTemperatureSceneRenderer({ model }: SceneComponentProps<DynamicChassisTemperatureScene>) {
+  const { body } = model.useState();
+  return (
+    <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column' }}>
+      {body && body.Component && <body.Component model={body} />}
+    </div>
+  );
+}
+
+// ============================================================================
+// CHASSIS TEMPERATURE VIEW FUNCTIONS
+// ============================================================================
+
+// Line chart view for <= 15 chassis - Two panels side by side
+function createChassisTemperatureLineChartView() {
+  // Intake Temperature Panel
+  const intakeQueryRunner = new LoggingQueryRunner({
+    datasource: { uid: '${Account}' },
+    queries: [chassisIntakeTemperatureQuery],
+  });
+
+  const intakeTransformer = new LoggingDataTransformer({
+    $data: intakeQueryRunner,
+    transformations: [
+      {
+        id: 'renameByRegex',
+        options: {
+          regex: 'Temperature (.*)',
+          renamePattern: '$1',
+        },
+      },
+    ],
+  });
+
+  const intakePanel = PanelBuilders.timeseries()
+    .setTitle('Intake Temperature (Avg)')
+    .setDescription('This is calculated based on the average blade intake temperature sensors')
+    .setData(intakeTransformer)
+    .setUnit('celsius')
+    .setCustomFieldConfig('axisSoftMin', 0)
+    .setOption('tooltip', {
+      mode: 'multi',
+      sort: 'desc',
+    })
+    .setThresholds({
+      mode: 'absolute',
+      steps: [
+        { value: 0, color: 'transparent' },
+        { value: 50, color: 'dark-yellow' },
+        { value: 60, color: 'dark-red' },
+      ],
+    })
+    .build();
+
+  // Exhaust Temperature Panel
+  const exhaustQueryRunner = new LoggingQueryRunner({
+    datasource: { uid: '${Account}' },
+    queries: [chassisExhaustTemperatureQuery],
+  });
+
+  const exhaustTransformer = new LoggingDataTransformer({
+    $data: exhaustQueryRunner,
+    transformations: [
+      {
+        id: 'renameByRegex',
+        options: {
+          regex: 'Temperature (.*)',
+          renamePattern: '$1',
+        },
+      },
+    ],
+  });
+
+  const exhaustPanel = PanelBuilders.timeseries()
+    .setTitle('Exhaust Temperature (Avg)')
+    .setDescription('This is calculated based on the average blade exhaust temperature sensors')
+    .setData(exhaustTransformer)
+    .setUnit('celsius')
+    .setCustomFieldConfig('axisSoftMin', 0)
+    .setOption('tooltip', {
+      mode: 'multi',
+      sort: 'desc',
+    })
+    .setThresholds({
+      mode: 'absolute',
+      steps: [
+        { value: 0, color: 'transparent' },
+        { value: 90, color: 'dark-yellow' },
+        { value: 100, color: 'dark-red' },
+      ],
+    })
+    .build();
+
+  return new SceneFlexLayout({
+    direction: 'row',
+    children: [
+      new SceneFlexItem({
+        ySizing: 'fill',
+        body: intakePanel,
+      }),
+      new SceneFlexItem({
+        ySizing: 'fill',
+        body: exhaustPanel,
+      }),
+    ],
+    $behaviors: [
+      new behaviors.CursorSync({ key: 'chassis-temperature', sync: DashboardCursorSync.Tooltip }),
+    ],
+  });
+}
+
+// Table view for > 15 chassis
+function createChassisTemperatureTableView(scene: DynamicChassisTemperatureScene) {
+  const queryRunner = new LoggingQueryRunner({
+    datasource: { uid: '${Account}' },
+    queries: [chassisIntakeTemperatureQuery, chassisExhaustTemperatureQuery],
+  });
+
+  const dataTransformer = new LoggingDataTransformer({
+    $data: queryRunner,
+    transformations: [
+      {
+        id: 'renameByRegex',
+        options: {
+          regex: 'Temperature (.*)',
+          renamePattern: '$1',
+        },
+      },
+      {
+        id: 'timeSeriesTable',
+        options: {
+          A: { timeField: 'Time' },
+          B: { timeField: 'Time' },
+        },
+      },
+      {
+        id: 'joinByField',
+        options: {
+          byField: 'Chassis Name',
+          mode: 'outer',
+        },
+      },
+      {
+        id: 'organize',
+        options: {
+          excludeByName: {},
+          includeByName: {},
+          indexByName: {},
+          renameByName: {
+            'Trend #A': 'Intake Temperature',
+            'Trend #B': 'Exhaust Temperature',
+          },
+        },
+      },
+    ],
+  });
+
+  const tablePanel = PanelBuilders.table()
+    .setTitle('Chassis Temperature (Avg) - Click row to drill down')
+    .setData(dataTransformer)
+    .setUnit('celsius')
+    .setOption('footer', {
+      enablePagination: true,
+      show: false,
+    })
+    .setOption('cellHeight', 'md')
+    .setThresholds({
+      mode: 'absolute',
+      steps: [
+        { value: 0, color: 'transparent' },
+        { value: 50, color: 'dark-yellow' },
+        { value: 60, color: 'dark-red' },
+      ],
+    })
+    .setOverrides((builder) => {
+      builder
+        .matchFieldsWithName('Chassis Name')
+        .overrideCustomFieldConfig('width', 240);
+
+      builder
+        .matchFieldsWithName('Intake Temperature')
+        .overrideUnit('celsius');
+
+      builder
+        .matchFieldsWithName('Exhaust Temperature')
+        .overrideUnit('celsius');
+    })
+    .build();
+
+  const clickableTable = new ClickableTableWrapper({
+    tablePanel: tablePanel,
+    onRowClick: (chassisName: string) => {
+      scene.drillToChassis(chassisName);
+    },
+  });
+
+  return new SceneFlexLayout({
+    direction: 'column',
+    children: [
+      new SceneFlexItem({
+        ySizing: 'fill',
+        body: clickableTable,
+      }),
+    ],
+  });
+}
+
+// Drilldown view with back button - Two panels side by side
+function createChassisTemperatureDrilldownView(chassisName: string, scene: DynamicChassisTemperatureScene) {
+  const drilldownHeader = new DrilldownHeaderControl({
+    chassisName: chassisName,
+    onBack: () => scene.exitDrilldown(),
+  });
+
+  const drilldownIntakeQuery = createDrilldownQuery(chassisIntakeTemperatureQuery, chassisName);
+  const drilldownExhaustQuery = createDrilldownQuery(chassisExhaustTemperatureQuery, chassisName);
+
+  // Intake Temperature Panel
+  const intakeQueryRunner = new LoggingQueryRunner({
+    datasource: { uid: '${Account}' },
+    queries: [drilldownIntakeQuery],
+  });
+
+  const intakeTransformer = new LoggingDataTransformer({
+    $data: intakeQueryRunner,
+    transformations: [
+      {
+        id: 'renameByRegex',
+        options: {
+          regex: 'Temperature (.*)',
+          renamePattern: '$1',
+        },
+      },
+    ],
+  });
+
+  const intakePanel = PanelBuilders.timeseries()
+    .setTitle(`Intake Temperature for ${chassisName} (Avg)`)
+    .setData(intakeTransformer)
+    .setUnit('celsius')
+    .setCustomFieldConfig('axisSoftMin', 0)
+    .setOption('tooltip', {
+      mode: 'multi',
+      sort: 'desc',
+    })
+    .setThresholds({
+      mode: 'absolute',
+      steps: [
+        { value: 0, color: 'transparent' },
+        { value: 50, color: 'dark-yellow' },
+        { value: 60, color: 'dark-red' },
+      ],
+    })
+    .build();
+
+  // Exhaust Temperature Panel
+  const exhaustQueryRunner = new LoggingQueryRunner({
+    datasource: { uid: '${Account}' },
+    queries: [drilldownExhaustQuery],
+  });
+
+  const exhaustTransformer = new LoggingDataTransformer({
+    $data: exhaustQueryRunner,
+    transformations: [
+      {
+        id: 'renameByRegex',
+        options: {
+          regex: 'Temperature (.*)',
+          renamePattern: '$1',
+        },
+      },
+    ],
+  });
+
+  const exhaustPanel = PanelBuilders.timeseries()
+    .setTitle(`Exhaust Temperature for ${chassisName} (Avg)`)
+    .setData(exhaustTransformer)
+    .setUnit('celsius')
+    .setCustomFieldConfig('axisSoftMin', 0)
+    .setOption('tooltip', {
+      mode: 'multi',
+      sort: 'desc',
+    })
+    .setThresholds({
+      mode: 'absolute',
+      steps: [
+        { value: 0, color: 'transparent' },
+        { value: 90, color: 'dark-yellow' },
+        { value: 100, color: 'dark-red' },
+      ],
+    })
+    .build();
+
+  return new SceneFlexLayout({
+    direction: 'column',
+    children: [
+      new SceneFlexItem({ height: 50, body: drilldownHeader }),
+      new SceneFlexItem({
+        ySizing: 'fill',
+        body: new SceneFlexLayout({
+          direction: 'row',
+          children: [
+            new SceneFlexItem({
+              ySizing: 'fill',
+              body: intakePanel,
+            }),
+            new SceneFlexItem({
+              ySizing: 'fill',
+              body: exhaustPanel,
+            }),
+          ],
+          $behaviors: [
+            new behaviors.CursorSync({ key: 'chassis-temperature', sync: DashboardCursorSync.Tooltip }),
+          ],
+        }),
+      }),
+    ],
+  });
+}
+
+// ============================================================================
+// HOST TEMPERATURE QUERIES
+// ============================================================================
+
+// Query A: Intake Temperature (server_front sensor)
+const intakeTemperatureQuery = {
+  refId: 'A',
+  queryType: 'infinity',
+  type: 'json',
+  source: 'url',
+  parser: 'backend',
+  format: 'timeseries',
+  url: '/api/v1/telemetry/TimeSeries',
+  root_selector: '',
+  columns: [
+    { selector: 'timestamp', text: 'Time', type: 'timestamp' },
+    { selector: 'event.hostname', text: 'Hostname', type: 'string' },
+    { selector: 'event.max_temp', text: 'Temperature', type: 'number' },
+  ],
+  url_options: {
+    method: 'POST',
+    body_type: 'raw',
+    body_content_type: 'application/json',
+    data: `  {
+    "queryType": "groupBy",
+    "dataSource": "PhysicalEntities",
+        "granularity": {
+          "type": "duration",
+          "duration": $__interval_ms,
+          "timeZone": "$__timezone"
+        },
+        "intervals": ["\${__from:date}/\${__to:date}"],
+    "dimensions": ["hostname"],
+    "virtualColumns": [{
+      "type": "nested-field",
+      "columnName": "host.name",
+      "outputName": "hostname",
+      "expectedType": "STRING",
+      "path": "$"
+    }],
+    "filter": {
+      "type": "and",
+      "fields": [
+        {
+          "type": "regex",
+          "dimension": "host.name",
+          "pattern": "^$\{ChassisName:regex}"
+        },
+        {
+          "type": "selector",
+          "dimension": "instrument.name",
+          "value": "hw.temperature"
+        },
+        {
+          "type": "in",
+          "dimension": "host.type",
+          "values": [
+            "compute.Blade"
+          ]
+        },
+        {
+          "type": "selector",
+          "dimension": "sensor_location",
+          "value": "server_front"
+        }
+      ]
+    },
+    "aggregations": [
+      {
+        "type": "doubleMax",
+        "name": "max_temp",
+        "fieldName": "hw.temperature_max"
+      }
+    ]
+  }`,
+  },
+} as any;
+
+// Query B: CPU Temperature (P1_TEMP_SENS)
+const cpuTemperatureQuery = {
+  refId: 'B',
+  queryType: 'infinity',
+  type: 'json',
+  source: 'url',
+  parser: 'backend',
+  format: 'timeseries',
+  url: '/api/v1/telemetry/TimeSeries',
+  root_selector: '',
+  columns: [
+    { selector: 'timestamp', text: 'Time', type: 'timestamp' },
+    { selector: 'event.hostname', text: 'Hostname', type: 'string' },
+    { selector: 'event.max_temp', text: 'Temperature', type: 'number' },
+  ],
+  url_options: {
+    method: 'POST',
+    body_type: 'raw',
+    body_content_type: 'application/json',
+    data: `  {
+    "queryType": "groupBy",
+    "dataSource": "PhysicalEntities",
+        "granularity": {
+          "type": "duration",
+          "duration": $__interval_ms,
+          "timeZone": "$__timezone"
+        },
+        "intervals": ["\${__from:date}/\${__to:date}"],
+    "dimensions": ["hostname"],
+    "virtualColumns": [{
+      "type": "nested-field",
+      "columnName": "host.name",
+      "outputName": "hostname",
+      "expectedType": "STRING",
+      "path": "$"
+    }],
+    "filter": {
+      "type": "and",
+      "fields": [
+        {
+          "type": "regex",
+          "dimension": "host.name",
+          "pattern": "^$\{ChassisName:regex}"
+        },
+        {
+          "type": "selector",
+          "dimension": "instrument.name",
+          "value": "hw.temperature"
+        },
+        {
+          "type": "in",
+          "dimension": "host.type",
+          "values": [
+            "compute.Blade"
+          ]
+        },
+        {
+          "type": "in",
+          "dimension": "name",
+          "values": [
+            "P1_TEMP_SENS"
+          ]
+        }
+      ]
+    },
+    "aggregations": [
+      {
+        "type": "doubleMax",
+        "name": "max_temp",
+        "fieldName": "hw.temperature_max"
+      }
+    ]
+  }`,
+  },
+} as any;
+
+// Query D: Exhaust Temperature (server_back sensor)
+const exhaustTemperatureQuery = {
+  refId: 'D',
+  queryType: 'infinity',
+  type: 'json',
+  source: 'url',
+  parser: 'backend',
+  format: 'timeseries',
+  url: '/api/v1/telemetry/TimeSeries',
+  root_selector: '',
+  columns: [
+    { selector: 'timestamp', text: 'Time', type: 'timestamp' },
+    { selector: 'event.hostname', text: 'Hostname', type: 'string' },
+    { selector: 'event.max_temp', text: 'Temperature', type: 'number' },
+  ],
+  url_options: {
+    method: 'POST',
+    body_type: 'raw',
+    body_content_type: 'application/json',
+    data: `  {
+    "queryType": "groupBy",
+    "dataSource": "PhysicalEntities",
+        "granularity": {
+          "type": "duration",
+          "duration": $__interval_ms,
+          "timeZone": "$__timezone"
+        },
+        "intervals": ["\${__from:date}/\${__to:date}"],
+    "dimensions": ["hostname"],
+    "virtualColumns": [{
+      "type": "nested-field",
+      "columnName": "host.name",
+      "outputName": "hostname",
+      "expectedType": "STRING",
+      "path": "$"
+    }],
+    "filter": {
+      "type": "and",
+      "fields": [
+        {
+          "type": "regex",
+          "dimension": "host.name",
+          "pattern": "^$\{ChassisName:regex}"
+        },
+        {
+          "type": "selector",
+          "dimension": "instrument.name",
+          "value": "hw.temperature"
+        },
+        {
+          "type": "in",
+          "dimension": "host.type",
+          "values": [
+            "compute.Blade"
+          ]
+        },
+        {
+          "type": "selector",
+          "dimension": "sensor_location",
+          "value": "server_back"
+        }
+      ]
+    },
+    "aggregations": [
+      {
+        "type": "doubleMax",
+        "name": "max_temp",
+        "fieldName": "hw.temperature_max"
+      }
+    ]
+  }`,
+  },
+} as any;
+
+// ============================================================================
+// DYNAMIC HOST TEMPERATURE SCENE
+// ============================================================================
+
+interface DynamicHostTemperatureSceneState extends SceneObjectState {
+  body: any;
+  drilldownHost?: string;
+  isDrilldown?: boolean;
+}
+
+class DynamicHostTemperatureScene extends SceneObjectBase<DynamicHostTemperatureSceneState> {
+  public static Component = DynamicHostTemperatureSceneRenderer;
+
+  protected _variableDependency = new VariableDependencyConfig(this, {
+    variableNames: ['ChassisName'],
+    onReferencedVariableValueChanged: () => {
+      if (this.isActive) {
+        if (this.state.isDrilldown) {
+          this.exitDrilldown();
+        }
+        this.rebuildBody();
+      }
+    },
+  });
+
+  public constructor(state: Partial<DynamicHostTemperatureSceneState>) {
+    super({
+      body: new SceneFlexLayout({ children: [] }),
+      ...state,
+    });
+  }
+
+  public activate() {
+    super.activate();
+    this.rebuildBody();
+  }
+
+  public drillToHost(hostName: string) {
+    if (!hostName || !hostName.trim()) {
+      return;
+    }
+    this.setState({
+      drilldownHost: hostName,
+      isDrilldown: true,
+    });
+    this.rebuildBody();
+  }
+
+  public exitDrilldown() {
+    this.setState({
+      drilldownHost: undefined,
+      isDrilldown: false,
+    });
+    this.rebuildBody();
+  }
+
+  private rebuildBody() {
+    if (!this.isActive) {
+      return;
+    }
+
+    // PRIORITY 1: Check drilldown mode first
+    if (this.state.isDrilldown && this.state.drilldownHost) {
+      const drilldownBody = createHostTemperatureDrilldownView(this.state.drilldownHost, this);
+      this.setState({ body: drilldownBody });
+      return;
+    }
+
+    // PRIORITY 2: Check chassis count
+    const chassisCount = getChassisCount(this);
+
+    // No chassis selected - empty state
+    if (chassisCount === 0) {
+      const emptyBody = new SceneFlexLayout({
+        direction: 'column',
+        children: [
+          new SceneFlexItem({
+            height: 200,
+            body: PanelBuilders.text()
+              .setTitle('')
+              .setOption('content', '### No Chassis Selected\n\nPlease select one or more chassis from the Chassis filter above to view host temperature data.')
+              .setOption('mode', 'markdown' as any)
+              .setDisplayMode('transparent')
+              .build(),
+          }),
+        ],
+      });
+      this.setState({ body: emptyBody });
+      return;
+    }
+
+    // PRIORITY 3: Single chassis - show timeseries panels directly
+    if (chassisCount === 1) {
+      const lineChartBody = createHostTemperatureLineChartView();
+      this.setState({ body: lineChartBody });
+      return;
+    }
+
+    // PRIORITY 4: Multiple chassis - show table with drilldown
+    const tableBody = createHostTemperatureTableWithDrilldown(this);
+    this.setState({ body: tableBody });
+  }
+}
+
+function DynamicHostTemperatureSceneRenderer({ model }: SceneComponentProps<DynamicHostTemperatureScene>) {
+  const { body } = model.useState();
+  return (
+    <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column' }}>
+      {body && body.Component && <body.Component model={body} />}
+    </div>
+  );
+}
+
+// Line chart view for single chassis - Three panels side by side
+function createHostTemperatureLineChartView() {
+  // Intake Temperature Panel
+  const intakeQueryRunner = new LoggingQueryRunner({
+    datasource: { uid: '${Account}' },
+    queries: [intakeTemperatureQuery],
+  });
+
+  const intakeTransformer = new LoggingDataTransformer({
+    $data: intakeQueryRunner,
+    transformations: [
+      {
+        id: 'renameByRegex',
+        options: {
+          regex: 'Temperature (.*)',
+          renamePattern: '$1',
+        },
+      },
+    ],
+  });
+
+  const intakePanel = PanelBuilders.timeseries()
+    .setTitle('Intake Temperature (Max)')
+    .setData(intakeTransformer)
+    .setUnit('celsius')
+    .setCustomFieldConfig('axisSoftMin', 0)
+    .setOption('tooltip', {
+      mode: 'multi',
+      sort: 'desc',
+    })
+    .setThresholds({
+      mode: 'absolute',
+      steps: [
+        { value: 0, color: 'transparent' },
+        { value: 50, color: 'dark-yellow' },
+        { value: 60, color: 'dark-red' },
+      ],
+    })
+    .build();
+
+  // CPU Temperature Panel
+  const cpuQueryRunner = new LoggingQueryRunner({
+    datasource: { uid: '${Account}' },
+    queries: [cpuTemperatureQuery],
+  });
+
+  const cpuTransformer = new LoggingDataTransformer({
+    $data: cpuQueryRunner,
+    transformations: [
+      {
+        id: 'renameByRegex',
+        options: {
+          regex: 'Temperature (.*)',
+          renamePattern: '$1',
+        },
+      },
+    ],
+  });
+
+  const cpuPanel = PanelBuilders.timeseries()
+    .setTitle('CPU Temperature (Max)')
+    .setData(cpuTransformer)
+    .setUnit('celsius')
+    .setCustomFieldConfig('axisSoftMin', 0)
+    .setOption('tooltip', {
+      mode: 'multi',
+      sort: 'desc',
+    })
+    .setThresholds({
+      mode: 'absolute',
+      steps: [
+        { value: 0, color: 'transparent' },
+        { value: 70, color: 'dark-yellow' },
+        { value: 85, color: 'dark-red' },
+      ],
+    })
+    .build();
+
+  // Exhaust Temperature Panel
+  const exhaustQueryRunner = new LoggingQueryRunner({
+    datasource: { uid: '${Account}' },
+    queries: [exhaustTemperatureQuery],
+  });
+
+  const exhaustTransformer = new LoggingDataTransformer({
+    $data: exhaustQueryRunner,
+    transformations: [
+      {
+        id: 'renameByRegex',
+        options: {
+          regex: 'Temperature (.*)',
+          renamePattern: '$1',
+        },
+      },
+    ],
+  });
+
+  const exhaustPanel = PanelBuilders.timeseries()
+    .setTitle('Exhaust Temperature (Max)')
+    .setData(exhaustTransformer)
+    .setUnit('celsius')
+    .setCustomFieldConfig('axisSoftMin', 0)
+    .setOption('tooltip', {
+      mode: 'multi',
+      sort: 'desc',
+    })
+    .setThresholds({
+      mode: 'absolute',
+      steps: [
+        { value: 0, color: 'transparent' },
+        { value: 90, color: 'dark-yellow' },
+        { value: 100, color: 'dark-red' },
+      ],
+    })
+    .build();
+
+  return new SceneFlexLayout({
+    direction: 'row',
+    children: [
+      new SceneFlexItem({ ySizing: 'fill', body: intakePanel }),
+      new SceneFlexItem({ ySizing: 'fill', body: cpuPanel }),
+      new SceneFlexItem({ ySizing: 'fill', body: exhaustPanel }),
+    ],
+    $behaviors: [
+      new behaviors.CursorSync({
+        key: 'host-temperature',
+        sync: DashboardCursorSync.Tooltip
+      }),
+    ],
+  });
+}
+
+function createHostTemperatureTableWithDrilldown(scene: DynamicHostTemperatureScene) {
+  const queryRunner = new LoggingQueryRunner({
+    datasource: { uid: '${Account}' },
+    queries: [intakeTemperatureQuery, cpuTemperatureQuery, exhaustTemperatureQuery],
+    maxDataPoints: 500,
+  });
+
+  const dataTransformer = new LoggingDataTransformer({
+    $data: queryRunner,
+    transformations: [
+      {
+        id: 'timeSeriesTable',
+        options: {
+          A: { timeField: 'Time' },
+          B: { timeField: 'Time' },
+          D: { timeField: 'Time' },
+        },
+      },
+      {
+        id: 'joinByField',
+        options: {
+          byField: 'Hostname',
+          mode: 'outer',
+        },
+      },
+      {
+        id: 'organize',
+        options: {
+          excludeByName: {},
+          includeByName: {},
+          indexByName: {},
+          renameByName: {
+            'Hostname': 'Hostname',
+            'Trend #A': 'Intake Temp',
+            'Trend #B': 'CPU Temp',
+            'Trend #D': 'Exhaust Temp',
+          },
+        },
+      },
+    ],
+  });
+
+  const tablePanel = PanelBuilders.table()
+    .setTitle('Host Temperature (Max) - Click row to drill down')
+    .setData(dataTransformer)
+    .setUnit('celsius')
+    .setOption('showHeader', true)
+    .setOverrides((builder) => {
+      builder.matchFieldsWithName('Hostname').overrideCustomFieldConfig('width', 280);
+    })
+    .build();
+
+  const clickableTable = new ClickableTableWrapper({
+    tablePanel: tablePanel,
+    onRowClick: (hostName: string) => {
+      scene.drillToHost(hostName);
+    },
+  });
+
+  return new SceneFlexLayout({
+    direction: 'column',
+    children: [
+      new SceneFlexItem({
+        ySizing: 'fill',
+        body: clickableTable,
+      }),
+    ],
+  });
+}
+
+// Drilldown view with back button and three temperature panels side by side
+function createHostTemperatureDrilldownView(hostName: string, scene: DynamicHostTemperatureScene) {
+  const drilldownHeader = new DrilldownHeaderControl({
+    hostName: hostName,
+    onBack: () => scene.exitDrilldown(),
+  });
+
+  // Create drilldown queries for each temperature type
+  const drilldownIntakeQuery = createHostDrilldownQuery(intakeTemperatureQuery, hostName);
+  const drilldownCpuQuery = createHostDrilldownQuery(cpuTemperatureQuery, hostName);
+  const drilldownExhaustQuery = createHostDrilldownQuery(exhaustTemperatureQuery, hostName);
+
+  // Intake Temperature Panel
+  const intakeQueryRunner = new LoggingQueryRunner({
+    datasource: { uid: '${Account}' },
+    queries: [drilldownIntakeQuery],
+  });
+
+  const intakeTransformer = new LoggingDataTransformer({
+    $data: intakeQueryRunner,
+    transformations: [
+      {
+        id: 'renameByRegex',
+        options: {
+          regex: 'Temperature (.*)',
+          renamePattern: '$1',
+        },
+      },
+    ],
+  });
+
+  const intakePanel = PanelBuilders.timeseries()
+    .setTitle(`Intake Temperature for ${hostName}`)
+    .setData(intakeTransformer)
+    .setUnit('celsius')
+    .setCustomFieldConfig('axisSoftMin', 0)
+    .setOption('tooltip', {
+      mode: 'multi',
+      sort: 'desc',
+    })
+    .setThresholds({
+      mode: 'absolute',
+      steps: [
+        { value: 0, color: 'transparent' },
+        { value: 50, color: 'dark-yellow' },
+        { value: 60, color: 'dark-red' },
+      ],
+    })
+    .build();
+
+  // CPU Temperature Panel
+  const cpuQueryRunner = new LoggingQueryRunner({
+    datasource: { uid: '${Account}' },
+    queries: [drilldownCpuQuery],
+  });
+
+  const cpuTransformer = new LoggingDataTransformer({
+    $data: cpuQueryRunner,
+    transformations: [
+      {
+        id: 'renameByRegex',
+        options: {
+          regex: 'Temperature (.*)',
+          renamePattern: '$1',
+        },
+      },
+    ],
+  });
+
+  const cpuPanel = PanelBuilders.timeseries()
+    .setTitle(`CPU Temperature for ${hostName}`)
+    .setData(cpuTransformer)
+    .setUnit('celsius')
+    .setCustomFieldConfig('axisSoftMin', 0)
+    .setOption('tooltip', {
+      mode: 'multi',
+      sort: 'desc',
+    })
+    .setThresholds({
+      mode: 'absolute',
+      steps: [
+        { value: 0, color: 'transparent' },
+        { value: 70, color: 'dark-yellow' },
+        { value: 85, color: 'dark-red' },
+      ],
+    })
+    .build();
+
+  // Exhaust Temperature Panel
+  const exhaustQueryRunner = new LoggingQueryRunner({
+    datasource: { uid: '${Account}' },
+    queries: [drilldownExhaustQuery],
+  });
+
+  const exhaustTransformer = new LoggingDataTransformer({
+    $data: exhaustQueryRunner,
+    transformations: [
+      {
+        id: 'renameByRegex',
+        options: {
+          regex: 'Temperature (.*)',
+          renamePattern: '$1',
+        },
+      },
+    ],
+  });
+
+  const exhaustPanel = PanelBuilders.timeseries()
+    .setTitle(`Exhaust Temperature for ${hostName}`)
+    .setData(exhaustTransformer)
+    .setUnit('celsius')
+    .setCustomFieldConfig('axisSoftMin', 0)
+    .setOption('tooltip', {
+      mode: 'multi',
+      sort: 'desc',
+    })
+    .setThresholds({
+      mode: 'absolute',
+      steps: [
+        { value: 0, color: 'transparent' },
+        { value: 90, color: 'dark-yellow' },
+        { value: 100, color: 'dark-red' },
+      ],
+    })
+    .build();
+
+  return new SceneFlexLayout({
+    direction: 'column',
+    children: [
+      new SceneFlexItem({ height: 50, body: drilldownHeader }),
+      new SceneFlexItem({
+        ySizing: 'fill',
+        body: new SceneFlexLayout({
+          direction: 'row',
+          children: [
+            new SceneFlexItem({ ySizing: 'fill', body: intakePanel }),
+            new SceneFlexItem({ ySizing: 'fill', body: cpuPanel }),
+            new SceneFlexItem({ ySizing: 'fill', body: exhaustPanel }),
+          ],
+          $behaviors: [
+            new behaviors.CursorSync({
+              key: 'host-temperature-drilldown',
+              sync: DashboardCursorSync.Tooltip
+            }),
+          ],
+        }),
       }),
     ],
   });
@@ -1463,12 +2784,8 @@ export function getEnvironmentalTab() {
         x: 0,
         y: 32,
         width: 24,
-        height: 8,
-        body: PanelBuilders.text()
-          .setTitle('')
-          .setOption('content', '### TODO\n\nThis row is under development.')
-          .setOption('mode', 'markdown')
-          .build(),
+        height: 9,
+        body: new DynamicChassisTemperatureScene({}),
       }),
     ],
   });
@@ -1478,18 +2795,14 @@ export function getEnvironmentalTab() {
     title: 'Host Temperature',
     isCollapsible: true,
     isCollapsed: false,
-    y: 40,
+    y: 41,
     children: [
       new SceneGridItem({
         x: 0,
-        y: 40,
+        y: 41,
         width: 24,
         height: 8,
-        body: PanelBuilders.text()
-          .setTitle('')
-          .setOption('content', '### TODO\n\nThis row is under development.')
-          .setOption('mode', 'markdown')
-          .build(),
+        body: new DynamicHostTemperatureScene({}),
       }),
     ],
   });

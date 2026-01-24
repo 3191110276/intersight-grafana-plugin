@@ -529,6 +529,13 @@ function createDualGraphsBody() {
     .setTitle('CPU Temperature')
     .setData(cpuTempQueryRunner)
     .setUnit('celsius')
+    .setThresholds({
+      mode: 'absolute',
+      steps: [
+        { value: 0, color: 'transparent' },
+        { value: 105, color: 'dark-yellow' },
+      ],
+    })
     .setCustomFieldConfig('axisSoftMin', 0)
     .setOverrides((builder) => {
       // CPU 1 series - Orange
@@ -615,6 +622,13 @@ function createDrilldownView(chassisName: string, scene: DynamicCPUUtilizationSc
     .setTitle('CPU Temperature')
     .setData(cpuTempQueryRunner)
     .setUnit('celsius')
+    .setThresholds({
+      mode: 'absolute',
+      steps: [
+        { value: 0, color: 'transparent' },
+        { value: 105, color: 'dark-yellow' },
+      ],
+    })
     .setCustomFieldConfig('axisSoftMin', 0)
     .setOverrides((builder) => {
       // CPU 1 series - Orange
