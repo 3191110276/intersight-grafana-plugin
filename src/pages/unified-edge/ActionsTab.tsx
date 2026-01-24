@@ -21,6 +21,8 @@ import {
 import { LoggingQueryRunner } from '../../utils/LoggingQueryRunner';
 import { LoggingDataTransformer } from '../../utils/LoggingDataTransformer';
 import { DataFrame, LoadingState, PanelData } from '@grafana/data';
+import { EmptyStateScene } from '../../components/EmptyStateScene';
+import { getEmptyStateScenario, getSelectedValues } from '../../utils/emptyStateHelpers';
 
 // ============================================================================
 // CUSTOM DATA PROVIDER - Filters columns based on data presence
@@ -164,36 +166,15 @@ class DynamicActionsScene extends SceneObjectBase<DynamicActionsSceneState> {
       return;
     }
 
-    // Get the current value(s) from the variable
-    const value = variable.state.value;
-    let chassisNames: string[] = [];
-
-    if (Array.isArray(value)) {
-      chassisNames = value.map(v => String(v));
-    } else if (value && value !== '$__all') {
-      chassisNames = [String(value)];
-    }
-
-    // If no chassis selected, show a message
-    if (chassisNames.length === 0) {
-      const emptyBody = new SceneFlexLayout({
-        direction: 'column',
-        children: [
-          new SceneFlexItem({
-            height: 200,
-            body: PanelBuilders.text()
-              .setTitle('')
-              .setOption('content', '### No Chassis Selected\n\nPlease select one or more chassis from the Chassis filter above.')
-              .setOption('mode', 'markdown' as any)
-              .setDisplayMode('transparent')
-              .build(),
-          }),
-        ],
-      });
-
-      this.setState({ body: emptyBody });
+    // Check for empty state scenarios
+    const emptyStateScenario = getEmptyStateScenario(variable);
+    if (emptyStateScenario) {
+      this.setState({ body: new EmptyStateScene({ scenario: emptyStateScenario, entityType: 'chassis' }) });
       return;
     }
+
+    // Get selected chassis names
+    const chassisNames = getSelectedValues(variable);
 
     // For multiple chassis, show the Chassis column
     const shouldShowChassisColumn = chassisNames.length > 1;

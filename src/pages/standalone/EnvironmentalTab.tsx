@@ -14,6 +14,8 @@ import {
 } from '@grafana/scenes';
 import { LoggingQueryRunner } from '../../utils/LoggingQueryRunner';
 import { LoggingDataTransformer } from '../../utils/LoggingDataTransformer';
+import { EmptyStateScene } from '../../components/EmptyStateScene';
+import { getEmptyStateScenario, getSelectedValues } from '../../utils/emptyStateHelpers';
 
 // ============================================================================
 // DRILLDOWN QUERY HELPER
@@ -171,8 +173,9 @@ class DynamicPowerConsumptionScene extends SceneObjectBase<DynamicPowerConsumpti
   }
 
   public activate() {
-    super.activate();
+    const deactivate = super.activate();
     this.rebuildBody();
+    return deactivate;
   }
 
   /**
@@ -218,36 +221,8 @@ class DynamicPowerConsumptionScene extends SceneObjectBase<DynamicPowerConsumpti
       return;
     }
 
-    // Get the current value(s) from the variable
-    const value = variable.state.value;
-    let serverNames: string[] = [];
-
-    if (Array.isArray(value)) {
-      serverNames = value.map(v => String(v));
-    } else if (value && value !== '$__all') {
-      serverNames = [String(value)];
-    }
-
-    // If no servers selected, show a message
-    if (serverNames.length === 0) {
-      const emptyBody = new SceneFlexLayout({
-        direction: 'column',
-        children: [
-          new SceneFlexItem({
-            height: 200,
-            body: PanelBuilders.text()
-              .setTitle('')
-              .setOption('content', '### No Server Selected\n\nPlease select one or more servers from the Server filter above.')
-              .setOption('mode', 'markdown' as any)
-              .setDisplayMode('transparent')
-              .build(),
-          }),
-        ],
-      });
-
-      this.setState({ body: emptyBody });
-      return;
-    }
+    // Get selected server names (empty state already checked at top level)
+    const serverNames = getSelectedValues(variable);
 
     // If single server, show only timeseries with dynamic title
     if (serverNames.length === 1) {
@@ -810,7 +785,11 @@ function createDrilldownView(serverName: string, scene: DynamicPowerConsumptionS
   });
 }
 
-export function getEnvironmentalTab() {
+/**
+ * Creates the full Environmental tab content (all panels and rows)
+ * This is called by DynamicEnvironmentalScene after checking for empty state
+ */
+function createEnvironmentalTabContent() {
   // Row 1: Power Supply Status Panel (panel-6)
   const powerSupplyQueryRunner = new LoggingQueryRunner({
     datasource: { uid: '${Account}' },
@@ -1024,6 +1003,81 @@ export function getEnvironmentalTab() {
 }
 
 // ============================================================================
+// TOP-LEVEL DYNAMIC ENVIRONMENTAL SCENE
+// ============================================================================
+
+interface DynamicEnvironmentalSceneState extends SceneObjectState {
+  body: any;
+}
+
+/**
+ * Top-level scene that checks for empty state before rendering environmental tab
+ */
+class DynamicEnvironmentalScene extends SceneObjectBase<DynamicEnvironmentalSceneState> {
+  public static Component = DynamicEnvironmentalSceneRenderer;
+
+  protected _variableDependency = new VariableDependencyConfig(this, {
+    variableNames: ['ServerName'],
+    onReferencedVariableValueChanged: () => {
+      if (this.isActive) {
+        this.rebuildBody();
+      }
+    },
+  });
+
+  public constructor(state: Partial<DynamicEnvironmentalSceneState>) {
+    super({
+      body: new SceneFlexLayout({ children: [] }),
+      ...state,
+    });
+  }
+
+  public activate() {
+    const deactivate = super.activate();
+    this.rebuildBody();
+    return deactivate;
+  }
+
+  private rebuildBody() {
+    if (!this.isActive) {
+      return;
+    }
+
+    const variable = sceneGraph.lookupVariable('ServerName', this);
+    if (!variable || variable.state.type !== 'query') {
+      return;
+    }
+
+    // Check for empty state scenarios
+    const emptyStateScenario = getEmptyStateScenario(variable);
+    if (emptyStateScenario) {
+      this.setState({ body: new EmptyStateScene({ scenario: emptyStateScenario, entityType: 'server' }) });
+      return;
+    }
+
+    // Valid state - render full environmental tab content
+    const fullContent = createEnvironmentalTabContent();
+    this.setState({ body: fullContent });
+  }
+}
+
+function DynamicEnvironmentalSceneRenderer({ model }: SceneComponentProps<DynamicEnvironmentalScene>) {
+  const { body } = model.useState();
+  return (
+    <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column' }}>
+      {body && body.Component && <body.Component model={body} />}
+    </div>
+  );
+}
+
+/**
+ * Main export function for Environmental tab
+ */
+export function getEnvironmentalTab() {
+  return new DynamicEnvironmentalScene({});
+}
+
+// ============================================================================
 // FAN SPEED QUERY - Reused across views
 // ============================================================================
 
@@ -1130,8 +1184,9 @@ class DynamicFanSpeedScene extends SceneObjectBase<DynamicFanSpeedSceneState> {
   }
 
   public activate() {
-    super.activate();
+    const deactivate = super.activate();
     this.rebuildBody();
+    return deactivate;
   }
 
   public drillToServer(serverName: string) {
@@ -1168,33 +1223,8 @@ class DynamicFanSpeedScene extends SceneObjectBase<DynamicFanSpeedSceneState> {
       return;
     }
 
-    const value = variable.state.value;
-    let serverNames: string[] = [];
-
-    if (Array.isArray(value)) {
-      serverNames = value.map(v => String(v));
-    } else if (value && value !== '$__all') {
-      serverNames = [String(value)];
-    }
-
-    if (serverNames.length === 0) {
-      const emptyBody = new SceneFlexLayout({
-        direction: 'column',
-        children: [
-          new SceneFlexItem({
-            height: 200,
-            body: PanelBuilders.text()
-              .setTitle('')
-              .setOption('content', '### No Server Selected\n\nPlease select one or more servers from the Server filter above.')
-              .setOption('mode', 'markdown' as any)
-              .setDisplayMode('transparent')
-              .build(),
-          }),
-        ],
-      });
-      this.setState({ body: emptyBody });
-      return;
-    }
+    // Get selected server names (empty state already checked at top level)
+    const serverNames = getSelectedValues(variable);
 
     // If <= 20 servers, show line chart
     if (serverNames.length <= 20) {
@@ -1623,8 +1653,9 @@ class DynamicTemperatureScene extends SceneObjectBase<DynamicTemperatureSceneSta
   }
 
   public activate() {
-    super.activate();
+    const deactivate = super.activate();
     this.rebuildBody();
+    return deactivate;
   }
 
   public drillToServer(serverName: string) {
@@ -1661,33 +1692,8 @@ class DynamicTemperatureScene extends SceneObjectBase<DynamicTemperatureSceneSta
       return;
     }
 
-    const value = variable.state.value;
-    let serverNames: string[] = [];
-
-    if (Array.isArray(value)) {
-      serverNames = value.map(v => String(v));
-    } else if (value && value !== '$__all') {
-      serverNames = [String(value)];
-    }
-
-    if (serverNames.length === 0) {
-      const emptyBody = new SceneFlexLayout({
-        direction: 'column',
-        children: [
-          new SceneFlexItem({
-            height: 200,
-            body: PanelBuilders.text()
-              .setTitle('')
-              .setOption('content', '### No Server Selected\n\nPlease select one or more servers from the Server filter above.')
-              .setOption('mode', 'markdown' as any)
-              .setDisplayMode('transparent')
-              .build(),
-          }),
-        ],
-      });
-      this.setState({ body: emptyBody });
-      return;
-    }
+    // Get selected server names (empty state already checked at top level)
+    const serverNames = getSelectedValues(variable);
 
     // Single server: Show timeseries graphs
     if (serverNames.length === 1) {

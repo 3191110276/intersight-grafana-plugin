@@ -12,6 +12,8 @@ import { LoggingQueryRunner } from '../../utils/LoggingQueryRunner';
 import { LoggingDataTransformer } from '../../utils/LoggingDataTransformer';
 import React from 'react';
 import { TabbedScene } from '../../components/TabbedScene';
+import { EmptyStateScene } from '../../components/EmptyStateScene';
+import { getEmptyStateScenario } from '../../utils/emptyStateHelpers';
 
 // DynamicStorageScene class to handle variable dependencies
 interface DynamicStorageSceneState extends SceneObjectState {
@@ -43,6 +45,22 @@ class DynamicStorageScene extends SceneObjectBase<DynamicStorageSceneState> {
     if (!serverNameVariable) {
       // Variable not found, use default (no hiding)
       this.buildBodyWithDefaults();
+      return;
+    }
+
+    // Check for empty state scenarios
+    const emptyStateScenario = getEmptyStateScenario(serverNameVariable);
+    if (emptyStateScenario) {
+      const emptyStateBody = new TabbedScene({
+        tabs: [
+          { id: 'storage-controllers', label: 'Storage Controllers', getBody: () => new EmptyStateScene({ scenario: emptyStateScenario, entityType: 'server' }) },
+          { id: 'ssd-disks', label: 'SSD Disks', getBody: () => new EmptyStateScene({ scenario: emptyStateScenario, entityType: 'server' }) },
+          { id: 'virtual-drives', label: 'Virtual Drives', getBody: () => new EmptyStateScene({ scenario: emptyStateScenario, entityType: 'server' }) },
+        ],
+        activeTab: this.state.body?.state?.activeTab || 'storage-controllers',
+        body: new EmptyStateScene({ scenario: emptyStateScenario, entityType: 'server' }),
+      });
+      this.setState({ body: emptyStateBody });
       return;
     }
 

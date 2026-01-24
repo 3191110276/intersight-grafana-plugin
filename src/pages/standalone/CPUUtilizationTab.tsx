@@ -14,6 +14,8 @@ import { DashboardCursorSync } from '@grafana/data';
 import { LoggingQueryRunner } from '../../utils/LoggingQueryRunner';
 import { LoggingDataTransformer } from '../../utils/LoggingDataTransformer';
 import { TableCellDisplayMode } from '@grafana/ui';
+import { EmptyStateScene } from '../../components/EmptyStateScene';
+import { getEmptyStateScenario, getSelectedValues } from '../../utils/emptyStateHelpers';
 
 // ============================================================================
 // QUERY DEFINITIONS - Reused across single and multi-server views
@@ -423,36 +425,15 @@ class DynamicCPUUtilizationScene extends SceneObjectBase<DynamicCPUUtilizationSc
       return;
     }
 
-    // Get the current value(s) from the variable
-    const value = variable.state.value;
-    let serverNames: string[] = [];
-
-    if (Array.isArray(value)) {
-      serverNames = value.map(v => String(v));
-    } else if (value && value !== '$__all') {
-      serverNames = [String(value)];
-    }
-
-    // If no servers selected, show a message
-    if (serverNames.length === 0) {
-      const emptyBody = new SceneFlexLayout({
-        direction: 'column',
-        children: [
-          new SceneFlexItem({
-            height: 200,
-            body: PanelBuilders.text()
-              .setTitle('')
-              .setOption('content', '### No Server Selected\n\nPlease select one or more servers from the Server filter above.')
-              .setOption('mode', 'markdown' as any)
-              .setDisplayMode('transparent')
-              .build(),
-          }),
-        ],
-      });
-
-      this.setState({ body: emptyBody });
+    // Check for empty state scenarios
+    const emptyStateScenario = getEmptyStateScenario(variable);
+    if (emptyStateScenario) {
+      this.setState({ body: new EmptyStateScene({ scenario: emptyStateScenario, entityType: 'server' }) });
       return;
     }
+
+    // Get selected server names
+    const serverNames = getSelectedValues(variable);
 
     // If single server, show 2 graphs (CPU Utilization + Combined Temperature)
     if (serverNames.length === 1) {

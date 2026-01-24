@@ -21,6 +21,8 @@ import {
 import { LoggingQueryRunner } from '../../utils/LoggingQueryRunner';
 import { LoggingDataTransformer } from '../../utils/LoggingDataTransformer';
 import { DataFrame, LoadingState, PanelData } from '@grafana/data';
+import { EmptyStateScene } from '../../components/EmptyStateScene';
+import { getEmptyStateScenario, getSelectedValues } from '../../utils/emptyStateHelpers';
 
 // ============================================================================
 // CUSTOM DATA PROVIDER - Filters columns based on data presence
@@ -164,36 +166,15 @@ class DynamicActionsScene extends SceneObjectBase<DynamicActionsSceneState> {
       return;
     }
 
-    // Get the current value(s) from the variable
-    const value = variable.state.value;
-    let serverNames: string[] = [];
-
-    if (Array.isArray(value)) {
-      serverNames = value.map(v => String(v));
-    } else if (value && value !== '$__all') {
-      serverNames = [String(value)];
-    }
-
-    // If no servers selected, show a message
-    if (serverNames.length === 0) {
-      const emptyBody = new SceneFlexLayout({
-        direction: 'column',
-        children: [
-          new SceneFlexItem({
-            height: 200,
-            body: PanelBuilders.text()
-              .setTitle('')
-              .setOption('content', '### No Servers Selected\n\nPlease select one or more servers from the Server filter above.')
-              .setOption('mode', 'markdown' as any)
-              .setDisplayMode('transparent')
-              .build(),
-          }),
-        ],
-      });
-
-      this.setState({ body: emptyBody });
+    // Check for empty state scenarios
+    const emptyStateScenario = getEmptyStateScenario(variable);
+    if (emptyStateScenario) {
+      this.setState({ body: new EmptyStateScene({ scenario: emptyStateScenario, entityType: 'server' }) });
       return;
     }
+
+    // Get selected server names
+    const serverNames = getSelectedValues(variable);
 
     // For multiple servers, show the Server column
     const shouldShowServerColumn = serverNames.length > 1;

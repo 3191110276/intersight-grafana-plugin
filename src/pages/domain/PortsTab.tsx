@@ -20,6 +20,8 @@ import {
 import { LoggingQueryRunner } from '../../utils/LoggingQueryRunner';
 import { LoggingDataTransformer } from '../../utils/LoggingDataTransformer';
 import { TabsBar, Tab } from '@grafana/ui';
+import { EmptyStateScene } from '../../components/EmptyStateScene';
+import { getEmptyStateScenario } from '../../utils/emptyStateHelpers';
 
 // ============================================================================
 // DYNAMIC PORTS SCENE - Creates tabs dynamically based on DomainName variable
@@ -75,37 +77,13 @@ class DynamicPortsScene extends SceneObjectBase<DynamicPortsSceneState> {
       return;
     }
 
-    // Get the current value(s) from the variable
-    const value = variable.state.value;
-    let domainNames: string[] = [];
-
-    if (Array.isArray(value)) {
-      domainNames = value.map(v => String(v));
-    } else if (value && value !== '$__all') {
-      domainNames = [String(value)];
-    }
-
-    // If no domains selected, show a message
-    if (domainNames.length === 0) {
-      const emptyBody = new SceneFlexLayout({
-        direction: 'column',
-        children: [
-          new SceneFlexItem({
-            height: 200,
-            body: PanelBuilders.text()
-              .setTitle('')
-              .setOption('content', '### No Domains Selected\n\nPlease select one or more domains from the Domain filter above.')
-              .setOption('mode', 'markdown' as any)
-              .setDisplayMode('transparent')
-              .build(),
-          }),
-        ],
-      });
-
+    // Check for empty state scenarios
+    const emptyStateScenario = getEmptyStateScenario(variable);
+    if (emptyStateScenario) {
       this.setState({
         domainTabs: [],
         activeTab: '',
-        body: emptyBody,
+        body: new EmptyStateScene({ scenario: emptyStateScenario, entityType: 'domain' }),
       });
       return;
     }

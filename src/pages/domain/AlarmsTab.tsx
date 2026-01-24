@@ -18,6 +18,8 @@ import {
 } from '@grafana/scenes';
 import { LoggingQueryRunner } from '../../utils/LoggingQueryRunner';
 import { LoggingDataTransformer } from '../../utils/LoggingDataTransformer';
+import { EmptyStateScene } from '../../components/EmptyStateScene';
+import { getEmptyStateScenario } from '../../utils/emptyStateHelpers';
 
 // ============================================================================
 // DYNAMIC ALARMS SCENE - Shows all alarms in a single table for all selected domains
@@ -70,33 +72,10 @@ class DynamicAlarmsScene extends SceneObjectBase<DynamicAlarmsSceneState> {
       return;
     }
 
-    // Get the current value(s) from the variable
-    const value = variable.state.value;
-    let domainNames: string[] = [];
-
-    if (Array.isArray(value)) {
-      domainNames = value.map(v => String(v));
-    } else if (value && value !== '$__all') {
-      domainNames = [String(value)];
-    }
-
-    // If no domains selected, show a message
-    if (domainNames.length === 0) {
-      const emptyBody = new SceneFlexLayout({
-        direction: 'column',
-        children: [
-          new SceneFlexItem({
-            height: 200,
-            body: PanelBuilders.text()
-              .setOption('content', '### No Domains Selected\n\nPlease select one or more domains from the Domain filter above.')
-              .build(),
-          }),
-        ],
-      });
-
-      this.setState({
-        body: emptyBody,
-      });
+    // Check for empty state scenarios
+    const emptyStateScenario = getEmptyStateScenario(variable);
+    if (emptyStateScenario) {
+      this.setState({ body: new EmptyStateScene({ scenario: emptyStateScenario, entityType: 'domain' }) });
       return;
     }
 

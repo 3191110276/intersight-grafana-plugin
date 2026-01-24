@@ -16,6 +16,8 @@ import {
 import { DashboardCursorSync } from '@grafana/data';
 import { LoggingQueryRunner } from '../../utils/LoggingQueryRunner';
 import { LoggingDataTransformer } from '../../utils/LoggingDataTransformer';
+import { EmptyStateScene } from '../../components/EmptyStateScene';
+import { getEmptyStateScenario, getSelectedValues } from '../../utils/emptyStateHelpers';
 
 // ============================================================================
 // HELPER FUNCTIONS
@@ -1037,8 +1039,9 @@ class DynamicChassisFanSpeedScene extends SceneObjectBase<DynamicChassisFanSpeed
   }
 
   public activate() {
-    super.activate();
+    const deactivate = super.activate();
     this.rebuildBody();
+    return deactivate;
   }
 
   public drillToChassis(chassisName: string) {
@@ -1069,28 +1072,8 @@ class DynamicChassisFanSpeedScene extends SceneObjectBase<DynamicChassisFanSpeed
       return;
     }
 
-    // Get chassis count
+    // Get chassis count for conditional rendering (empty state already checked at top level)
     const chassisCount = getChassisCount(this);
-
-    // No chassis selected
-    if (chassisCount === 0) {
-      const emptyBody = new SceneFlexLayout({
-        direction: 'column',
-        children: [
-          new SceneFlexItem({
-            height: 200,
-            body: PanelBuilders.text()
-              .setTitle('')
-              .setOption('content', '### No Chassis Selected\n\nPlease select one or more chassis from the Chassis filter above.')
-              .setOption('mode', 'markdown' as any)
-              .setDisplayMode('transparent')
-              .build(),
-          }),
-        ],
-      });
-      this.setState({ body: emptyBody });
-      return;
-    }
 
     // If <= 15 chassis, show line chart
     if (chassisCount <= 15) {
@@ -1508,8 +1491,9 @@ class DynamicChassisTemperatureScene extends SceneObjectBase<DynamicChassisTempe
   }
 
   public activate() {
-    super.activate();
+    const deactivate = super.activate();
     this.rebuildBody();
+    return deactivate;
   }
 
   public drillToChassis(chassisName: string) {
@@ -1540,28 +1524,8 @@ class DynamicChassisTemperatureScene extends SceneObjectBase<DynamicChassisTempe
       return;
     }
 
-    // Get chassis count
+    // Get chassis count for conditional rendering (empty state already checked at top level)
     const chassisCount = getChassisCount(this);
-
-    // No chassis selected
-    if (chassisCount === 0) {
-      const emptyBody = new SceneFlexLayout({
-        direction: 'column',
-        children: [
-          new SceneFlexItem({
-            height: 200,
-            body: PanelBuilders.text()
-              .setTitle('')
-              .setOption('content', '### No Chassis Selected\n\nPlease select one or more chassis from the Chassis filter above.')
-              .setOption('mode', 'markdown' as any)
-              .setDisplayMode('transparent')
-              .build(),
-          }),
-        ],
-      });
-      this.setState({ body: emptyBody });
-      return;
-    }
 
     // If <= 15 chassis, show line chart
     if (chassisCount <= 15) {
@@ -2157,8 +2121,9 @@ class DynamicHostTemperatureScene extends SceneObjectBase<DynamicHostTemperature
   }
 
   public activate() {
-    super.activate();
+    const deactivate = super.activate();
     this.rebuildBody();
+    return deactivate;
   }
 
   public drillToHost(hostName: string) {
@@ -2193,27 +2158,8 @@ class DynamicHostTemperatureScene extends SceneObjectBase<DynamicHostTemperature
     }
 
     // PRIORITY 2: Check chassis count
+    // Get chassis count for conditional rendering (empty state already checked at top level)
     const chassisCount = getChassisCount(this);
-
-    // No chassis selected - empty state
-    if (chassisCount === 0) {
-      const emptyBody = new SceneFlexLayout({
-        direction: 'column',
-        children: [
-          new SceneFlexItem({
-            height: 200,
-            body: PanelBuilders.text()
-              .setTitle('')
-              .setOption('content', '### No Chassis Selected\n\nPlease select one or more chassis from the Chassis filter above to view host temperature data.')
-              .setOption('mode', 'markdown' as any)
-              .setDisplayMode('transparent')
-              .build(),
-          }),
-        ],
-      });
-      this.setState({ body: emptyBody });
-      return;
-    }
 
     // PRIORITY 3: Single chassis - show timeseries panels directly
     if (chassisCount === 1) {
@@ -2594,7 +2540,11 @@ function createHostTemperatureDrilldownView(hostName: string, scene: DynamicHost
 // MAIN ENVIRONMENTAL TAB FUNCTION
 // ============================================================================
 
-export function getEnvironmentalTab() {
+/**
+ * Creates the full Environmental tab content (all panels and rows)
+ * This is called by DynamicEnvironmentalScene after checking for empty state
+ */
+function createEnvironmentalTabContent() {
   // Row 1: Power Supply Status
   const powerSupplyQueryRunner = new LoggingQueryRunner({
     datasource: { uid: '${Account}' },
@@ -2825,4 +2775,79 @@ export function getEnvironmentalTab() {
       }),
     ],
   });
+}
+
+// ============================================================================
+// TOP-LEVEL DYNAMIC ENVIRONMENTAL SCENE
+// ============================================================================
+
+interface DynamicEnvironmentalSceneState extends SceneObjectState {
+  body: any;
+}
+
+/**
+ * Top-level scene that checks for empty state before rendering environmental tab
+ */
+class DynamicEnvironmentalScene extends SceneObjectBase<DynamicEnvironmentalSceneState> {
+  public static Component = DynamicEnvironmentalSceneRenderer;
+
+  protected _variableDependency = new VariableDependencyConfig(this, {
+    variableNames: ['ChassisName'],
+    onReferencedVariableValueChanged: () => {
+      if (this.isActive) {
+        this.rebuildBody();
+      }
+    },
+  });
+
+  public constructor(state: Partial<DynamicEnvironmentalSceneState>) {
+    super({
+      body: new SceneFlexLayout({ children: [] }),
+      ...state,
+    });
+  }
+
+  public activate() {
+    const deactivate = super.activate();
+    this.rebuildBody();
+    return deactivate;
+  }
+
+  private rebuildBody() {
+    if (!this.isActive) {
+      return;
+    }
+
+    const variable = sceneGraph.lookupVariable('ChassisName', this);
+    if (!variable || variable.state.type !== 'query') {
+      return;
+    }
+
+    // Check for empty state scenarios
+    const emptyStateScenario = getEmptyStateScenario(variable);
+    if (emptyStateScenario) {
+      this.setState({ body: new EmptyStateScene({ scenario: emptyStateScenario, entityType: 'chassis' }) });
+      return;
+    }
+
+    // Valid state - render full environmental tab content
+    const fullContent = createEnvironmentalTabContent();
+    this.setState({ body: fullContent });
+  }
+}
+
+function DynamicEnvironmentalSceneRenderer({ model }: SceneComponentProps<DynamicEnvironmentalScene>) {
+  const { body } = model.useState();
+  return (
+    <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column' }}>
+      {body && body.Component && <body.Component model={body} />}
+    </div>
+  );
+}
+
+/**
+ * Main export function for Environmental tab
+ */
+export function getEnvironmentalTab() {
+  return new DynamicEnvironmentalScene({});
 }

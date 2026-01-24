@@ -18,6 +18,8 @@ import {
 } from '@grafana/scenes';
 import { LoggingQueryRunner } from '../../utils/LoggingQueryRunner';
 import { LoggingDataTransformer } from '../../utils/LoggingDataTransformer';
+import { EmptyStateScene } from '../../components/EmptyStateScene';
+import { getEmptyStateScenario, getSelectedValues } from '../../utils/emptyStateHelpers';
 
 // ============================================================================
 // DYNAMIC INVENTORY SCENE - Shows chassis and host inventory tables
@@ -70,39 +72,18 @@ class DynamicInventoryScene extends SceneObjectBase<DynamicInventorySceneState> 
       return;
     }
 
-    // Get the current value(s) from the variable
-    const value = variable.state.value;
-    let chassisNames: string[] = [];
-
-    if (Array.isArray(value)) {
-      chassisNames = value.map(v => String(v));
-    } else if (value && value !== '$__all') {
-      chassisNames = [String(value)];
-    }
-
-    // If no chassis selected, show a message
-    if (chassisNames.length === 0) {
-      const emptyBody = new SceneFlexLayout({
-        direction: 'column',
-        children: [
-          new SceneFlexItem({
-            height: 200,
-            body: PanelBuilders.text()
-              .setTitle('')
-              .setOption('content', '### No Chassis Selected\n\nPlease select one or more chassis from the Chassis filter above.')
-              .setOption('mode', 'markdown' as any)
-              .setDisplayMode('transparent')
-              .build(),
-          }),
-        ],
-      });
-
-      this.setState({ body: emptyBody });
+    // Check for empty state scenarios
+    const emptyStateScenario = getEmptyStateScenario(variable);
+    if (emptyStateScenario) {
+      this.setState({ body: new EmptyStateScene({ scenario: emptyStateScenario, entityType: 'chassis' }) });
       return;
     }
 
+    // Get selected chassis names
+    const chassisNames = getSelectedValues(variable);
+
     // Create the inventory tables with chassis names for dynamic filtering
-    const newBody = createInventoryBody(chassisNames);
+    const newBody = createInventoryBody(chassisNames, chassisNames.length > 1);
 
     this.setState({ body: newBody });
   }
@@ -129,7 +110,7 @@ function DynamicInventorySceneRenderer({ model }: SceneComponentProps<DynamicInv
 /**
  * Creates the inventory tables layout with chassis and host tables
  */
-function createInventoryBody(chassisNames: string[]): SceneFlexLayout {
+function createInventoryBody(chassisNames: string[], showChassisColumn: boolean): SceneFlexLayout {
   // Build dynamic OR-joined filter for host query (since hosts use startswith pattern matching)
   const hostFilters = chassisNames.map(name =>
     `startswith(Name, '${name}')`
@@ -239,6 +220,11 @@ function createInventoryBody(chassisNames: string[]): SceneFlexLayout {
         .overrideCustomFieldConfig('width', 115)
         .overrideCustomFieldConfig('align', 'left');
 
+      // Model column
+      builder.matchFieldsWithName('Model')
+        .overrideCustomFieldConfig('width', 115)
+        .overrideCustomFieldConfig('align', 'left');
+
       // State column
       builder.matchFieldsWithName('State')
         .overrideCustomFieldConfig('width', 55)
@@ -308,6 +294,11 @@ function createInventoryBody(chassisNames: string[]): SceneFlexLayout {
       builder.matchFieldsWithName('Redundancy')
         .overrideCustomFieldConfig('width', 105)
         .overrideCustomFieldConfig('align', 'center');
+
+      // Moid column
+      builder.matchFieldsWithName('Moid')
+        .overrideCustomFieldConfig('width', 230)
+        .overrideCustomFieldConfig('align', 'left');
     })
     .build();
 
@@ -356,6 +347,7 @@ function createInventoryBody(chassisNames: string[]): SceneFlexLayout {
           { selector: "NumEthHostInterfaces + ' Eth +' + NumFcHostinterfaces + ' FC'", text: 'Interfaces', type: 'string' },
           { selector: "OperPowerState + '#' + BiosPostComplete", text: 'Power', type: 'string' },
           { selector: "Presence + '#' + Lifecycle", text: 'State', type: 'string' },
+          { selector: "Name", text: 'ChassisName', type: 'string' },
         ],
         url_options: {
           method: 'GET',
@@ -374,6 +366,7 @@ function createInventoryBody(chassisNames: string[]): SceneFlexLayout {
           excludeByName: {
             BiosPostComplete: true,
             ChassisId: true,
+            ChassisName: !showChassisColumn,
             Lifecycle: true,
             NumCpuCores: true,
             NumCpus: true,
@@ -385,7 +378,23 @@ function createInventoryBody(chassisNames: string[]): SceneFlexLayout {
             SlotId: true,
             TotalMemory: true,
           },
-          indexByName: {
+          indexByName: showChassisColumn ? {
+            ChassisName: 0,
+            ID: 1,
+            Name: 2,
+            UserLabel: 3,
+            Serial: 4,
+            Model: 5,
+            PlatformType: 6,
+            State: 7,
+            Power: 8,
+            Critical: 9,
+            Warning: 10,
+            CPU: 11,
+            Interfaces: 12,
+            MgmtIpAddress: 13,
+            Moid: 14,
+          } : {
             ID: 0,
             Name: 1,
             UserLabel: 2,
@@ -401,7 +410,12 @@ function createInventoryBody(chassisNames: string[]): SceneFlexLayout {
             MgmtIpAddress: 12,
             Moid: 13,
           },
-          renameByName: {
+          renameByName: showChassisColumn ? {
+            ChassisName: 'Chassis',
+            UserLabel: 'User Label',
+            PlatformType: 'Platform',
+            MgmtIpAddress: 'Mgmt IP',
+          } : {
             UserLabel: 'User Label',
             PlatformType: 'Platform',
             MgmtIpAddress: 'Mgmt IP',
@@ -419,6 +433,16 @@ function createInventoryBody(chassisNames: string[]): SceneFlexLayout {
     .setOption('enablePagination', true)
     .setOption('sortBy', [{ displayName: 'ID', desc: false }])
     .setOverrides((builder) => {
+      // Chassis column styling (only applies if column exists)
+      if (showChassisColumn) {
+        builder.matchFieldsWithName('Chassis')
+          .overrideCustomFieldConfig('width', 150)
+          .overrideCustomFieldConfig('align', 'left')
+          .overrideMappings([
+            { type: 'regex', options: { pattern: '^(.+)-\\d+$', result: { index: 0, text: '$1' } } },
+          ]);
+      }
+
       // ID column - clean up "0#X" -> "X" and "X#0" -> "X"
       builder.matchFieldsWithName('ID')
         .overrideCustomFieldConfig('width', 50)

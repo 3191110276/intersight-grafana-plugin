@@ -24,6 +24,8 @@ import { LoggingDataTransformer } from '../../utils/LoggingDataTransformer';
 import { DataFrame, LoadingState, PanelData } from '@grafana/data';
 import { Observable } from 'rxjs';
 import { map } from 'rxjs/operators';
+import { EmptyStateScene } from '../../components/EmptyStateScene';
+import { getEmptyStateScenario } from '../../utils/emptyStateHelpers';
 
 // ============================================================================
 // CUSTOM DATA PROVIDER - Filters columns based on values
@@ -151,33 +153,10 @@ class DynamicUnifiedEdgeAlarmsScene extends SceneObjectBase<DynamicUnifiedEdgeAl
       return;
     }
 
-    // Get the current value(s) from the variable
-    const value = variable.state.value;
-    let chassisNames: string[] = [];
-
-    if (Array.isArray(value)) {
-      chassisNames = value.map(v => String(v));
-    } else if (value && value !== '$__all') {
-      chassisNames = [String(value)];
-    }
-
-    // If no chassis selected, show a message
-    if (chassisNames.length === 0) {
-      const emptyBody = new SceneFlexLayout({
-        direction: 'column',
-        children: [
-          new SceneFlexItem({
-            height: 200,
-            body: PanelBuilders.text()
-              .setOption('content', '### No Chassis Selected\n\nPlease select one or more chassis from the Chassis filter above.')
-              .build(),
-          }),
-        ],
-      });
-
-      this.setState({
-        body: emptyBody,
-      });
+    // Check for empty state scenarios
+    const emptyStateScenario = getEmptyStateScenario(variable);
+    if (emptyStateScenario) {
+      this.setState({ body: new EmptyStateScene({ scenario: emptyStateScenario, entityType: 'chassis' }) });
       return;
     }
 
