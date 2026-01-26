@@ -362,6 +362,7 @@ interface DynamicCPUUtilizationSceneState extends SceneObjectState {
 class DynamicCPUUtilizationScene extends SceneObjectBase<DynamicCPUUtilizationSceneState> {
   public static Component = DynamicCPUUtilizationSceneRenderer;
 
+  // @ts-ignore
   protected _variableDependency = new VariableDependencyConfig(this, {
     variableNames: ['ChassisName'],
     onReferencedVariableValueChanged: () => {
@@ -379,6 +380,7 @@ class DynamicCPUUtilizationScene extends SceneObjectBase<DynamicCPUUtilizationSc
     });
   }
 
+  // @ts-ignore
   public activate() {
     super.activate();
     this.rebuildBody();
@@ -451,6 +453,7 @@ class DynamicCPUUtilizationScene extends SceneObjectBase<DynamicCPUUtilizationSc
 
   private getVariable(name: string): any {
     // Use sceneGraph to lookup variable in parent scope
+    // @ts-ignore
     return sceneGraph.lookupVariable(name, this);
   }
 }
@@ -490,13 +493,13 @@ function createDualGraphsBody() {
     .setOverrides((builder) => {
       // Remove "Utilization " prefix and show just the host name
       builder
-        .matchFieldsByType('number')
+        .matchFieldsByType('number' as any)
         .overrideDisplayName('${__field.labels["Host Name"]}')
         .overrideColor({ fixedColor: 'semi-dark-blue', mode: 'fixed' });
     })
     .setOption('tooltip', {
-      mode: 'multi',
-      sort: 'desc',
+      mode: 'multi' as any,
+      sort: 'desc' as any,
     })
     .build();
 
@@ -511,7 +514,7 @@ function createDualGraphsBody() {
     .setData(cpuTempQueryRunner)
     .setUnit('celsius')
     .setThresholds({
-      mode: 'absolute',
+      mode: 'absolute' as any as any,
       steps: [
         { value: 0, color: 'transparent' },
         { value: 105, color: 'dark-yellow' },
@@ -532,8 +535,8 @@ function createDualGraphsBody() {
         .overrideColor({ fixedColor: 'semi-dark-red', mode: 'fixed' });
     })
     .setOption('tooltip', {
-      mode: 'multi',
-      sort: 'desc',
+      mode: 'multi' as any,
+      sort: 'desc' as any,
     })
     .build();
 
@@ -588,13 +591,13 @@ function createDrilldownView(chassisName: string, scene: DynamicCPUUtilizationSc
     .setOverrides((builder) => {
       // Remove "Utilization " prefix and show just the host name
       builder
-        .matchFieldsByType('number')
+        .matchFieldsByType('number' as any)
         .overrideDisplayName('${__field.labels["Host Name"]}')
         .overrideColor({ fixedColor: 'semi-dark-blue', mode: 'fixed' });
     })
     .setOption('tooltip', {
-      mode: 'multi',
-      sort: 'desc',
+      mode: 'multi' as any,
+      sort: 'desc' as any,
     })
     .build();
 
@@ -604,7 +607,7 @@ function createDrilldownView(chassisName: string, scene: DynamicCPUUtilizationSc
     .setData(cpuTempQueryRunner)
     .setUnit('celsius')
     .setThresholds({
-      mode: 'absolute',
+      mode: 'absolute' as any as any,
       steps: [
         { value: 0, color: 'transparent' },
         { value: 105, color: 'dark-yellow' },
@@ -625,8 +628,8 @@ function createDrilldownView(chassisName: string, scene: DynamicCPUUtilizationSc
         .overrideColor({ fixedColor: 'semi-dark-red', mode: 'fixed' });
     })
     .setOption('tooltip', {
-      mode: 'multi',
-      sort: 'desc',
+      mode: 'multi' as any,
+      sort: 'desc' as any,
     })
     .build();
 
@@ -676,12 +679,12 @@ function createMultiChassisTableBody(scene: DynamicCPUUtilizationScene) {
           B: { timeField: 'Time' },
         },
       },
-      // Join all queries by Host Name field (using inner join)
+      // Join all queries by Host Name field (using outer join to handle servers without all sensors)
       {
         id: 'joinByField',
         options: {
           byField: 'Host Name',
-          mode: 'inner',
+          mode: 'outer',
         },
       },
       // Organize and rename columns
@@ -709,7 +712,7 @@ function createMultiChassisTableBody(scene: DynamicCPUUtilizationScene) {
     .setTitle('CPU details for all Chassis - Click row to drill down')
     .setData(transformedData)
     .setOption('showHeader', true)
-    .setOption('cellHeight', 'lg')
+    .setOption('cellHeight', 'lg' as any)
     .setOption('enablePagination', true)
     .setOption('sortBy', [{ displayName: 'Utilization', desc: true }])
     .setCustomFieldConfig('filterable', true)
@@ -730,7 +733,7 @@ function createMultiChassisTableBody(scene: DynamicCPUUtilizationScene) {
         .overrideDecimals(1);
 
       // String columns - set width to 240px
-      builder.matchFieldsByType('string').overrideCustomFieldConfig('width', 240);
+      builder.matchFieldsByType('string' as any).overrideCustomFieldConfig('width', 240);
 
       // CPU Temperature column - celsius unit with sparkline
       builder

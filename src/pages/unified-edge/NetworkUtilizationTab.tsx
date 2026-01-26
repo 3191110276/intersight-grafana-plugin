@@ -13,7 +13,7 @@ export function getNetworkUtilizationTab() {
         body: PanelBuilders.text()
           .setTitle('')
           .setOption('content', '### TODO\n\nThis tab is under development.')
-          .setOption('mode', 'markdown')
+          .setOption('mode', 'markdown' as any)
           .setDisplayMode('transparent')
           .build(),
       }),

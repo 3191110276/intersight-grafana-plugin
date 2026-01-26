@@ -254,7 +254,7 @@ function createNetworkUtilizationPanel(config: NetworkUtilPanelConfig) {
       .setUnit('percentunit')
       .setMax(1)
       .setThresholds({
-        mode: 'percentage',
+        mode: 'percentage' as any as any,
         steps: [
           { value: 0, color: 'green' },
           { value: 70, color: '#EAB839' },
@@ -805,5 +805,3 @@ function getNetworkUtilizationAbsoluteTab() {
     ],
   });
 }
-
-

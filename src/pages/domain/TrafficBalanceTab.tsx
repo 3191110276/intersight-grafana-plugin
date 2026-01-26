@@ -1790,4 +1790,3 @@ function getPanel200_StorageReceiveUtilPerDomainB() {
     .setMin(0)
     .build();
 }
-

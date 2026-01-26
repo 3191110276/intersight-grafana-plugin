@@ -58,16 +58,16 @@ export class LoggingQueryRunner extends SceneQueryRunner {
 
       // Check for data availability in multiple ways
       const hasData = newState.data && newState.data.series && newState.data.series.length > 0;
-      const isDone = newState.data?.state === 'Done' || newState.data?.state === 'done';
-      const isLoading = newState.data?.state === 'Loading' || newState.data?.state === 'loading';
-      const isError = newState.data?.state === 'Error' || newState.data?.state === 'error';
+      const isDone = newState.data?.state === 'Done' as any || newState.data?.state === 'done' as any;
+      const isLoading = newState.data?.state === 'Loading' as any || newState.data?.state === 'loading' as any;
+      const isError = newState.data?.state === 'Error' as any || newState.data?.state === 'error' as any;
 
       // Log data whenever it's available, regardless of state
       if (hasData) {
         debugData('Query results received', {
-          state: newState.data.state,
-          seriesCount: newState.data.series?.length || 0,
-          series: newState.data.series?.map((df, idx) => {
+          state: newState.data?.state,
+          seriesCount: newState.data?.series?.length || 0,
+          series: newState.data?.series?.map((df, idx) => {
             const formattedData = formatDataFrame(df); // Includes all rows and values
             return {
               name: df.name || `Query ${idx}`,

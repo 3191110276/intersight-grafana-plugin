@@ -40,6 +40,7 @@ interface DynamicPortsSceneState extends SceneObjectState {
 class DynamicPortsScene extends SceneObjectBase<DynamicPortsSceneState> {
   public static Component = DynamicPortsSceneRenderer;
 
+  // @ts-ignore
   protected _variableDependency = new VariableDependencyConfig(this, {
     variableNames: ['DomainName'],
     onReferencedVariableValueChanged: () => {
@@ -60,8 +61,9 @@ class DynamicPortsScene extends SceneObjectBase<DynamicPortsSceneState> {
   }
 
   public activate() {
-    super.activate();
+    const result = super.activate();
     this.rebuildTabs();
+    return result;
   }
 
   private rebuildTabs() {
@@ -76,6 +78,11 @@ class DynamicPortsScene extends SceneObjectBase<DynamicPortsSceneState> {
     if (!variable || variable.state.type !== 'query') {
       return;
     }
+
+    // Extract domain names from variable value
+    const domainNames = Array.isArray(variable.state.value) 
+      ? variable.state.value.map((v: any) => v.text || v.value) 
+      : [];
 
     // Check for empty state scenarios
     const emptyStateScenario = getEmptyStateScenario(variable);
@@ -101,7 +108,7 @@ class DynamicPortsScene extends SceneObjectBase<DynamicPortsSceneState> {
     }
 
     // Create a tab for each domain
-    const newTabs = domainNames.map((domainName) => ({
+    const newTabs = domainNames.map((domainName: string) => ({
       id: domainName,
       label: domainName,
       getBody: () => createDomainPortsBody(domainName),
@@ -109,12 +116,12 @@ class DynamicPortsScene extends SceneObjectBase<DynamicPortsSceneState> {
 
     // Set the active tab to the first tab if not already set or if current tab is not in new tabs
     let newActiveTab = this.state.activeTab;
-    if (!newActiveTab || !newTabs.find(t => t.id === newActiveTab)) {
+    if (!newActiveTab || !newTabs.find((t: any) => t.id === newActiveTab)) {
       newActiveTab = newTabs[0]?.id || '';
     }
 
     // Create the new body
-    const newBody = newTabs.find(t => t.id === newActiveTab)?.getBody() || new SceneFlexLayout({ children: [] });
+    const newBody = newTabs.find((t: any) => t.id === newActiveTab)?.getBody() || new SceneFlexLayout({ children: [] });
 
     // Update state - React will handle component lifecycle via key prop
     this.setState({
@@ -184,7 +191,8 @@ function DynamicPortsSceneRenderer({ model }: SceneComponentProps<DynamicPortsSc
         flexShrink: 0,
         minHeight: '48px',
       }}>
-        <TabsBar style={{ border: 'none' }}>
+        <div style={{ border: 'none' }}>
+          <TabsBar>
           {domainTabs.map((tab) => (
             <Tab
               key={tab.id}
@@ -193,7 +201,8 @@ function DynamicPortsSceneRenderer({ model }: SceneComponentProps<DynamicPortsSc
               onChangeTab={() => model.setActiveTab(tab.id)}
             />
           ))}
-        </TabsBar>
+          </TabsBar>
+        </div>
       </div>
       <div style={{
         flex: 1,
@@ -629,18 +638,18 @@ function getPortsPanelForDomain(domainName: string) {
     .setTitle(`Fabric Interconnect ports of ${domainName}`)
     .setData(queryRunner)
     .setOption('showHeader', true)
-    .setOption('cellHeight', 'sm')
+    .setOption('cellHeight', 'sm' as any)
     .setOption('sortBy', [{ displayName: 'Port', desc: false }])
     .setColor({ mode: 'thresholds' })
     .setThresholds({
-      mode: 'percentage',
+      mode: 'percentage' as any,
       steps: [
         { color: 'dark-red', value: 0 },
       ],
     })
     .setCustomFieldConfig('filterable', true)
     .setCustomFieldConfig('align', 'auto')
-    .setCustomFieldConfig('cellOptions', { type: 'auto' })
+    .setCustomFieldConfig('cellOptions', { type: 'auto' as any })
     .setCustomFieldConfig('inspect', false)
     .setOverrides((builder) => {
       // Port column
@@ -649,10 +658,10 @@ function getPortsPanelForDomain(domainName: string) {
 
       // Port Role columns (A and B)
       builder.matchFieldsWithNameByRegex('/Port Role.*/')
-        .overrideCustomFieldConfig('cellOptions', { type: 'color-text' })
+        .overrideCustomFieldConfig('cellOptions', { type: 'color-text' as any })
         .overrideMappings([
           {
-            type: 'value',
+            type: 'value' as any,
             options: {
               'unconfigured': { color: '#787878', index: 0, text: 'Unconfigured' },
               'server': { color: '#ffd700', index: 1, text: 'Server' },
@@ -670,36 +679,36 @@ function getPortsPanelForDomain(domainName: string) {
 
       // Link Status columns
       builder.matchFieldsWithNameByRegex('/Link Status.*/')
-        .overrideCustomFieldConfig('cellOptions', { type: 'color-text' })
+        .overrideCustomFieldConfig('cellOptions', { type: 'color-text' as any })
         .overrideMappings([
-          { type: 'value', options: { 'unconfigured0': { color: '#7c0614', index: 0, text: 'Inactive' } } },
-          { type: 'regex', options: { pattern: '.*1', result: { color: 'semi-dark-green', index: 1, text: 'Active' } } },
-          { type: 'regex', options: { pattern: '.*0', result: { color: 'red', index: 2, text: 'Inactive' } } },
+          { type: 'value' as any, options: { 'unconfigured0': { color: '#7c0614', index: 0, text: 'Inactive' } } },
+          { type: 'regex' as any, options: { pattern: '.*1', result: { color: 'semi-dark-green', index: 1, text: 'Active' } } },
+          { type: 'regex' as any, options: { pattern: '.*0', result: { color: 'red', index: 2, text: 'Inactive' } } },
         ]);
 
       // Link Speed columns
       builder.matchFieldsWithNameByRegex('/Link Speed.*/')
         .overrideUnit('bps')
         .overrideMappings([
-          { type: 'value', options: { '0': { index: 0, text: '-' } } },
+          { type: 'value' as any, options: { '0': { index: 0, text: '-' } } },
         ]);
 
       // MAC columns
       builder.matchFieldsWithNameByRegex('/MAC.*/')
-        .overrideCustomFieldConfig('cellOptions', { type: 'color-text' })
+        .overrideCustomFieldConfig('cellOptions', { type: 'color-text' as any })
         .overrideMappings([
-          { type: 'special', options: { match: 'null', result: { color: '#787878', index: 0, text: 'Fibre Channel' } } },
-          { type: 'regex', options: { pattern: '.*', result: { color: 'text', index: 1 } } },
+          { type: 'special' as any, options: { match: 'null' as any, result: { color: '#787878', index: 0, text: 'Fibre Channel' } } },
+          { type: 'regex' as any, options: { pattern: '.*', result: { color: 'text', index: 1 } } },
         ]);
 
       // Role Sync column
       builder.matchFieldsWithName('Role Sync')
         .overrideCustomFieldConfig('width', 105)
         .overrideCustomFieldConfig('align', 'center')
-        .overrideCustomFieldConfig('cellOptions', { type: 'color-text' })
+        .overrideCustomFieldConfig('cellOptions', { type: 'color-text' as any })
         .overrideMappings([
           {
-            type: 'value',
+            type: 'value' as any,
             options: {
               'unconfigured/unconfigured': { color: 'text', index: 0, text: '⚪️' },
               'server/server': { index: 1, text: '🟢' },
@@ -713,7 +722,7 @@ function getPortsPanelForDomain(domainName: string) {
               'fc_monitor/fc_monitor': { index: 9, text: '🟢' },
             },
           },
-          { type: 'regex', options: { pattern: '(.*)', result: { index: 10, text: '🔴' } } },
+          { type: 'regex' as any, options: { pattern: '(.*)', result: { index: 10, text: '🔴' } } },
         ]);
     })
     .build();

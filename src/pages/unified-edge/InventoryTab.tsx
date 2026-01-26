@@ -36,6 +36,7 @@ interface DynamicInventorySceneState extends SceneObjectState {
 class DynamicInventoryScene extends SceneObjectBase<DynamicInventorySceneState> {
   public static Component = DynamicInventorySceneRenderer;
 
+  // @ts-ignore
   protected _variableDependency = new VariableDependencyConfig(this, {
     variableNames: ['ChassisName'],
     onReferencedVariableValueChanged: () => {
@@ -53,6 +54,7 @@ class DynamicInventoryScene extends SceneObjectBase<DynamicInventorySceneState> 
     });
   }
 
+  // @ts-ignore
   public activate() {
     super.activate();
     this.rebuildBody();
@@ -90,6 +92,7 @@ class DynamicInventoryScene extends SceneObjectBase<DynamicInventorySceneState> 
 
   private getVariable(name: string): any {
     // Use sceneGraph to lookup variable in parent scope
+    // @ts-ignore
     return sceneGraph.lookupVariable(name, this);
   }
 }
@@ -206,10 +209,14 @@ function createInventoryBody(chassisNames: string[], showChassisColumn: boolean)
     .setTitle('Chassis Inventory')
     .setData(chassisTransformedData)
     .setOption('showHeader', true)
-    .setOption('cellHeight', 'sm')
+    .setOption('cellHeight', 'sm' as any)
     .setOption('enablePagination', true)
     .setOption('sortBy', [{ displayName: 'ID', desc: false }])
     .setOverrides((builder) => {
+      // Name column - fixed width to prevent horizontal scrollbar issue
+      builder.matchFieldsWithName('Name')
+        .overrideCustomFieldConfig('width', 200);
+
       // ID column
       builder.matchFieldsWithName('ID')
         .overrideCustomFieldConfig('width', 20)
@@ -229,19 +236,19 @@ function createInventoryBody(chassisNames: string[], showChassisColumn: boolean)
       builder.matchFieldsWithName('State')
         .overrideCustomFieldConfig('width', 55)
         .overrideCustomFieldConfig('align', 'center')
-        .overrideCustomFieldConfig('cellOptions', { type: 'color-background', mode: 'basic' })
+        .overrideCustomFieldConfig('cellOptions', { type: 'color-background' as any as any, mode: 'basic' as any as any })
         .overrideMappings([
-          { type: 'value', options: { 'OK': { color: 'transparent', index: 0, text: 'Ok' } } },
-          { type: 'regex', options: { pattern: '.*', result: { color: 'semi-dark-red', index: 1, text: 'Error' } } },
+          { type: 'value' as any, options: { 'OK': { color: 'transparent', index: 0, text: 'Ok' } } },
+          { type: 'regex' as any, options: { pattern: '.*', result: { color: 'semi-dark-red', index: 1, text: 'Error' } } },
         ]);
 
       // Critical column
       builder.matchFieldsWithName('Critical')
         .overrideCustomFieldConfig('width', 75)
         .overrideCustomFieldConfig('align', 'center')
-        .overrideCustomFieldConfig('cellOptions', { type: 'color-background', mode: 'basic' })
+        .overrideCustomFieldConfig('cellOptions', { type: 'color-background' as any as any, mode: 'basic' as any as any })
         .overrideThresholds({
-          mode: 'absolute',
+          mode: 'absolute' as any as any,
           steps: [
             { value: -Infinity, color: 'transparent' },
             { value: 1, color: 'semi-dark-red' },
@@ -252,9 +259,9 @@ function createInventoryBody(chassisNames: string[], showChassisColumn: boolean)
       builder.matchFieldsWithName('Warning')
         .overrideCustomFieldConfig('width', 75)
         .overrideCustomFieldConfig('align', 'center')
-        .overrideCustomFieldConfig('cellOptions', { type: 'color-background', mode: 'basic' })
+        .overrideCustomFieldConfig('cellOptions', { type: 'color-background' as any as any, mode: 'basic' as any as any })
         .overrideThresholds({
-          mode: 'absolute',
+          mode: 'absolute' as any as any,
           steps: [
             { value: -Infinity, color: 'transparent' },
             { value: 1, color: 'semi-dark-yellow' },
@@ -265,29 +272,29 @@ function createInventoryBody(chassisNames: string[], showChassisColumn: boolean)
       builder.matchFieldsWithName('Connection')
         .overrideCustomFieldConfig('width', 95)
         .overrideCustomFieldConfig('align', 'center')
-        .overrideCustomFieldConfig('cellOptions', { type: 'color-background', mode: 'basic' })
+        .overrideCustomFieldConfig('cellOptions', { type: 'color-background' as any as any, mode: 'basic' as any as any })
         .overrideMappings([
-          { type: 'value', options: { 'A,B': { color: 'transparent', index: 0, text: 'A + B' } } },
-          { type: 'regex', options: { pattern: '.*', result: { color: 'semi-dark-red', index: 1 } } },
+          { type: 'value' as any, options: { 'A,B': { color: 'transparent', index: 0, text: 'A + B' } } },
+          { type: 'regex' as any, options: { pattern: '.*', result: { color: 'semi-dark-red', index: 1 } } },
         ]);
 
       // Locator LED column
       builder.matchFieldsWithName('Locator LED')
         .overrideCustomFieldConfig('width', 100)
         .overrideCustomFieldConfig('align', 'center')
-        .overrideCustomFieldConfig('cellOptions', { type: 'color-background', mode: 'basic' })
+        .overrideCustomFieldConfig('cellOptions', { type: 'color-background' as any as any, mode: 'basic' as any as any })
         .overrideMappings([
-          { type: 'value', options: { 'off': { color: 'transparent', index: 0, text: 'Off' }, 'on': { color: 'blue', index: 1, text: 'On' } } },
+          { type: 'value' as any, options: { 'off': { color: 'transparent', index: 0, text: 'Off' }, 'on': { color: 'blue', index: 1, text: 'On' } } },
         ]);
 
       // PSU State column
       builder.matchFieldsWithName('PSU State')
         .overrideCustomFieldConfig('width', 90)
         .overrideCustomFieldConfig('align', 'center')
-        .overrideCustomFieldConfig('cellOptions', { type: 'color-background', mode: 'basic' })
+        .overrideCustomFieldConfig('cellOptions', { type: 'color-background' as any as any, mode: 'basic' as any as any })
         .overrideMappings([
-          { type: 'value', options: { 'OK': { color: 'transparent', index: 0, text: 'Ok' } } },
-          { type: 'regex', options: { pattern: '.*', result: { color: 'semi-dark-red', index: 1 } } },
+          { type: 'value' as any, options: { 'OK': { color: 'transparent', index: 0, text: 'Ok' } } },
+          { type: 'regex' as any, options: { pattern: '.*', result: { color: 'semi-dark-red', index: 1 } } },
         ]);
 
       // Redundancy column
@@ -374,6 +381,7 @@ function createInventoryBody(chassisNames: string[], showChassisColumn: boolean)
             NumFcHostinterfaces: true,
             OperPowerState: true,
             Presence: true,
+            PlatformType: true,
             ServerId: true,
             SlotId: true,
             TotalMemory: true,
@@ -385,22 +393,6 @@ function createInventoryBody(chassisNames: string[], showChassisColumn: boolean)
             UserLabel: 3,
             Serial: 4,
             Model: 5,
-            PlatformType: 6,
-            State: 7,
-            Power: 8,
-            Critical: 9,
-            Warning: 10,
-            CPU: 11,
-            Interfaces: 12,
-            MgmtIpAddress: 13,
-            Moid: 14,
-          } : {
-            ID: 0,
-            Name: 1,
-            UserLabel: 2,
-            Serial: 3,
-            Model: 4,
-            PlatformType: 5,
             State: 6,
             Power: 7,
             Critical: 8,
@@ -409,15 +401,27 @@ function createInventoryBody(chassisNames: string[], showChassisColumn: boolean)
             Interfaces: 11,
             MgmtIpAddress: 12,
             Moid: 13,
+          } : {
+            ID: 0,
+            Name: 1,
+            UserLabel: 2,
+            Serial: 3,
+            Model: 4,
+            State: 5,
+            Power: 6,
+            Critical: 7,
+            Warning: 8,
+            CPU: 9,
+            Interfaces: 10,
+            MgmtIpAddress: 11,
+            Moid: 12,
           },
           renameByName: showChassisColumn ? {
             ChassisName: 'Chassis',
             UserLabel: 'User Label',
-            PlatformType: 'Platform',
             MgmtIpAddress: 'Mgmt IP',
           } : {
             UserLabel: 'User Label',
-            PlatformType: 'Platform',
             MgmtIpAddress: 'Mgmt IP',
           },
         },
@@ -429,9 +433,12 @@ function createInventoryBody(chassisNames: string[], showChassisColumn: boolean)
     .setTitle('Host Inventory')
     .setData(hostTransformedData)
     .setOption('showHeader', true)
-    .setOption('cellHeight', 'sm')
+    .setOption('cellHeight', 'sm' as any)
     .setOption('enablePagination', true)
-    .setOption('sortBy', [{ displayName: 'ID', desc: false }])
+    .setOption('sortBy', showChassisColumn ?
+      [{ displayName: 'Chassis', desc: false }, { displayName: 'ID', desc: false }] :
+      [{ displayName: 'ID', desc: false }]
+    )
     .setOverrides((builder) => {
       // Chassis column styling (only applies if column exists)
       if (showChassisColumn) {
@@ -439,7 +446,7 @@ function createInventoryBody(chassisNames: string[], showChassisColumn: boolean)
           .overrideCustomFieldConfig('width', 150)
           .overrideCustomFieldConfig('align', 'left')
           .overrideMappings([
-            { type: 'regex', options: { pattern: '^(.+)-\\d+$', result: { index: 0, text: '$1' } } },
+            { type: 'regex' as any, options: { pattern: '^(.+)-\\d+$', result: { index: 0, text: '$1' } } },
           ]);
       }
 
@@ -448,8 +455,8 @@ function createInventoryBody(chassisNames: string[], showChassisColumn: boolean)
         .overrideCustomFieldConfig('width', 50)
         .overrideCustomFieldConfig('align', 'center')
         .overrideMappings([
-          { type: 'regex', options: { pattern: '^0#(.+)$', result: { index: 0, text: '$1' } } },
-          { type: 'regex', options: { pattern: '^(.+)#0$', result: { index: 1, text: '$1' } } },
+          { type: 'regex' as any, options: { pattern: '^0#(.+)$', result: { index: 0, text: '$1' } } },
+          { type: 'regex' as any, options: { pattern: '^(.+)#0$', result: { index: 1, text: '$1' } } },
         ]);
 
       // Serial column
@@ -457,41 +464,33 @@ function createInventoryBody(chassisNames: string[], showChassisColumn: boolean)
         .overrideCustomFieldConfig('width', 115)
         .overrideCustomFieldConfig('align', 'left');
 
-      // Platform column
-      builder.matchFieldsWithName('Platform')
-        .overrideCustomFieldConfig('width', 80)
-        .overrideCustomFieldConfig('align', 'left')
-        .overrideMappings([
-          { type: 'value', options: { IMCBlade: { index: 0, text: 'Blade' }, IMCRack: { index: 1, text: 'Rack' } } },
-        ]);
-
       // State column
       builder.matchFieldsWithName('State')
         .overrideCustomFieldConfig('width', 115)
         .overrideCustomFieldConfig('align', 'center')
-        .overrideCustomFieldConfig('cellOptions', { type: 'color-background', mode: 'basic' })
+        .overrideCustomFieldConfig('cellOptions', { type: 'color-background' as any as any, mode: 'basic' as any as any })
         .overrideMappings([
-          { type: 'value', options: { 'Enabled#Active': { color: 'transparent', index: 0, text: 'Ok' }, 'equipped#Active': { color: 'transparent', index: 1, text: 'Ok' }, 'equipped#DiscoveryFailed': { color: 'semi-dark-red', index: 2, text: 'Discovery Failed' } } },
-          { type: 'regex', options: { pattern: '.*', result: { color: 'semi-dark-red', index: 3, text: 'Presence or Lifecycle not ok' } } },
+          { type: 'value' as any, options: { 'Enabled#Active': { color: 'transparent', index: 0, text: 'Ok' }, 'equipped#Active': { color: 'transparent', index: 1, text: 'Ok' }, 'equipped#DiscoveryFailed': { color: 'semi-dark-red', index: 2, text: 'Discovery Failed' } } },
+          { type: 'regex' as any, options: { pattern: '.*', result: { color: 'semi-dark-red', index: 3, text: 'Presence or Lifecycle not ok' } } },
         ]);
 
       // Power column
       builder.matchFieldsWithName('Power')
         .overrideCustomFieldConfig('width', 60)
         .overrideCustomFieldConfig('align', 'center')
-        .overrideCustomFieldConfig('cellOptions', { type: 'color-background', mode: 'basic' })
+        .overrideCustomFieldConfig('cellOptions', { type: 'color-background' as any as any, mode: 'basic' as any as any })
         .overrideMappings([
-          { type: 'value', options: { 'on#true': { color: 'transparent', index: 0, text: 'On' }, 'on#false': { color: 'semi-dark-yellow', index: 1, text: 'On (BIOS Post incomplete)' } } },
-          { type: 'regex', options: { pattern: '.*', result: { color: 'semi-dark-red', index: 2, text: 'Off' } } },
+          { type: 'value' as any, options: { 'on#true': { color: 'transparent', index: 0, text: 'On' }, 'on#false': { color: 'semi-dark-yellow', index: 1, text: 'On (BIOS Post incomplete)' } } },
+          { type: 'regex' as any, options: { pattern: '.*', result: { color: 'semi-dark-red', index: 2, text: 'Off' } } },
         ]);
 
       // Critical column
       builder.matchFieldsWithName('Critical')
         .overrideCustomFieldConfig('width', 75)
         .overrideCustomFieldConfig('align', 'center')
-        .overrideCustomFieldConfig('cellOptions', { type: 'color-background', mode: 'basic' })
+        .overrideCustomFieldConfig('cellOptions', { type: 'color-background' as any as any, mode: 'basic' as any as any })
         .overrideThresholds({
-          mode: 'absolute',
+          mode: 'absolute' as any as any,
           steps: [
             { value: -Infinity, color: 'transparent' },
             { value: 1, color: 'semi-dark-red' },
@@ -502,9 +501,9 @@ function createInventoryBody(chassisNames: string[], showChassisColumn: boolean)
       builder.matchFieldsWithName('Warning')
         .overrideCustomFieldConfig('width', 75)
         .overrideCustomFieldConfig('align', 'center')
-        .overrideCustomFieldConfig('cellOptions', { type: 'color-background', mode: 'basic' })
+        .overrideCustomFieldConfig('cellOptions', { type: 'color-background' as any as any, mode: 'basic' as any as any })
         .overrideThresholds({
-          mode: 'absolute',
+          mode: 'absolute' as any as any,
           steps: [
             { value: -Infinity, color: 'transparent' },
             { value: 1, color: 'semi-dark-yellow' },

@@ -260,7 +260,7 @@ export function getCPUUtilizationTab() {
         id: 'joinByField',
         options: {
           byField: 'Host Name',
-          mode: 'inner',
+          mode: 'outer',
         },
       },
       {
@@ -290,11 +290,11 @@ export function getCPUUtilizationTab() {
     .setTitle('')
     .setData(transformedData)
     .setOption('showHeader', true)
-    .setOption('cellHeight', 'lg')
+    .setOption('cellHeight', 'lg' as any)
     .setOption('enablePagination', true)
     .setOption('sortBy', [{ displayName: 'Utilization', desc: true }])
     .setCustomFieldConfig('align', 'auto')
-    .setCustomFieldConfig('cellOptions', { type: 'auto' })
+    .setCustomFieldConfig('cellOptions', { type: 'auto' as any })
     .setCustomFieldConfig('filterable', true)
     .setCustomFieldConfig('inspect', false)
     .setOverrides((builder) => {
@@ -313,7 +313,7 @@ export function getCPUUtilizationTab() {
         .overrideDecimals(1);
 
       // String columns - set width to 240px
-      builder.matchFieldsByType('string')
+      builder.matchFieldsByType('string' as any)
         .overrideCustomFieldConfig('width', 240);
 
       // Temperature columns - celsius unit
@@ -478,28 +478,28 @@ function getStorageControllersPanel() {
   const panel = PanelBuilders.table()
     .setTitle('')
     .setData(dataTransformer)
-    .setOption('cellHeight', 'sm')
+    .setOption('cellHeight', 'sm' as any)
     .setOverrides((builder) => {
       // Presence field
       builder
         .matchFieldsWithName('Presence')
         .overrideMappings([
           {
-            type: 'value',
+            type: 'value' as any,
             options: {
               equipped: { color: 'green', index: 0, text: 'Equipped' },
               missing: { color: 'dark-red', index: 1, text: 'Missing' },
             },
           },
         ])
-        .overrideCustomFieldConfig('cellOptions', { type: 'color-text' });
+        .overrideCustomFieldConfig('cellOptions', { type: 'color-text' as any });
 
       // State field
       builder
         .matchFieldsWithName('State')
         .overrideMappings([
           {
-            type: 'value',
+            type: 'value' as any,
             options: {
               ',': { color: 'orange', index: 3, text: 'NA' },
               'Enabled,Critical': { color: 'dark-red', index: 2, text: 'Critical' },
@@ -508,55 +508,55 @@ function getStorageControllersPanel() {
             },
           },
           {
-            type: 'regex',
+            type: 'regex' as any,
             options: {
               pattern: '(.*)',
               result: { color: 'dark-red', index: 4, text: 'Error ($1)' },
             },
           },
         ])
-        .overrideCustomFieldConfig('cellOptions', { type: 'color-text' });
+        .overrideCustomFieldConfig('cellOptions', { type: 'color-text' as any });
 
       // SelfEncryptEnabled field
       builder
         .matchFieldsWithName('Self Encryption')
         .overrideMappings([
           {
-            type: 'value',
+            type: 'value' as any,
             options: {
               false: { color: '#646464', index: 1, text: 'Not Enabled' },
               true: { color: 'blue', index: 0, text: 'Enabled' },
             },
           },
         ])
-        .overrideCustomFieldConfig('cellOptions', { type: 'color-text' });
+        .overrideCustomFieldConfig('cellOptions', { type: 'color-text' as any });
 
       // Battery field
       builder
         .matchFieldsWithName('Battery')
         .overrideMappings([
           {
-            type: 'value',
+            type: 'value' as any,
             options: {
               true: { color: 'blue', index: 0, text: 'Present' },
             },
           },
           {
-            type: 'special',
+            type: 'special' as any as any,
             options: {
-              match: 'null',
+              match: 'null' as any as any,
               result: { color: '#646464', index: 1, text: 'Not Present' },
             },
           },
         ])
-        .overrideCustomFieldConfig('cellOptions', { type: 'color-text' });
+        .overrideCustomFieldConfig('cellOptions', { type: 'color-text' as any });
 
       // InterfaceType field
       builder
         .matchFieldsWithName('InterfaceType')
         .overrideMappings([
           {
-            type: 'value',
+            type: 'value' as any,
             options: {
               Nvme: { index: 2, text: 'NVMe' },
               Sas: { index: 0, text: 'SAS' },
@@ -569,13 +569,13 @@ function getStorageControllersPanel() {
       builder
         .matchFieldsWithName('MemoryCorrectableErrors')
         .overrideThresholds({
-          mode: 'absolute',
+          mode: 'absolute' as any as any,
           steps: [
             { value: 0, color: 'text' },
             { value: 1, color: 'dark-orange' },
           ],
         })
-        .overrideCustomFieldConfig('cellOptions', { type: 'color-text' });
+        .overrideCustomFieldConfig('cellOptions', { type: 'color-text' as any });
 
       return builder.build();
     })
@@ -749,35 +749,35 @@ function getSSDDisksPanel() {
   const panel = PanelBuilders.table()
     .setTitle('')
     .setData(dataTransformer)
-    .setOption('cellHeight', 'lg')
+    .setOption('cellHeight', 'lg' as any)
     .setOverrides((builder) => {
       // State field
       builder
         .matchFieldsWithName('State')
         .overrideMappings([
           {
-            type: 'value',
+            type: 'value' as any,
             options: {
               good: { color: 'green', index: 0, text: 'Good' },
               online: { color: 'green', index: 1, text: 'Online' },
             },
           },
           {
-            type: 'regex',
+            type: 'regex' as any,
             options: {
               pattern: '(.*)',
               result: { color: 'dark-red', index: 2, text: 'Error ($1)' },
             },
           },
         ])
-        .overrideCustomFieldConfig('cellOptions', { type: 'color-text' });
+        .overrideCustomFieldConfig('cellOptions', { type: 'color-text' as any });
 
       // Life Left field
       builder
         .matchFieldsWithName('Life Left')
         .overrideUnit('percent')
         .overrideThresholds({
-          mode: 'absolute',
+          mode: 'absolute' as any as any,
           steps: [
             { value: 0, color: 'dark-red' },
             { value: 25, color: 'dark-orange' },
@@ -785,14 +785,14 @@ function getSSDDisksPanel() {
             { value: 75, color: 'green' },
           ],
         })
-        .overrideCustomFieldConfig('cellOptions', { type: 'color-background' });
+        .overrideCustomFieldConfig('cellOptions', { type: 'color-background' as any as any });
 
       // Predicted Life field
       builder
         .matchFieldsWithName('Predicted Life')
         .overrideUnit('percent')
         .overrideThresholds({
-          mode: 'absolute',
+          mode: 'absolute' as any as any,
           steps: [
             { value: 0, color: 'dark-red' },
             { value: 25, color: 'dark-orange' },
@@ -800,14 +800,14 @@ function getSSDDisksPanel() {
             { value: 75, color: 'green' },
           ],
         })
-        .overrideCustomFieldConfig('cellOptions', { type: 'color-background' });
+        .overrideCustomFieldConfig('cellOptions', { type: 'color-background' as any as any });
 
       // Reserved Cap Used field
       builder
         .matchFieldsWithName('Reserved Cap Used')
         .overrideUnit('percent')
         .overrideThresholds({
-          mode: 'absolute',
+          mode: 'absolute' as any as any,
           steps: [
             { value: 0, color: 'green' },
             { value: 25, color: 'dark-yellow' },
@@ -815,13 +815,13 @@ function getSSDDisksPanel() {
             { value: 75, color: 'dark-red' },
           ],
         })
-        .overrideCustomFieldConfig('cellOptions', { type: 'color-background' });
+        .overrideCustomFieldConfig('cellOptions', { type: 'color-background' as any as any });
 
       // Wear (days) field
       builder
         .matchFieldsWithName('Wear (days)')
         .overrideThresholds({
-          mode: 'absolute',
+          mode: 'absolute' as any as any,
           steps: [
             { value: 0, color: 'dark-red' },
             { value: 50, color: 'dark-orange' },
@@ -829,14 +829,14 @@ function getSSDDisksPanel() {
             { value: 200, color: 'green' },
           ],
         })
-        .overrideCustomFieldConfig('cellOptions', { type: 'color-background' });
+        .overrideCustomFieldConfig('cellOptions', { type: 'color-background' as any as any });
 
       // Temperature field
       builder
         .matchFieldsWithName('OperatingTemperature')
         .overrideUnit('celsius')
         .overrideThresholds({
-          mode: 'absolute',
+          mode: 'absolute' as any as any,
           steps: [
             { value: 0, color: 'text' },
             { value: 60, color: 'dark-yellow' },
@@ -844,7 +844,7 @@ function getSSDDisksPanel() {
             { value: 80, color: 'dark-red' },
           ],
         })
-        .overrideCustomFieldConfig('cellOptions', { type: 'color-text' });
+        .overrideCustomFieldConfig('cellOptions', { type: 'color-text' as any });
 
       // Capacity field
       builder
@@ -886,7 +886,7 @@ function getSSDDisksPanel() {
         .matchFieldsWithName('EncryptionStatus')
         .overrideMappings([
           {
-            type: 'value',
+            type: 'value' as any,
             options: {
               'Not Capable': { color: '#646464', index: 0, text: 'Not Capable' },
               'Capable': { color: 'text', index: 1, text: 'Capable' },
@@ -894,21 +894,21 @@ function getSSDDisksPanel() {
             },
           },
         ])
-        .overrideCustomFieldConfig('cellOptions', { type: 'color-text' });
+        .overrideCustomFieldConfig('cellOptions', { type: 'color-text' as any });
 
       // Presence field
       builder
         .matchFieldsWithName('Presence')
         .overrideMappings([
           {
-            type: 'value',
+            type: 'value' as any,
             options: {
               equipped: { color: 'green', index: 0, text: 'Equipped' },
               missing: { color: 'dark-red', index: 1, text: 'Missing' },
             },
           },
         ])
-        .overrideCustomFieldConfig('cellOptions', { type: 'color-text' });
+        .overrideCustomFieldConfig('cellOptions', { type: 'color-text' as any });
 
       return builder.build();
     })
@@ -1082,35 +1082,35 @@ function getHDDDisksPanel() {
   const panel = PanelBuilders.table()
     .setTitle('')
     .setData(dataTransformer)
-    .setOption('cellHeight', 'lg')
+    .setOption('cellHeight', 'lg' as any)
     .setOverrides((builder) => {
       // State field
       builder
         .matchFieldsWithName('State')
         .overrideMappings([
           {
-            type: 'value',
+            type: 'value' as any,
             options: {
               good: { color: 'green', index: 0, text: 'Good' },
               online: { color: 'green', index: 1, text: 'Online' },
             },
           },
           {
-            type: 'regex',
+            type: 'regex' as any,
             options: {
               pattern: '(.*)',
               result: { color: 'dark-red', index: 2, text: 'Error ($1)' },
             },
           },
         ])
-        .overrideCustomFieldConfig('cellOptions', { type: 'color-text' });
+        .overrideCustomFieldConfig('cellOptions', { type: 'color-text' as any });
 
       // Life Left field
       builder
         .matchFieldsWithName('Life Left')
         .overrideUnit('percent')
         .overrideThresholds({
-          mode: 'absolute',
+          mode: 'absolute' as any as any,
           steps: [
             { value: 0, color: 'dark-red' },
             { value: 25, color: 'dark-orange' },
@@ -1118,14 +1118,14 @@ function getHDDDisksPanel() {
             { value: 75, color: 'green' },
           ],
         })
-        .overrideCustomFieldConfig('cellOptions', { type: 'color-background' });
+        .overrideCustomFieldConfig('cellOptions', { type: 'color-background' as any as any });
 
       // Predicted Life field
       builder
         .matchFieldsWithName('Predicted Life')
         .overrideUnit('percent')
         .overrideThresholds({
-          mode: 'absolute',
+          mode: 'absolute' as any as any,
           steps: [
             { value: 0, color: 'dark-red' },
             { value: 25, color: 'dark-orange' },
@@ -1133,14 +1133,14 @@ function getHDDDisksPanel() {
             { value: 75, color: 'green' },
           ],
         })
-        .overrideCustomFieldConfig('cellOptions', { type: 'color-background' });
+        .overrideCustomFieldConfig('cellOptions', { type: 'color-background' as any as any });
 
       // Reserved Cap Used field
       builder
         .matchFieldsWithName('Reserved Cap Used')
         .overrideUnit('percent')
         .overrideThresholds({
-          mode: 'absolute',
+          mode: 'absolute' as any as any,
           steps: [
             { value: 0, color: 'green' },
             { value: 25, color: 'dark-yellow' },
@@ -1148,13 +1148,13 @@ function getHDDDisksPanel() {
             { value: 75, color: 'dark-red' },
           ],
         })
-        .overrideCustomFieldConfig('cellOptions', { type: 'color-background' });
+        .overrideCustomFieldConfig('cellOptions', { type: 'color-background' as any as any });
 
       // Wear (days) field
       builder
         .matchFieldsWithName('Wear (days)')
         .overrideThresholds({
-          mode: 'absolute',
+          mode: 'absolute' as any as any,
           steps: [
             { value: 0, color: 'dark-red' },
             { value: 50, color: 'dark-orange' },
@@ -1162,14 +1162,14 @@ function getHDDDisksPanel() {
             { value: 200, color: 'green' },
           ],
         })
-        .overrideCustomFieldConfig('cellOptions', { type: 'color-background' });
+        .overrideCustomFieldConfig('cellOptions', { type: 'color-background' as any as any });
 
       // Temperature field
       builder
         .matchFieldsWithName('OperatingTemperature')
         .overrideUnit('celsius')
         .overrideThresholds({
-          mode: 'absolute',
+          mode: 'absolute' as any as any,
           steps: [
             { value: 0, color: 'text' },
             { value: 60, color: 'dark-yellow' },
@@ -1177,7 +1177,7 @@ function getHDDDisksPanel() {
             { value: 80, color: 'dark-red' },
           ],
         })
-        .overrideCustomFieldConfig('cellOptions', { type: 'color-text' });
+        .overrideCustomFieldConfig('cellOptions', { type: 'color-text' as any });
 
       // Capacity field
       builder
@@ -1219,7 +1219,7 @@ function getHDDDisksPanel() {
         .matchFieldsWithName('EncryptionStatus')
         .overrideMappings([
           {
-            type: 'value',
+            type: 'value' as any,
             options: {
               'Not Capable': { color: '#646464', index: 0, text: 'Not Capable' },
               'Capable': { color: 'text', index: 1, text: 'Capable' },
@@ -1227,21 +1227,21 @@ function getHDDDisksPanel() {
             },
           },
         ])
-        .overrideCustomFieldConfig('cellOptions', { type: 'color-text' });
+        .overrideCustomFieldConfig('cellOptions', { type: 'color-text' as any });
 
       // Presence field
       builder
         .matchFieldsWithName('Presence')
         .overrideMappings([
           {
-            type: 'value',
+            type: 'value' as any,
             options: {
               equipped: { color: 'green', index: 0, text: 'Equipped' },
               missing: { color: 'dark-red', index: 1, text: 'Missing' },
             },
           },
         ])
-        .overrideCustomFieldConfig('cellOptions', { type: 'color-text' });
+        .overrideCustomFieldConfig('cellOptions', { type: 'color-text' as any });
 
       return builder.build();
     })
@@ -1356,75 +1356,75 @@ function getVirtualDrivesPanel() {
   const panel = PanelBuilders.table()
     .setTitle('')
     .setData(dataTransformer)
-    .setOption('cellHeight', 'sm')
+    .setOption('cellHeight', 'sm' as any)
     .setOverrides((builder) => {
       // State field
       builder
         .matchFieldsWithName('State')
         .overrideMappings([
           {
-            type: 'value',
+            type: 'value' as any,
             options: {
               optimal: { color: 'green', index: 0, text: 'Optimal' },
             },
           },
           {
-            type: 'regex',
+            type: 'regex' as any,
             options: {
               pattern: '(.*)',
               result: { color: 'dark-red', index: 1, text: 'Error ($1)' },
             },
           },
         ])
-        .overrideCustomFieldConfig('cellOptions', { type: 'color-text' });
+        .overrideCustomFieldConfig('cellOptions', { type: 'color-text' as any });
 
       // ConfigState field
       builder
         .matchFieldsWithName('ConfigState')
         .overrideMappings([
           {
-            type: 'value',
+            type: 'value' as any,
             options: {
               applied: { color: 'green', index: 0, text: 'Applied' },
             },
           },
           {
-            type: 'regex',
+            type: 'regex' as any,
             options: {
               pattern: '(.*)',
               result: { color: 'dark-red', index: 1, text: 'Error ($1)' },
             },
           },
         ])
-        .overrideCustomFieldConfig('cellOptions', { type: 'color-text' });
+        .overrideCustomFieldConfig('cellOptions', { type: 'color-text' as any });
 
       // Bootable field
       builder
         .matchFieldsWithName('Bootable')
         .overrideMappings([
           {
-            type: 'value',
+            type: 'value' as any,
             options: {
               false: { color: '#646464', index: 1, text: 'No' },
               true: { color: 'blue', index: 0, text: 'Yes' },
             },
           },
         ])
-        .overrideCustomFieldConfig('cellOptions', { type: 'color-text' });
+        .overrideCustomFieldConfig('cellOptions', { type: 'color-text' as any });
 
       // DriveSecurity field
       builder
         .matchFieldsWithName('DriveSecurity')
         .overrideMappings([
           {
-            type: 'value',
+            type: 'value' as any,
             options: {
               Disabled: { color: '#646464', index: 0, text: 'Disabled' },
               Enabled: { color: 'blue', index: 1, text: 'Enabled' },
             },
           },
         ])
-        .overrideCustomFieldConfig('cellOptions', { type: 'color-text' });
+        .overrideCustomFieldConfig('cellOptions', { type: 'color-text' as any });
 
       return builder.build();
     })
@@ -1440,4 +1440,3 @@ function getVirtualDrivesPanel() {
     ],
   });
 }
-

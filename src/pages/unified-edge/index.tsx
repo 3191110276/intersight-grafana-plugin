@@ -19,7 +19,7 @@ import { getCPUUtilizationTab } from './CPUUtilizationTab';
 import { getStorageTab } from './StorageTab';
 
 const unifiedEdgeTabs = [
-  { id: 'inventory', label: 'Inventory**', getBody: getInventoryTab },
+  { id: 'inventory', label: 'Inventory', getBody: getInventoryTab },
   { id: 'alarms', label: 'Alarms**', getBody: getAlarmsTab },
   { id: 'actions', label: 'Actions**', getBody: getActionsTab },
   { id: 'ports', label: 'Ports**', getBody: getPortsTab },

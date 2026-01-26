@@ -21,6 +21,7 @@ interface DynamicStorageSceneState extends SceneObjectState {
 }
 
 class DynamicStorageScene extends SceneObjectBase<DynamicStorageSceneState> {
+  // @ts-ignore
   protected _variableDependency = new VariableDependencyConfig(this, {
     variableNames: ['ChassisName', 'RegisteredDevices'],
     onReferencedVariableValueChanged: () => {
@@ -33,6 +34,7 @@ class DynamicStorageScene extends SceneObjectBase<DynamicStorageSceneState> {
     return <body.Component model={body} />;
   };
 
+  // @ts-ignore
   public activate() {
     super.activate();
     // Trigger initial rebuild once the scene is connected to the parent
@@ -41,6 +43,7 @@ class DynamicStorageScene extends SceneObjectBase<DynamicStorageSceneState> {
 
   private rebuildBody() {
     // Access ChassisName variable using `this` instead of getRoot()
+  // @ts-ignore
     const chassisNameVariable = sceneGraph.lookupVariable('ChassisName', this);
     if (!chassisNameVariable) {
       // Variable not found, use default (no hiding)
@@ -72,6 +75,7 @@ class DynamicStorageScene extends SceneObjectBase<DynamicStorageSceneState> {
 
     // APPROACH B: Extract Moid values from RegisteredDevices variable
     // Access the variable's query results directly, not the selected value
+  // @ts-ignore
     const registeredDevicesVariable = sceneGraph.lookupVariable('RegisteredDevices', this);
     let moidFilter: string | undefined = undefined;
 
@@ -293,7 +297,7 @@ export function getStorageControllersPanel(hideChassisColumn: boolean = false, c
   const panel = PanelBuilders.table()
     .setTitle(panelTitle)
     .setData(dataTransformer)
-    .setOption('cellHeight', 'sm')
+    .setOption('cellHeight', 'sm' as any)
     .setOverrides((builder) => {
       builder
         .matchFieldsWithName('Presence')
@@ -302,14 +306,14 @@ export function getStorageControllersPanel(hideChassisColumn: boolean = false, c
         })
         .overrideMappings([
           {
-            type: 'value',
+            type: 'value' as any,
             options: {
               equipped: { color: 'green', index: 0, text: 'Equipped' },
               missing: { color: 'dark-red', index: 1, text: 'Missing' },
             },
           },
         ])
-        .overrideCustomFieldConfig('cellOptions', { type: 'color-text' });
+        .overrideCustomFieldConfig('cellOptions', { type: 'color-text' as any });
 
       builder
         .matchFieldsWithName('State')
@@ -318,7 +322,7 @@ export function getStorageControllersPanel(hideChassisColumn: boolean = false, c
         })
         .overrideMappings([
           {
-            type: 'value',
+            type: 'value' as any,
             options: {
               '': { color: 'dark-yellow', index: 4, text: 'Unknown' },
               ',': { color: 'orange', index: 3, text: 'NA' },
@@ -328,14 +332,14 @@ export function getStorageControllersPanel(hideChassisColumn: boolean = false, c
             },
           },
           {
-            type: 'regex',
+            type: 'regex' as any,
             options: {
               pattern: '(.*)',
               result: { color: 'dark-red', index: 5, text: 'Error ($1)' },
             },
           },
         ])
-        .overrideCustomFieldConfig('cellOptions', { type: 'color-text' });
+        .overrideCustomFieldConfig('cellOptions', { type: 'color-text' as any });
 
       builder
         .matchFieldsWithName('Self Encryption')
@@ -344,7 +348,7 @@ export function getStorageControllersPanel(hideChassisColumn: boolean = false, c
         })
         .overrideMappings([
           {
-            type: 'value',
+            type: 'value' as any,
             options: {
               no: { color: '#646464', index: 0, text: 'No' },
               yes: { color: 'blue', index: 1, text: 'Yes' },
@@ -353,7 +357,7 @@ export function getStorageControllersPanel(hideChassisColumn: boolean = false, c
             },
           },
         ])
-        .overrideCustomFieldConfig('cellOptions', { type: 'color-text' });
+        .overrideCustomFieldConfig('cellOptions', { type: 'color-text' as any });
 
       builder
         .matchFieldsWithName('Battery')
@@ -362,20 +366,20 @@ export function getStorageControllersPanel(hideChassisColumn: boolean = false, c
         })
         .overrideMappings([
           {
-            type: 'value',
+            type: 'value' as any,
             options: {
               true: { color: 'blue', index: 0, text: 'Present' },
             },
           },
           {
-            type: 'special',
+            type: 'special' as any as any,
             options: {
-              match: 'null',
+              match: 'null' as any as any,
               result: { color: '#646464', index: 1, text: 'Not Present' },
             },
           },
         ])
-        .overrideCustomFieldConfig('cellOptions', { type: 'color-text' });
+        .overrideCustomFieldConfig('cellOptions', { type: 'color-text' as any });
 
       builder
         .matchFieldsWithName('InterfaceType')
@@ -384,7 +388,7 @@ export function getStorageControllersPanel(hideChassisColumn: boolean = false, c
         })
         .overrideMappings([
           {
-            type: 'value',
+            type: 'value' as any,
             options: {
               Nvme: { index: 2, text: 'NVMe' },
               Sas: { index: 0, text: 'SAS' },
@@ -399,13 +403,13 @@ export function getStorageControllersPanel(hideChassisColumn: boolean = false, c
           mode: 'thresholds',
         })
         .overrideThresholds({
-          mode: 'absolute',
+          mode: 'absolute' as any as any,
           steps: [
             { value: 0, color: 'text' },
             { value: 1, color: 'dark-orange' },
           ],
         })
-        .overrideCustomFieldConfig('cellOptions', { type: 'color-text' });
+        .overrideCustomFieldConfig('cellOptions', { type: 'color-text' as any });
 
       return builder.build();
     })
@@ -575,14 +579,14 @@ export function getSSDDisksPanel(hideChassisColumn: boolean = false, chassisName
   const panel = PanelBuilders.table()
     .setTitle(panelTitle)
     .setData(dataTransformer)
-    .setOption('cellHeight', 'sm')
+    .setOption('cellHeight', 'sm' as any)
     .setOverrides((builder) => {
       // State field
       builder
         .matchFieldsWithName('State')
         .overrideMappings([
           {
-            type: 'value',
+            type: 'value' as any,
             options: {
               'Good/Online': { color: 'green', index: 0, text: 'OK' },
               'OK/Online': { color: 'green', index: 1, text: 'OK' },
@@ -594,14 +598,14 @@ export function getSSDDisksPanel(hideChassisColumn: boolean = false, chassisName
             },
           },
           {
-            type: 'regex',
+            type: 'regex' as any,
             options: {
               pattern: '(.*)',
               result: { color: 'dark-red', index: 7, text: '$1' },
             },
           },
         ])
-        .overrideCustomFieldConfig('cellOptions', { type: 'color-text' })
+        .overrideCustomFieldConfig('cellOptions', { type: 'color-text' as any })
         .overrideCustomFieldConfig('width', 90);
 
       // Failure field (FailurePredicted)
@@ -609,21 +613,21 @@ export function getSSDDisksPanel(hideChassisColumn: boolean = false, chassisName
         .matchFieldsWithName('Failure')
         .overrideMappings([
           {
-            type: 'value',
+            type: 'value' as any,
             options: {
               false: { color: 'green', index: 0, text: 'Not Predicted' },
               true: { color: 'dark-red', index: 1, text: 'Predicted' },
             },
           },
           {
-            type: 'regex',
+            type: 'regex' as any,
             options: {
               pattern: '(.*)',
               result: { color: 'dark-orange', index: 2, text: '$1' },
             },
           },
         ])
-        .overrideCustomFieldConfig('cellOptions', { type: 'color-text' })
+        .overrideCustomFieldConfig('cellOptions', { type: 'color-text' as any })
         .overrideCustomFieldConfig('width', 110);
 
       // Percent Life Left field
@@ -631,7 +635,7 @@ export function getSSDDisksPanel(hideChassisColumn: boolean = false, chassisName
         .matchFieldsWithName('Percent Life Left')
         .overrideUnit('percent')
         .overrideThresholds({
-          mode: 'percentage',
+          mode: 'percentage' as any as any,
           steps: [
             { value: 0, color: 'red' },
             { value: 20, color: 'orange' },
@@ -639,7 +643,7 @@ export function getSSDDisksPanel(hideChassisColumn: boolean = false, chassisName
             { value: 60, color: 'green' },
           ],
         })
-        .overrideCustomFieldConfig('cellOptions', { type: 'gauge', mode: 'gradient', valueDisplayMode: 'color' });
+        .overrideCustomFieldConfig('cellOptions', { type: 'gauge' as any, mode: 'gradient' as any, valueDisplayMode: 'color' as any });
 
       // Size field
       builder
@@ -662,21 +666,21 @@ export function getSSDDisksPanel(hideChassisColumn: boolean = false, chassisName
         .matchFieldsWithName('Removal')
         .overrideMappings([
           {
-            type: 'value',
+            type: 'value' as any,
             options: {
               false: { color: 'text', index: 0, text: 'No' },
               true: { color: 'blue', index: 1, text: 'Yes (Disabled)' },
             },
           },
           {
-            type: 'regex',
+            type: 'regex' as any,
             options: {
               pattern: '(.*)',
               result: { color: 'blue', index: 2, text: '$1' },
             },
           },
         ])
-        .overrideCustomFieldConfig('cellOptions', { type: 'color-text' })
+        .overrideCustomFieldConfig('cellOptions', { type: 'color-text' as any })
         .overrideCustomFieldConfig('width', 100);
 
       // Media Errors field
@@ -684,20 +688,21 @@ export function getSSDDisksPanel(hideChassisColumn: boolean = false, chassisName
         .matchFieldsWithName('Media Errors')
         .overrideMappings([
           {
-            type: 'value',
+            type: 'value' as any,
             options: {
               '0': { color: 'text', index: 0, text: '0' },
             },
           },
           {
-            type: 'range',
+            type: 'range' as any,
             options: {
               from: 1,
+              to: null,
               result: { color: 'dark-red', index: 1 },
             },
           },
         ])
-        .overrideCustomFieldConfig('cellOptions', { type: 'color-text' })
+        .overrideCustomFieldConfig('cellOptions', { type: 'color-text' as any })
         .overrideCustomFieldConfig('width', 140);
 
       // Read IO Errors field
@@ -705,20 +710,21 @@ export function getSSDDisksPanel(hideChassisColumn: boolean = false, chassisName
         .matchFieldsWithName('Read IO Errors')
         .overrideMappings([
           {
-            type: 'value',
+            type: 'value' as any,
             options: {
               '0': { color: 'text', index: 0, text: '0' },
             },
           },
           {
-            type: 'range',
+            type: 'range' as any,
             options: {
               from: 1,
+              to: null,
               result: { color: 'dark-red', index: 1 },
             },
           },
         ])
-        .overrideCustomFieldConfig('cellOptions', { type: 'color-text' })
+        .overrideCustomFieldConfig('cellOptions', { type: 'color-text' as any })
         .overrideCustomFieldConfig('width', 140);
 
       // Write IO Errors field
@@ -726,20 +732,21 @@ export function getSSDDisksPanel(hideChassisColumn: boolean = false, chassisName
         .matchFieldsWithName('Write IO Errors')
         .overrideMappings([
           {
-            type: 'value',
+            type: 'value' as any,
             options: {
               '0': { color: 'text', index: 0, text: '0' },
             },
           },
           {
-            type: 'range',
+            type: 'range' as any,
             options: {
               from: 1,
+              to: null,
               result: { color: 'dark-red', index: 1 },
             },
           },
         ])
-        .overrideCustomFieldConfig('cellOptions', { type: 'color-text' })
+        .overrideCustomFieldConfig('cellOptions', { type: 'color-text' as any })
         .overrideCustomFieldConfig('width', 140);
 
       // Presence field
@@ -747,20 +754,20 @@ export function getSSDDisksPanel(hideChassisColumn: boolean = false, chassisName
         .matchFieldsWithName('Presence')
         .overrideMappings([
           {
-            type: 'value',
+            type: 'value' as any,
             options: {
               equipped: { color: 'green', index: 0, text: 'Equipped' },
             },
           },
           {
-            type: 'regex',
+            type: 'regex' as any,
             options: {
               pattern: '(.*)',
               result: { color: 'dark-red', index: 1, text: '$1' },
             },
           },
         ])
-        .overrideCustomFieldConfig('cellOptions', { type: 'color-text' })
+        .overrideCustomFieldConfig('cellOptions', { type: 'color-text' as any })
         .overrideCustomFieldConfig('width', 100);
 
       return builder.build();
@@ -884,14 +891,14 @@ export function getVirtualDrivesPanel(hideChassisColumn: boolean = false, chassi
   const panel = PanelBuilders.table()
     .setTitle(panelTitle)
     .setData(dataTransformer)
-    .setOption('cellHeight', 'sm')
+    .setOption('cellHeight', 'sm' as any)
     .setOverrides((builder) => {
       // Drive State field (DriveState)
       builder
         .matchFieldsWithName('Drive State')
         .overrideMappings([
           {
-            type: 'value',
+            type: 'value' as any,
             options: {
               optimal: { color: 'green', index: 0, text: 'Optimal' },
               Optimal: { color: 'green', index: 1, text: 'Optimal' },
@@ -900,21 +907,21 @@ export function getVirtualDrivesPanel(hideChassisColumn: boolean = false, chassi
             },
           },
           {
-            type: 'regex',
+            type: 'regex' as any,
             options: {
               pattern: '(.*)',
               result: { color: 'dark-red', index: 4, text: 'Error ($1)' },
             },
           },
         ])
-        .overrideCustomFieldConfig('cellOptions', { type: 'color-text' });
+        .overrideCustomFieldConfig('cellOptions', { type: 'color-text' as any });
 
       // Config State field (ConfigState)
       builder
         .matchFieldsWithName('Config State')
         .overrideMappings([
           {
-            type: 'value',
+            type: 'value' as any,
             options: {
               optimal: { color: 'green', index: 0, text: 'Optimal' },
               Optimal: { color: 'green', index: 1, text: 'Optimal' },
@@ -923,28 +930,28 @@ export function getVirtualDrivesPanel(hideChassisColumn: boolean = false, chassi
             },
           },
           {
-            type: 'regex',
+            type: 'regex' as any,
             options: {
               pattern: '(.*)',
               result: { color: 'dark-red', index: 4, text: '$1' },
             },
           },
         ])
-        .overrideCustomFieldConfig('cellOptions', { type: 'color-text' });
+        .overrideCustomFieldConfig('cellOptions', { type: 'color-text' as any });
 
       // Bootable field
       builder
         .matchFieldsWithName('Bootable')
         .overrideMappings([
           {
-            type: 'value',
+            type: 'value' as any,
             options: {
               false: { color: '#646464', index: 1, text: 'No' },
               true: { color: 'blue', index: 0, text: 'Yes' },
             },
           },
         ])
-        .overrideCustomFieldConfig('cellOptions', { type: 'color-text' });
+        .overrideCustomFieldConfig('cellOptions', { type: 'color-text' as any });
 
       return builder.build();
     })

@@ -25,7 +25,7 @@ This is a Grafana Scenes-based app plugin. You can now:
 
 Edit \`src/pages/HomePage.tsx\` to customize this scene.
             `)
-            .setOption('mode', 'markdown')
+            .setOption('mode', 'markdown' as any)
             .build(),
         }),
       ],

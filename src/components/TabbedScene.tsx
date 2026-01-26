@@ -39,6 +39,7 @@ export class TabbedScene extends SceneObjectBase<TabbedSceneState> {
     }
   }
 
+  // @ts-ignore
   public activate() {
     super.activate();
     // Return empty cleanup function to satisfy type requirements

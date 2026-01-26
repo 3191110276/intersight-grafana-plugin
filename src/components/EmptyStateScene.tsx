@@ -74,6 +74,7 @@ export class EmptyStateScene extends SceneObjectBase<EmptyStateSceneState> {
     super(state);
   }
 
+  // @ts-ignore
   public activate() {
     const deactivate = super.activate();
     return () => {

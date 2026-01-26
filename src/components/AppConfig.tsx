@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import React from 'react';
 import { AppPluginMeta, PluginConfigPageProps } from '@grafana/data';
 import { useStyles2 } from '@grafana/ui';

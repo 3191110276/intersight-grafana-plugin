@@ -180,7 +180,7 @@ export function getNetworkErrorsTab() {
     .setMax(100)
     .setUnit('percent')
     .setThresholds({
-      mode: 'percentage',
+      mode: 'percentage' as any as any,
       steps: [
         { value: 0, color: 'green' },
         { value: 70, color: '#EAB839' },
@@ -188,8 +188,8 @@ export function getNetworkErrorsTab() {
       ],
     })
     .setOption('tooltip', {
-      mode: 'multi',
-      sort: 'desc',
+      mode: 'multi' as any,
+      sort: 'desc' as any,
     })
     .build();
 
@@ -366,7 +366,7 @@ export function getNetworkErrorsTab() {
     .setMax(100)
     .setUnit('percent')
     .setThresholds({
-      mode: 'percentage',
+      mode: 'percentage' as any as any,
       steps: [
         { value: 0, color: 'green' },
         { value: 70, color: '#EAB839' },
@@ -374,8 +374,8 @@ export function getNetworkErrorsTab() {
       ],
     })
     .setOption('tooltip', {
-      mode: 'multi',
-      sort: 'desc',
+      mode: 'multi' as any,
+      sort: 'desc' as any,
     })
     .build();
 
@@ -647,14 +647,14 @@ export function getNetworkErrorsTab() {
   const errorDetailsPanel = PanelBuilders.table()
     .setTitle('')
     .setData(errorDetailsTransformer)
-    .setOption('cellHeight', 'sm')
+    .setOption('cellHeight', 'sm' as any)
     .setOption('showHeader', true)
     .setOption('enablePagination', true)
     .setOption('sortBy', [{ displayName: 'Total', desc: true }])
     .setMin(0)
     .setUnit('none')
     .setThresholds({
-      mode: 'percentage',
+      mode: 'percentage' as any as any,
       steps: [
         { value: 0, color: 'transparent' },
         { value: 10, color: '#EAB839' },
@@ -668,56 +668,56 @@ export function getNetworkErrorsTab() {
         .overrideCustomFieldConfig('width', 105)
         .overrideMappings([
           {
-            type: 'regex',
+            type: 'regex' as any,
             options: {
               pattern: '^.*Ethernet([0-9]+/1/[1-4])$',
               result: { index: 0, text: 'Slot 1 ($1)' },
             },
           },
           {
-            type: 'regex',
+            type: 'regex' as any,
             options: {
               pattern: '^.*Ethernet([0-9]+/1/[5-8])$',
               result: { index: 1, text: 'Slot 2 ($1)' },
             },
           },
           {
-            type: 'regex',
+            type: 'regex' as any,
             options: {
               pattern: '^.*Ethernet([0-9]+/1/([9]|1[0-2]))$',
               result: { index: 2, text: 'Slot 3 ($1)' },
             },
           },
           {
-            type: 'regex',
+            type: 'regex' as any,
             options: {
               pattern: '^.*Ethernet([0-9]+/1/1[3-6])$',
               result: { index: 3, text: 'Slot 4 ($1)' },
             },
           },
           {
-            type: 'regex',
+            type: 'regex' as any,
             options: {
               pattern: '^.*Ethernet([0-9]+/1/(1[7-9]|20))$',
               result: { index: 4, text: 'Slot 5 ($1)' },
             },
           },
           {
-            type: 'regex',
+            type: 'regex' as any,
             options: {
               pattern: '^.*Ethernet([0-9]+/1/2[1-4])$',
               result: { index: 5, text: 'Slot 6 ($1)' },
             },
           },
           {
-            type: 'regex',
+            type: 'regex' as any,
             options: {
               pattern: '^.*Ethernet([0-9]+/1/2[5-8])$',
               result: { index: 6, text: 'Slot 7 ($1)' },
             },
           },
           {
-            type: 'regex',
+            type: 'regex' as any,
             options: {
               pattern: '^.*Ethernet([0-9]+/1/(29|3[0-2]))$',
               result: { index: 7, text: 'Slot 8 ($1)' },
@@ -726,11 +726,11 @@ export function getNetworkErrorsTab() {
         ]);
 
       // Number columns with color background
-      builder.matchFieldsByType('number')
+      builder.matchFieldsByType('number' as any)
         .overrideCustomFieldConfig('cellOptions', {
           applyToRow: false,
-          mode: 'basic',
-          type: 'color-background',
+          mode: 'basic' as any as any,
+          type: 'color-background' as any,
         })
         .overrideCustomFieldConfig('width', 120)
         .overrideCustomFieldConfig('wrapText', false);
@@ -802,7 +802,7 @@ export function getNetworkErrorsTab() {
   const errorDescriptionsPanel = PanelBuilders.table()
     .setTitle('')
     .setData(errorDescriptionsTransformer)
-    .setOption('cellHeight', 'sm')
+    .setOption('cellHeight', 'sm' as any)
     .setOption('showHeader', true)
     .setOverrides((builder) => {
       // Wrap text for all cells

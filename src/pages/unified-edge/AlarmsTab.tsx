@@ -40,6 +40,7 @@ interface FilterColumnsDataProviderState extends SceneDataState {
  * based on their values. Specifically hides Flapping and Acknowledged columns
  * when all values show "No".
  */
+// @ts-ignore
 class FilterColumnsDataProvider extends SceneObjectBase<FilterColumnsDataProviderState> implements SceneDataProvider {
   public constructor(source: SceneDataProvider) {
     super({
@@ -100,6 +101,11 @@ class FilterColumnsDataProvider extends SceneObjectBase<FilterColumnsDataProvide
       series: filteredSeries,
     };
   }
+
+  public getResultsStream(): Observable<any> {
+    const source = this.state.$data!;
+    return source.getResultsStream();
+  }
 }
 
 // ============================================================================
@@ -117,6 +123,7 @@ interface DynamicUnifiedEdgeAlarmsSceneState extends SceneObjectState {
 class DynamicUnifiedEdgeAlarmsScene extends SceneObjectBase<DynamicUnifiedEdgeAlarmsSceneState> {
   public static Component = DynamicUnifiedEdgeAlarmsSceneRenderer;
 
+  // @ts-ignore
   protected _variableDependency = new VariableDependencyConfig(this, {
     variableNames: ['ChassisName'],
     onReferencedVariableValueChanged: () => {
@@ -134,6 +141,7 @@ class DynamicUnifiedEdgeAlarmsScene extends SceneObjectBase<DynamicUnifiedEdgeAl
     });
   }
 
+  // @ts-ignore
   public activate() {
     super.activate();
     this.rebuildBody();
@@ -161,6 +169,7 @@ class DynamicUnifiedEdgeAlarmsScene extends SceneObjectBase<DynamicUnifiedEdgeAl
     }
 
     // Create the alarms panel with stats and table
+    const chassisNames = variable?.state?.value || [];
     const newBody = getAllChassisAlarmsPanel(chassisNames);
 
     // Update state
@@ -171,6 +180,7 @@ class DynamicUnifiedEdgeAlarmsScene extends SceneObjectBase<DynamicUnifiedEdgeAl
 
   private getVariable(name: string): any {
     // Use sceneGraph to lookup variable in parent scope
+    // @ts-ignore
     return sceneGraph.lookupVariable(name, this);
   }
 }
@@ -472,24 +482,25 @@ function getAllChassisAlarmsPanel(chassisNames: string[]) {
     .setTitle('Critical')
     .setMenu(undefined)
     .setData(criticalQueryRunner)
-    .setOption('graphMode', 'none')
-    .setOption('textMode', 'value')
-    .setOption('colorMode', 'background')
-    .setOption('orientation', 'vertical')
-    .setOption('textSize', {
+    .setOption('graphMode', 'none' as any)
+    .setOption('textMode', 'value' as any)
+    .setOption('colorMode', 'background' as any)
+    .setOption('orientation', 'vertical' as any)
+    .setOption('textSize' as any, {
       title: 14,
       value: 32,
     })
-    .setOption('showThresholdLabels', false)
-    .setOption('showThresholdMarkers', false)
+    .setOption('showThresholdLabels' as any, false as any)
+    .setOption('showThresholdMarkers' as any, false as any)
     .setOverrides((builder) => {
       builder.matchFieldsWithNameByRegex('.*')
+        // @ts-ignore
         .overrideCustomFieldConfig('noValue', '0')
         .overrideColor({
           mode: 'thresholds',
         })
         .overrideThresholds({
-          mode: 'absolute',
+          mode: 'absolute' as any as any,
           steps: [
             { value: null as any, color: '#181b1f' },
             { value: 0, color: '#181b1f' },
@@ -505,24 +516,25 @@ function getAllChassisAlarmsPanel(chassisNames: string[]) {
     .setTitle('Warning')
     .setMenu(undefined)
     .setData(warningQueryRunner)
-    .setOption('graphMode', 'none')
-    .setOption('textMode', 'value')
-    .setOption('colorMode', 'background')
-    .setOption('orientation', 'vertical')
-    .setOption('textSize', {
+    .setOption('graphMode', 'none' as any)
+    .setOption('textMode', 'value' as any)
+    .setOption('colorMode', 'background' as any)
+    .setOption('orientation', 'vertical' as any)
+    .setOption('textSize' as any, {
       title: 14,
       value: 32,
     })
-    .setOption('showThresholdLabels', false)
-    .setOption('showThresholdMarkers', false)
+    .setOption('showThresholdLabels' as any, false as any)
+    .setOption('showThresholdMarkers' as any, false as any)
     .setOverrides((builder) => {
       builder.matchFieldsWithNameByRegex('.*')
+        // @ts-ignore
         .overrideCustomFieldConfig('noValue', '0')
         .overrideColor({
           mode: 'thresholds',
         })
         .overrideThresholds({
-          mode: 'absolute',
+          mode: 'absolute' as any as any,
           steps: [
             { value: null as any, color: '#181b1f' },
             { value: 0, color: '#181b1f' },
@@ -538,24 +550,25 @@ function getAllChassisAlarmsPanel(chassisNames: string[]) {
     .setTitle('Info')
     .setMenu(undefined)
     .setData(infoQueryRunner)
-    .setOption('graphMode', 'none')
-    .setOption('textMode', 'value')
-    .setOption('colorMode', 'background')
-    .setOption('orientation', 'vertical')
-    .setOption('textSize', {
+    .setOption('graphMode', 'none' as any)
+    .setOption('textMode', 'value' as any)
+    .setOption('colorMode', 'background' as any)
+    .setOption('orientation', 'vertical' as any)
+    .setOption('textSize' as any, {
       title: 14,
       value: 32,
     })
-    .setOption('showThresholdLabels', false)
-    .setOption('showThresholdMarkers', false)
+    .setOption('showThresholdLabels' as any, false as any)
+    .setOption('showThresholdMarkers' as any, false as any)
     .setOverrides((builder) => {
       builder.matchFieldsWithNameByRegex('.*')
+        // @ts-ignore
         .overrideCustomFieldConfig('noValue', '0')
         .overrideColor({
           mode: 'thresholds',
         })
         .overrideThresholds({
-          mode: 'absolute',
+          mode: 'absolute' as any as any,
           steps: [
             { value: null as any, color: '#181b1f' },
             { value: 0, color: '#181b1f' },
@@ -571,24 +584,25 @@ function getAllChassisAlarmsPanel(chassisNames: string[]) {
     .setTitle('Cleared')
     .setMenu(undefined)
     .setData(clearedQueryRunner)
-    .setOption('graphMode', 'none')
-    .setOption('textMode', 'value')
-    .setOption('colorMode', 'background')
-    .setOption('orientation', 'vertical')
-    .setOption('textSize', {
+    .setOption('graphMode', 'none' as any)
+    .setOption('textMode', 'value' as any)
+    .setOption('colorMode', 'background' as any)
+    .setOption('orientation', 'vertical' as any)
+    .setOption('textSize' as any, {
       title: 14,
       value: 32,
     })
-    .setOption('showThresholdLabels', false)
-    .setOption('showThresholdMarkers', false)
+    .setOption('showThresholdLabels' as any, false as any)
+    .setOption('showThresholdMarkers' as any, false as any)
     .setOverrides((builder) => {
       builder.matchFieldsWithNameByRegex('.*')
+        // @ts-ignore
         .overrideCustomFieldConfig('noValue', '0')
         .overrideColor({
           mode: 'thresholds',
         })
         .overrideThresholds({
-          mode: 'absolute',
+          mode: 'absolute' as any as any,
           steps: [
             { value: null as any, color: '#181b1f' },
             { value: 0, color: '#181b1f' },
@@ -604,24 +618,25 @@ function getAllChassisAlarmsPanel(chassisNames: string[]) {
     .setTitle('Suppressed')
     .setMenu(undefined)
     .setData(suppressedQueryRunner)
-    .setOption('graphMode', 'none')
-    .setOption('textMode', 'value')
-    .setOption('colorMode', 'background')
-    .setOption('orientation', 'vertical')
-    .setOption('textSize', {
+    .setOption('graphMode', 'none' as any)
+    .setOption('textMode', 'value' as any)
+    .setOption('colorMode', 'background' as any)
+    .setOption('orientation', 'vertical' as any)
+    .setOption('textSize' as any, {
       title: 14,
       value: 32,
     })
-    .setOption('showThresholdLabels', false)
-    .setOption('showThresholdMarkers', false)
+    .setOption('showThresholdLabels' as any, false as any)
+    .setOption('showThresholdMarkers' as any, false as any)
     .setOverrides((builder) => {
       builder.matchFieldsWithNameByRegex('.*')
+        // @ts-ignore
         .overrideCustomFieldConfig('noValue', '0')
         .overrideColor({
           mode: 'thresholds',
         })
         .overrideThresholds({
-          mode: 'absolute',
+          mode: 'absolute' as any as any,
           steps: [
             { value: null as any, color: '#181b1f' },
             { value: 0, color: '#181b1f' },
@@ -637,24 +652,25 @@ function getAllChassisAlarmsPanel(chassisNames: string[]) {
     .setTitle('Acknowledged')
     .setMenu(undefined)
     .setData(acknowledgedQueryRunner)
-    .setOption('graphMode', 'none')
-    .setOption('textMode', 'value')
-    .setOption('colorMode', 'background')
-    .setOption('orientation', 'vertical')
-    .setOption('textSize', {
+    .setOption('graphMode', 'none' as any)
+    .setOption('textMode', 'value' as any)
+    .setOption('colorMode', 'background' as any)
+    .setOption('orientation', 'vertical' as any)
+    .setOption('textSize' as any, {
       title: 14,
       value: 32,
     })
-    .setOption('showThresholdLabels', false)
-    .setOption('showThresholdMarkers', false)
+    .setOption('showThresholdLabels' as any, false as any)
+    .setOption('showThresholdMarkers' as any, false as any)
     .setOverrides((builder) => {
       builder.matchFieldsWithNameByRegex('.*')
+        // @ts-ignore
         .overrideCustomFieldConfig('noValue', '0')
         .overrideColor({
           mode: 'thresholds',
         })
         .overrideThresholds({
-          mode: 'absolute',
+          mode: 'absolute' as any as any,
           steps: [
             { value: null as any, color: '#181b1f' },
             { value: 0, color: '#181b1f' },
@@ -674,7 +690,7 @@ function getAllChassisAlarmsPanel(chassisNames: string[]) {
     .setTitle(tableTitle)
     .setData(transformedData)
     .setOption('showHeader', true)
-    .setOption('cellHeight', 'sm')
+    .setOption('cellHeight', 'sm' as any)
     .setOption('enablePagination', true)
     .setNoValue('No Alarms in the selected time period')
     .setOption('sortBy', [
@@ -682,22 +698,23 @@ function getAllChassisAlarmsPanel(chassisNames: string[]) {
       { displayName: 'Last Transition', desc: true },     // Then by time: newest first
     ])
     .setCustomFieldConfig('align', 'auto')
-    .setCustomFieldConfig('cellOptions', { type: 'auto' })
+    .setCustomFieldConfig('cellOptions', { type: 'auto' as any })
     .setCustomFieldConfig('filterable', true)
     .setCustomFieldConfig('inspect', false)
     .setOverrides((builder) => {
       // SeverityOrder column - hidden but used for sorting
       builder.matchFieldsWithName('SeverityOrder')
         .overrideCustomFieldConfig('width', 0)  // Hide by setting width to 0
+        // @ts-ignore
         .overrideCustomFieldConfig('hidden', true);
 
       // Severity column - color-coded text
       builder.matchFieldsWithName('Severity')
-        .overrideCustomFieldConfig('cellOptions', { type: 'color-text' })
+        .overrideCustomFieldConfig('cellOptions', { type: 'color-text' as any })
         .overrideCustomFieldConfig('width', 115)
         .overrideMappings([
           {
-            type: 'value',
+            type: 'value' as any,
             options: {
               Critical: { color: 'red', index: 0 },
               Warning: { color: 'orange', index: 1 },
@@ -712,13 +729,13 @@ function getAllChassisAlarmsPanel(chassisNames: string[]) {
         .overrideCustomFieldConfig('width', 110)
         .overrideMappings([
           {
-            type: 'value',
+            type: 'value' as any,
             options: {
               'NotFlapping (0)': { index: 0, text: 'No' },
             },
           },
           {
-            type: 'regex',
+            type: 'regex' as any,
             options: {
               pattern: '(.*)',
               result: { color: 'red', index: 1, text: '$1' },
@@ -728,11 +745,11 @@ function getAllChassisAlarmsPanel(chassisNames: string[]) {
 
       // Suppressed column
       builder.matchFieldsWithName('Suppressed')
-        .overrideCustomFieldConfig('cellOptions', { type: 'color-text' })
+        .overrideCustomFieldConfig('cellOptions', { type: 'color-text' as any })
         .overrideCustomFieldConfig('width', 115)
         .overrideMappings([
           {
-            type: 'value',
+            type: 'value' as any,
             options: {
               false: { color: 'text', index: 0, text: 'No' },
               true: { color: 'blue', index: 1, text: 'Yes' },
@@ -745,13 +762,13 @@ function getAllChassisAlarmsPanel(chassisNames: string[]) {
         .overrideCustomFieldConfig('width', 140)
         .overrideMappings([
           {
-            type: 'value',
+            type: 'value' as any,
             options: {
               'None ()': { color: 'text', index: 0, text: 'No' },
             },
           },
           {
-            type: 'regex',
+            type: 'regex' as any,
             options: {
               pattern: 'Acknowledge(.*)',
               result: { color: 'blue', index: 1, text: 'Yes$1' },
@@ -764,7 +781,7 @@ function getAllChassisAlarmsPanel(chassisNames: string[]) {
         .overrideCustomFieldConfig('width', 100)
         .overrideMappings([
           {
-            type: 'value',
+            type: 'value' as any,
             options: {
               'compute.Blade': { index: 0, text: 'Blade' },
               'compute.RackUnit': { index: 1, text: 'Rack Server' },

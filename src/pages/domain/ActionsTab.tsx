@@ -37,6 +37,7 @@ class DynamicActionsScene extends SceneObjectBase<DynamicActionsSceneState> {
   public static Component = DynamicActionsSceneRenderer;
   private _dataSubscription?: () => void;
 
+  // @ts-ignore
   protected _variableDependency = new VariableDependencyConfig(this, {
     variableNames: ['DomainName'],
     onReferencedVariableValueChanged: () => {
@@ -54,6 +55,7 @@ class DynamicActionsScene extends SceneObjectBase<DynamicActionsSceneState> {
     });
   }
 
+  // @ts-ignore
   public activate() {
     const deactivate = super.activate();
     this.rebuildBody();
@@ -109,6 +111,7 @@ class DynamicActionsScene extends SceneObjectBase<DynamicActionsSceneState> {
 
   private getVariable(name: string): any {
     // Use sceneGraph to lookup variable in parent scope
+    // @ts-ignore
     return sceneGraph.lookupVariable(name, this);
   }
 }
@@ -259,12 +262,12 @@ function buildActionsBodyWithQueryRunner(
     .setTitle(panelTitle)
     .setData(transformedData)
     .setOption('showHeader', true)
-    .setOption('cellHeight', 'sm')
+    .setOption('cellHeight', 'sm' as any)
     .setOption('enablePagination', true)
     .setOption('sortBy', [{ desc: true, displayName: 'Start Time' }])
     .setNoValue('No workflows executed in the selected time period')
     .setCustomFieldConfig('align', 'auto')
-    .setCustomFieldConfig('cellOptions', { type: 'auto' })
+    .setCustomFieldConfig('cellOptions', { type: 'auto' as any })
     .setCustomFieldConfig('filterable', true)
     .setCustomFieldConfig('inspect', false)
     .setOverrides((builder) => {
@@ -273,34 +276,34 @@ function buildActionsBodyWithQueryRunner(
         .matchFieldsWithName('User')
         .overrideMappings([
           {
-            type: 'value',
+            type: 'value' as any,
             options: {
               'system@intersight': { color: 'super-light-blue', index: 0 },
             },
           },
           {
-            type: 'regex',
+            type: 'regex' as any,
             options: {
               pattern: '(.*)',
               result: { color: 'super-light-purple', index: 1, text: '$1' },
             },
           },
         ])
-        .overrideCustomFieldConfig('cellOptions', { type: 'color-text' });
+        .overrideCustomFieldConfig('cellOptions', { type: 'color-text' as any });
 
       // Status field
       builder
         .matchFieldsWithName('Status')
         .overrideMappings([
           {
-            type: 'value',
+            type: 'value' as any,
             options: {
               Completed: { color: 'green', index: 0, text: 'Completed' },
               Failed: { color: 'red', index: 1, text: 'Failed' },
             },
           },
         ])
-        .overrideCustomFieldConfig('cellOptions', { type: 'color-text' })
+        .overrideCustomFieldConfig('cellOptions', { type: 'color-text' as any })
         .overrideCustomFieldConfig('width', 90);
 
       // Progress field
@@ -308,12 +311,12 @@ function buildActionsBodyWithQueryRunner(
         .matchFieldsWithName('Progress')
         .overrideUnit('percent')
         .overrideCustomFieldConfig('cellOptions', {
-          type: 'gauge',
-          mode: 'lcd',
-          valueDisplayMode: 'text',
+          type: 'gauge' as any,
+          mode: 'lcd' as any,
+          valueDisplayMode: 'text' as any,
         })
         .overrideThresholds({
-          mode: 'percentage',
+          mode: 'percentage' as any as any,
           steps: [{ value: 0, color: 'blue' }],
         });
 
@@ -334,7 +337,7 @@ function buildActionsBodyWithQueryRunner(
         .matchFieldsWithName('Target Type')
         .overrideMappings([
           {
-            type: 'value',
+            type: 'value' as any,
             options: {
               'compute.Blade': { index: 2, text: 'Blade Server' },
               'compute.BladeIdentity': { index: 5, text: 'Blade Server Identity' },

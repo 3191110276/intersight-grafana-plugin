@@ -36,6 +36,7 @@ interface DynamicInventorySceneState extends SceneObjectState {
 class DynamicInventoryScene extends SceneObjectBase<DynamicInventorySceneState> {
   public static Component = DynamicInventorySceneRenderer;
 
+  // @ts-ignore
   protected _variableDependency = new VariableDependencyConfig(this, {
     variableNames: ['ServerName'],
     onReferencedVariableValueChanged: () => {
@@ -53,6 +54,7 @@ class DynamicInventoryScene extends SceneObjectBase<DynamicInventorySceneState> 
     });
   }
 
+  // @ts-ignore
   public activate() {
     super.activate();
     this.rebuildBody();
@@ -87,6 +89,7 @@ class DynamicInventoryScene extends SceneObjectBase<DynamicInventorySceneState> 
 
   private getVariable(name: string): any {
     // Use sceneGraph to lookup variable in parent scope
+    // @ts-ignore
     return sceneGraph.lookupVariable(name, this);
   }
 }
@@ -254,16 +257,16 @@ function createInventoryBody(): SceneFlexLayout {
     .setTitle('')
     .setData(transformedData)
     .setOption('showHeader', true)
-    .setOption('cellHeight', 'sm')
+    .setOption('cellHeight', 'sm' as any)
     .setOption('sortBy', [{ displayName: 'Name', desc: false }])
     .setOverrides((builder) => {
       // Critical column
       builder.matchFieldsWithName('Critical')
         .overrideCustomFieldConfig('width', 75)
         .overrideCustomFieldConfig('align', 'center')
-        .overrideCustomFieldConfig('cellOptions', { type: 'color-background', mode: 'basic' })
+        .overrideCustomFieldConfig('cellOptions', { type: 'color-background' as any as any, mode: 'basic' as any as any })
         .overrideThresholds({
-          mode: 'absolute',
+          mode: 'absolute' as any as any,
           steps: [
             { value: -Infinity, color: 'transparent' },
             { value: 1, color: 'semi-dark-red' },
@@ -274,9 +277,9 @@ function createInventoryBody(): SceneFlexLayout {
       builder.matchFieldsWithName('Warning')
         .overrideCustomFieldConfig('width', 75)
         .overrideCustomFieldConfig('align', 'center')
-        .overrideCustomFieldConfig('cellOptions', { type: 'color-background', mode: 'basic' })
+        .overrideCustomFieldConfig('cellOptions', { type: 'color-background' as any as any, mode: 'basic' as any as any })
         .overrideThresholds({
-          mode: 'absolute',
+          mode: 'absolute' as any as any,
           steps: [
             { value: -Infinity, color: 'transparent' },
             { value: 1, color: 'semi-dark-yellow' },
@@ -286,19 +289,19 @@ function createInventoryBody(): SceneFlexLayout {
       // Power column
       builder.matchFieldsWithName('Power')
         .overrideCustomFieldConfig('align', 'center')
-        .overrideCustomFieldConfig('cellOptions', { type: 'color-background', mode: 'basic' })
+        .overrideCustomFieldConfig('cellOptions', { type: 'color-background' as any as any, mode: 'basic' as any as any })
         .overrideMappings([
-          { type: 'value', options: { 'on#true': { color: 'transparent', index: 0, text: 'On' }, 'on#false': { color: 'semi-dark-yellow', index: 1, text: 'On (BIOS Post incomplete)' } } },
-          { type: 'regex', options: { pattern: '.*', result: { color: 'semi-dark-red', index: 2, text: 'Off' } } },
+          { type: 'value' as any, options: { 'on#true': { color: 'transparent', index: 0, text: 'On' }, 'on#false': { color: 'semi-dark-yellow', index: 1, text: 'On (BIOS Post incomplete)' } } },
+          { type: 'regex' as any, options: { pattern: '.*', result: { color: 'semi-dark-red', index: 2, text: 'Off' } } },
         ]);
 
       // State column
       builder.matchFieldsWithName('State')
         .overrideCustomFieldConfig('align', 'center')
-        .overrideCustomFieldConfig('cellOptions', { type: 'color-background', mode: 'basic' })
+        .overrideCustomFieldConfig('cellOptions', { type: 'color-background' as any as any, mode: 'basic' as any as any })
         .overrideMappings([
-          { type: 'value', options: { 'Enabled#Active': { color: 'transparent', index: 0, text: 'Ok' }, 'equipped#Active': { color: 'transparent', index: 1, text: 'Ok' }, 'equipped#DiscoveryFailed': { color: 'semi-dark-red', index: 2, text: 'Discovery Failed' } } },
-          { type: 'regex', options: { pattern: '.*', result: { color: 'semi-dark-red', index: 3, text: 'Presence or Lifecycle not ok' } } },
+          { type: 'value' as any, options: { 'Enabled#Active': { color: 'transparent', index: 0, text: 'Ok' }, 'equipped#Active': { color: 'transparent', index: 1, text: 'Ok' }, 'equipped#DiscoveryFailed': { color: 'semi-dark-red', index: 2, text: 'Discovery Failed' } } },
+          { type: 'regex' as any, options: { pattern: '.*', result: { color: 'semi-dark-red', index: 3, text: 'Presence or Lifecycle not ok' } } },
         ]);
 
       // CPU column
@@ -335,7 +338,7 @@ function createInventoryBody(): SceneFlexLayout {
         .overrideCustomFieldConfig('width', 80)
         .overrideCustomFieldConfig('align', 'left')
         .overrideMappings([
-          { type: 'value', options: { IMCBlade: { index: 0, text: 'Blade' }, IMCRack: { index: 1, text: 'Rack' } } },
+          { type: 'value' as any, options: { IMCBlade: { index: 0, text: 'Blade' }, IMCRack: { index: 1, text: 'Rack' } } },
         ]);
     })
     .build();

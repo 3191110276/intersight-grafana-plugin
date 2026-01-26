@@ -82,14 +82,14 @@ function getNetworkUtilizationPercentageTab() {
       transformations: [{id: 'groupingToMatrix', options: {columnField: 'Port', rowField: 'Time', valueField: 'Utilization (Max)'}}],
     }))
     .setUnit('percent').setDecimals(1).setMin(0).setMax(100)
-    .setThresholds({mode: 'percentage', steps: [{value: 0, color: 'green'}, {value: 70, color: '#EAB839'}, {value: 90, color: 'red'}]})
+    .setThresholds({mode: 'percentage' as any as any, steps: [{value: 0, color: 'green'}, {value: 70, color: '#EAB839'}, {value: 90, color: 'red'}]})
     .setOverrides((b) => {
-      b.matchFieldsWithName('Port').overrideMappings([{type: 'regex', options: {pattern: '^.*Nif[0-9]+/[0-9]+/([0-9]+).*$', result: {index: 0, text: '$1'}}}]);
-      b.matchFieldsWithName('G').overrideDisplayName('Chassis').overrideMappings([{type: 'regex', options: {pattern: '^.*Nif([0-9]+)/[0-9]+/[0-9]+.*$', result: {index: 0, text: '$1'}}}]);
+      b.matchFieldsWithName('Port').overrideMappings([{type: 'regex' as any, options: {pattern: '^.*Nif[0-9]+/[0-9]+/([0-9]+).*$', result: {index: 0, text: '$1'}}}]);
+      b.matchFieldsWithName('G').overrideDisplayName('Chassis').overrideMappings([{type: 'regex' as any, options: {pattern: '^.*Nif([0-9]+)/[0-9]+/[0-9]+.*$', result: {index: 0, text: '$1'}}}]);
     })
     .setOption('tooltip', {
-      mode: 'multi',
-      sort: 'desc',
+      mode: 'multi' as any,
+      sort: 'desc' as any,
     })
     .build();
 
@@ -140,14 +140,14 @@ function getNetworkUtilizationPercentageTab() {
       transformations: [{id: 'groupingToMatrix', options: {columnField: 'Port', rowField: 'Time', valueField: 'Utilization (Max)'}}],
     }))
     .setUnit('percent').setDecimals(1).setMin(0).setMax(100)
-    .setThresholds({mode: 'percentage', steps: [{value: 0, color: 'green'}, {value: 70, color: '#EAB839'}, {value: 90, color: 'red'}]})
+    .setThresholds({mode: 'percentage' as any as any, steps: [{value: 0, color: 'green'}, {value: 70, color: '#EAB839'}, {value: 90, color: 'red'}]})
     .setOverrides((b) => {
-      b.matchFieldsWithName('Port').overrideMappings([{type: 'regex', options: {pattern: '^.*Nif[0-9]+/[0-9]+/([0-9]+).*$', result: {index: 0, text: '$1'}}}]);
-      b.matchFieldsWithName('G').overrideDisplayName('Chassis').overrideMappings([{type: 'regex', options: {pattern: '^.*Nif([0-9]+)/[0-9]+/[0-9]+.*$', result: {index: 0, text: '$1'}}}]);
+      b.matchFieldsWithName('Port').overrideMappings([{type: 'regex' as any, options: {pattern: '^.*Nif[0-9]+/[0-9]+/([0-9]+).*$', result: {index: 0, text: '$1'}}}]);
+      b.matchFieldsWithName('G').overrideDisplayName('Chassis').overrideMappings([{type: 'regex' as any, options: {pattern: '^.*Nif([0-9]+)/[0-9]+/[0-9]+.*$', result: {index: 0, text: '$1'}}}]);
     })
     .setOption('tooltip', {
-      mode: 'multi',
-      sort: 'desc',
+      mode: 'multi' as any,
+      sort: 'desc' as any,
     })
     .build();
 
@@ -198,14 +198,14 @@ function getNetworkUtilizationPercentageTab() {
       transformations: [{id: 'groupingToMatrix', options: {columnField: 'Port', rowField: 'Time', valueField: 'Utilization (Max)'}}],
     }))
     .setUnit('percent').setDecimals(1).setMin(0).setMax(100)
-    .setThresholds({mode: 'percentage', steps: [{value: 0, color: 'green'}, {value: 70, color: '#EAB839'}, {value: 90, color: 'red'}]})
+    .setThresholds({mode: 'percentage' as any as any, steps: [{value: 0, color: 'green'}, {value: 70, color: '#EAB839'}, {value: 90, color: 'red'}]})
     .setOverrides((b) => {
-      b.matchFieldsWithName('Port').overrideMappings([{type: 'regex', options: {pattern: '^.*Nif[0-9]+/[0-9]+/([0-9]+).*$', result: {index: 0, text: '$1'}}}]);
-      b.matchFieldsWithName('G').overrideDisplayName('Chassis').overrideMappings([{type: 'regex', options: {pattern: '^.*Nif([0-9]+)/[0-9]+/[0-9]+.*$', result: {index: 0, text: '$1'}}}]);
+      b.matchFieldsWithName('Port').overrideMappings([{type: 'regex' as any, options: {pattern: '^.*Nif[0-9]+/[0-9]+/([0-9]+).*$', result: {index: 0, text: '$1'}}}]);
+      b.matchFieldsWithName('G').overrideDisplayName('Chassis').overrideMappings([{type: 'regex' as any, options: {pattern: '^.*Nif([0-9]+)/[0-9]+/[0-9]+.*$', result: {index: 0, text: '$1'}}}]);
     })
     .setOption('tooltip', {
-      mode: 'multi',
-      sort: 'desc',
+      mode: 'multi' as any,
+      sort: 'desc' as any,
     })
     .build();
 
@@ -256,14 +256,14 @@ function getNetworkUtilizationPercentageTab() {
       transformations: [{id: 'groupingToMatrix', options: {columnField: 'Port', rowField: 'Time', valueField: 'Utilization (Max)'}}],
     }))
     .setUnit('percent').setDecimals(1).setMin(0).setMax(100)
-    .setThresholds({mode: 'percentage', steps: [{value: 0, color: 'green'}, {value: 70, color: '#EAB839'}, {value: 90, color: 'red'}]})
+    .setThresholds({mode: 'percentage' as any as any, steps: [{value: 0, color: 'green'}, {value: 70, color: '#EAB839'}, {value: 90, color: 'red'}]})
     .setOverrides((b) => {
-      b.matchFieldsWithName('Port').overrideMappings([{type: 'regex', options: {pattern: '^.*Nif[0-9]+/[0-9]+/([0-9]+).*$', result: {index: 0, text: '$1'}}}]);
-      b.matchFieldsWithName('G').overrideDisplayName('Chassis').overrideMappings([{type: 'regex', options: {pattern: '^.*Nif([0-9]+)/[0-9]+/[0-9]+.*$', result: {index: 0, text: '$1'}}}]);
+      b.matchFieldsWithName('Port').overrideMappings([{type: 'regex' as any, options: {pattern: '^.*Nif[0-9]+/[0-9]+/([0-9]+).*$', result: {index: 0, text: '$1'}}}]);
+      b.matchFieldsWithName('G').overrideDisplayName('Chassis').overrideMappings([{type: 'regex' as any, options: {pattern: '^.*Nif([0-9]+)/[0-9]+/[0-9]+.*$', result: {index: 0, text: '$1'}}}]);
     })
     .setOption('tooltip', {
-      mode: 'multi',
-      sort: 'desc',
+      mode: 'multi' as any,
+      sort: 'desc' as any,
     })
     .build();
 
@@ -349,14 +349,14 @@ function getNetworkUtilizationAbsoluteTab() {
       transformations: [{id: 'groupingToMatrix', options: {columnField: 'Port', rowField: 'Time', valueField: 'Utilization (Max)'}}],
     }))
     .setUnit('bps').setDecimals(1).setMin(0).setMax(100)
-    .setThresholds({mode: 'percentage', steps: [{value: 0, color: 'green'}, {value: 70, color: '#EAB839'}, {value: 90, color: 'red'}]})
+    .setThresholds({mode: 'percentage' as any as any, steps: [{value: 0, color: 'green'}, {value: 70, color: '#EAB839'}, {value: 90, color: 'red'}]})
     .setOverrides((b) => {
-      b.matchFieldsWithName('Port').overrideMappings([{type: 'regex', options: {pattern: '^.*Nif[0-9]+/[0-9]+/([0-9]+).*$', result: {index: 0, text: '$1'}}}]);
-      b.matchFieldsWithName('G').overrideDisplayName('Chassis').overrideMappings([{type: 'regex', options: {pattern: '^.*Nif([0-9]+)/[0-9]+/[0-9]+.*$', result: {index: 0, text: '$1'}}}]);
+      b.matchFieldsWithName('Port').overrideMappings([{type: 'regex' as any, options: {pattern: '^.*Nif[0-9]+/[0-9]+/([0-9]+).*$', result: {index: 0, text: '$1'}}}]);
+      b.matchFieldsWithName('G').overrideDisplayName('Chassis').overrideMappings([{type: 'regex' as any, options: {pattern: '^.*Nif([0-9]+)/[0-9]+/[0-9]+.*$', result: {index: 0, text: '$1'}}}]);
     })
     .setOption('tooltip', {
-      mode: 'multi',
-      sort: 'desc',
+      mode: 'multi' as any,
+      sort: 'desc' as any,
     })
     .build();
 
@@ -413,14 +413,14 @@ function getNetworkUtilizationAbsoluteTab() {
       transformations: [{id: 'groupingToMatrix', options: {columnField: 'Port', rowField: 'Time', valueField: 'Utilization (Max)'}}],
     }))
     .setUnit('bps').setDecimals(1).setMin(0).setMax(100)
-    .setThresholds({mode: 'percentage', steps: [{value: 0, color: 'green'}, {value: 70, color: '#EAB839'}, {value: 90, color: 'red'}]})
+    .setThresholds({mode: 'percentage' as any as any, steps: [{value: 0, color: 'green'}, {value: 70, color: '#EAB839'}, {value: 90, color: 'red'}]})
     .setOverrides((b) => {
-      b.matchFieldsWithName('Port').overrideMappings([{type: 'regex', options: {pattern: '^.*Nif[0-9]+/[0-9]+/([0-9]+).*$', result: {index: 0, text: '$1'}}}]);
-      b.matchFieldsWithName('G').overrideDisplayName('Chassis').overrideMappings([{type: 'regex', options: {pattern: '^.*Nif([0-9]+)/[0-9]+/[0-9]+.*$', result: {index: 0, text: '$1'}}}]);
+      b.matchFieldsWithName('Port').overrideMappings([{type: 'regex' as any, options: {pattern: '^.*Nif[0-9]+/[0-9]+/([0-9]+).*$', result: {index: 0, text: '$1'}}}]);
+      b.matchFieldsWithName('G').overrideDisplayName('Chassis').overrideMappings([{type: 'regex' as any, options: {pattern: '^.*Nif([0-9]+)/[0-9]+/[0-9]+.*$', result: {index: 0, text: '$1'}}}]);
     })
     .setOption('tooltip', {
-      mode: 'multi',
-      sort: 'desc',
+      mode: 'multi' as any,
+      sort: 'desc' as any,
     })
     .build();
 
@@ -477,14 +477,14 @@ function getNetworkUtilizationAbsoluteTab() {
       transformations: [{id: 'groupingToMatrix', options: {columnField: 'Port', rowField: 'Time', valueField: 'Utilization (Max)'}}],
     }))
     .setUnit('bps').setDecimals(1).setMin(0).setMax(100)
-    .setThresholds({mode: 'percentage', steps: [{value: 0, color: 'green'}, {value: 70, color: '#EAB839'}, {value: 90, color: 'red'}]})
+    .setThresholds({mode: 'percentage' as any as any, steps: [{value: 0, color: 'green'}, {value: 70, color: '#EAB839'}, {value: 90, color: 'red'}]})
     .setOverrides((b) => {
-      b.matchFieldsWithName('Port').overrideMappings([{type: 'regex', options: {pattern: '^.*Nif[0-9]+/[0-9]+/([0-9]+).*$', result: {index: 0, text: '$1'}}}]);
-      b.matchFieldsWithName('G').overrideDisplayName('Chassis').overrideMappings([{type: 'regex', options: {pattern: '^.*Nif([0-9]+)/[0-9]+/[0-9]+.*$', result: {index: 0, text: '$1'}}}]);
+      b.matchFieldsWithName('Port').overrideMappings([{type: 'regex' as any, options: {pattern: '^.*Nif[0-9]+/[0-9]+/([0-9]+).*$', result: {index: 0, text: '$1'}}}]);
+      b.matchFieldsWithName('G').overrideDisplayName('Chassis').overrideMappings([{type: 'regex' as any, options: {pattern: '^.*Nif([0-9]+)/[0-9]+/[0-9]+.*$', result: {index: 0, text: '$1'}}}]);
     })
     .setOption('tooltip', {
-      mode: 'multi',
-      sort: 'desc',
+      mode: 'multi' as any,
+      sort: 'desc' as any,
     })
     .build();
 
@@ -541,14 +541,14 @@ function getNetworkUtilizationAbsoluteTab() {
       transformations: [{id: 'groupingToMatrix', options: {columnField: 'Port', rowField: 'Time', valueField: 'Utilization (Max)'}}],
     }))
     .setUnit('bps').setDecimals(1).setMin(0).setMax(100)
-    .setThresholds({mode: 'percentage', steps: [{value: 0, color: 'green'}, {value: 70, color: '#EAB839'}, {value: 90, color: 'red'}]})
+    .setThresholds({mode: 'percentage' as any as any, steps: [{value: 0, color: 'green'}, {value: 70, color: '#EAB839'}, {value: 90, color: 'red'}]})
     .setOverrides((b) => {
-      b.matchFieldsWithName('Port').overrideMappings([{type: 'regex', options: {pattern: '^.*Nif[0-9]+/[0-9]+/([0-9]+).*$', result: {index: 0, text: '$1'}}}]);
-      b.matchFieldsWithName('G').overrideDisplayName('Chassis').overrideMappings([{type: 'regex', options: {pattern: '^.*Nif([0-9]+)/[0-9]+/[0-9]+.*$', result: {index: 0, text: '$1'}}}]);
+      b.matchFieldsWithName('Port').overrideMappings([{type: 'regex' as any, options: {pattern: '^.*Nif[0-9]+/[0-9]+/([0-9]+).*$', result: {index: 0, text: '$1'}}}]);
+      b.matchFieldsWithName('G').overrideDisplayName('Chassis').overrideMappings([{type: 'regex' as any, options: {pattern: '^.*Nif([0-9]+)/[0-9]+/[0-9]+.*$', result: {index: 0, text: '$1'}}}]);
     })
     .setOption('tooltip', {
-      mode: 'multi',
-      sort: 'desc',
+      mode: 'multi' as any,
+      sort: 'desc' as any,
     })
     .build();
 

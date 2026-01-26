@@ -238,18 +238,18 @@ function getCongestionTransmitPanel() {
   const panel = PanelBuilders.table()
     .setTitle('Transmit pause frames per port (Sum)')
     .setData(dataTransformer)
-    .setOption('cellHeight', 'sm')
+    .setOption('cellHeight', 'sm' as any)
     .setOption('showHeader', true)
     .setOption('enablePagination', true)
     .setOption('sortBy', [{ desc: true, displayName: 'Total' }])
     .setOverrides((builder) => {
       // Number fields - gauge visualization
       builder
-        .matchFieldsByType('number')
+        .matchFieldsByType('number' as any)
         .overrideCustomFieldConfig('cellOptions', {
-          type: 'gauge',
-          mode: 'gradient',
-          valueDisplayMode: 'text',
+          type: 'gauge' as any,
+          mode: 'gradient' as any,
+          valueDisplayMode: 'text' as any,
         })
         .overrideCustomFieldConfig('align', 'left');
 
@@ -260,7 +260,7 @@ function getCongestionTransmitPanel() {
         .overrideCustomFieldConfig('width', 75)
         .overrideMappings([
           {
-            type: 'regex',
+            type: 'regex' as any,
             options: {
               pattern: '.*(A|B)',
               result: {
@@ -284,7 +284,7 @@ function getCongestionTransmitPanel() {
         .overrideCustomFieldConfig('align', 'center')
         .overrideMappings([
           {
-            type: 'value',
+            type: 'value' as any,
             options: {
               appliance: { color: '#00ffff', index: 5, text: 'Appliance' },
               eth_monitor: { color: '#a020f0', index: 8, text: 'Ethernet SPAN' },
@@ -299,7 +299,7 @@ function getCongestionTransmitPanel() {
             },
           },
         ])
-        .overrideCustomFieldConfig('cellOptions', { type: 'color-text' });
+        .overrideCustomFieldConfig('cellOptions', { type: 'color-text' as any });
 
       // Port field - with complex regex mappings
       builder
@@ -308,84 +308,84 @@ function getCongestionTransmitPanel() {
         .overrideCustomFieldConfig('align', 'center')
         .overrideMappings([
           {
-            type: 'regex',
+            type: 'regex' as any,
             options: {
               pattern: '^host_port # Ethernet([0-9]+/1/[1-4])$',
               result: { index: 0, text: 'Slot 1 ($1)' },
             },
           },
           {
-            type: 'regex',
+            type: 'regex' as any,
             options: {
               pattern: '^host_port # Ethernet([0-9]+/1/[5-8])$',
               result: { index: 1, text: 'Slot 2 ($1)' },
             },
           },
           {
-            type: 'regex',
+            type: 'regex' as any,
             options: {
               pattern: '^host_port # Ethernet([0-9]+/1/([9]|1[0-2]))$',
               result: { index: 2, text: 'Slot 3 ($1)' },
             },
           },
           {
-            type: 'regex',
+            type: 'regex' as any,
             options: {
               pattern: '^host_port # Ethernet([0-9]+/1/1[3-6])$',
               result: { index: 3, text: 'Slot 4 ($1)' },
             },
           },
           {
-            type: 'regex',
+            type: 'regex' as any,
             options: {
               pattern: '^host_port # Ethernet([0-9]+/1/(1[7-9]|20))$',
               result: { index: 4, text: 'Slot 5 ($1)' },
             },
           },
           {
-            type: 'regex',
+            type: 'regex' as any,
             options: {
               pattern: '^host_port # Ethernet([0-9]+/1/2[1-4])$',
               result: { index: 5, text: 'Slot 6 ($1)' },
             },
           },
           {
-            type: 'regex',
+            type: 'regex' as any,
             options: {
               pattern: '^host_port # Ethernet([0-9]+/1/2[5-8])$',
               result: { index: 6, text: 'Slot 7 ($1)' },
             },
           },
           {
-            type: 'regex',
+            type: 'regex' as any,
             options: {
               pattern: '^host_port # Ethernet([0-9]+/1/(29|3[0-2]))$',
               result: { index: 7, text: 'Slot 8 ($1)' },
             },
           },
           {
-            type: 'regex',
+            type: 'regex' as any,
             options: {
               pattern: '^.*Ethernet([0-9]+/[0-9]+/[0-9]+).*$',
               result: { index: 8, text: '$1' },
             },
           },
           {
-            type: 'regex',
+            type: 'regex' as any,
             options: {
               pattern: '^.*Ethernet([0-9]+/[0-9]+).*$',
               result: { index: 9, text: '$1' },
             },
           },
           {
-            type: 'regex',
+            type: 'regex' as any,
             options: {
               pattern: '^.*Nif([0-9]+/[0-9]+/[0-9]+).*$',
               result: { index: 10, text: '$1' },
             },
           },
           {
-            type: 'regex',
+            type: 'regex' as any,
             options: {
               pattern: '^.*port-channel([0-9]*).*$',
               result: { index: 11, text: 'PC$1' },
@@ -608,18 +608,18 @@ function getCongestionReceivePanel() {
   const panel = PanelBuilders.table()
     .setTitle('Receive pause frames per port (Sum)')
     .setData(dataTransformer)
-    .setOption('cellHeight', 'sm')
+    .setOption('cellHeight', 'sm' as any)
     .setOption('showHeader', true)
     .setOption('enablePagination', true)
     .setOption('sortBy', [{ desc: true, displayName: 'Total' }])
     .setOverrides((builder) => {
       // Number fields - gauge visualization
       builder
-        .matchFieldsByType('number')
+        .matchFieldsByType('number' as any)
         .overrideCustomFieldConfig('cellOptions', {
-          type: 'gauge',
-          mode: 'gradient',
-          valueDisplayMode: 'text',
+          type: 'gauge' as any,
+          mode: 'gradient' as any,
+          valueDisplayMode: 'text' as any,
         })
         .overrideCustomFieldConfig('align', 'left');
 
@@ -630,7 +630,7 @@ function getCongestionReceivePanel() {
         .overrideCustomFieldConfig('width', 75)
         .overrideMappings([
           {
-            type: 'regex',
+            type: 'regex' as any,
             options: {
               pattern: '.*(A|B)',
               result: {
@@ -654,7 +654,7 @@ function getCongestionReceivePanel() {
         .overrideCustomFieldConfig('align', 'center')
         .overrideMappings([
           {
-            type: 'value',
+            type: 'value' as any,
             options: {
               appliance: { color: '#00ffff', index: 5, text: 'Appliance' },
               eth_monitor: { color: '#a020f0', index: 8, text: 'Ethernet SPAN' },
@@ -669,7 +669,7 @@ function getCongestionReceivePanel() {
             },
           },
         ])
-        .overrideCustomFieldConfig('cellOptions', { type: 'color-text' });
+        .overrideCustomFieldConfig('cellOptions', { type: 'color-text' as any });
 
       // Port field - with complex regex mappings
       builder
@@ -678,84 +678,84 @@ function getCongestionReceivePanel() {
         .overrideCustomFieldConfig('align', 'center')
         .overrideMappings([
           {
-            type: 'regex',
+            type: 'regex' as any,
             options: {
               pattern: '^host_port # Ethernet([0-9]+/1/[1-4])$',
               result: { index: 0, text: 'Slot 1 ($1)' },
             },
           },
           {
-            type: 'regex',
+            type: 'regex' as any,
             options: {
               pattern: '^host_port # Ethernet([0-9]+/1/[5-8])$',
               result: { index: 1, text: 'Slot 2 ($1)' },
             },
           },
           {
-            type: 'regex',
+            type: 'regex' as any,
             options: {
               pattern: '^host_port # Ethernet([0-9]+/1/([9]|1[0-2]))$',
               result: { index: 2, text: 'Slot 3 ($1)' },
             },
           },
           {
-            type: 'regex',
+            type: 'regex' as any,
             options: {
               pattern: '^host_port # Ethernet([0-9]+/1/1[3-6])$',
               result: { index: 3, text: 'Slot 4 ($1)' },
             },
           },
           {
-            type: 'regex',
+            type: 'regex' as any,
             options: {
               pattern: '^host_port # Ethernet([0-9]+/1/(1[7-9]|20))$',
               result: { index: 4, text: 'Slot 5 ($1)' },
             },
           },
           {
-            type: 'regex',
+            type: 'regex' as any,
             options: {
               pattern: '^host_port # Ethernet([0-9]+/1/2[1-4])$',
               result: { index: 5, text: 'Slot 6 ($1)' },
             },
           },
           {
-            type: 'regex',
+            type: 'regex' as any,
             options: {
               pattern: '^host_port # Ethernet([0-9]+/1/2[5-8])$',
               result: { index: 6, text: 'Slot 7 ($1)' },
             },
           },
           {
-            type: 'regex',
+            type: 'regex' as any,
             options: {
               pattern: '^host_port # Ethernet([0-9]+/1/(29|3[0-2]))$',
               result: { index: 7, text: 'Slot 8 ($1)' },
             },
           },
           {
-            type: 'regex',
+            type: 'regex' as any,
             options: {
               pattern: '^.*Ethernet([0-9]+/[0-9]+/[0-9]+).*$',
               result: { index: 8, text: '$1' },
             },
           },
           {
-            type: 'regex',
+            type: 'regex' as any,
             options: {
               pattern: '^.*Ethernet([0-9]+/[0-9]+).*$',
               result: { index: 9, text: '$1' },
             },
           },
           {
-            type: 'regex',
+            type: 'regex' as any,
             options: {
               pattern: '^.*Nif([0-9]+/[0-9]+/[0-9]+).*$',
               result: { index: 10, text: '$1' },
             },
           },
           {
-            type: 'regex',
+            type: 'regex' as any,
             options: {
               pattern: '^.*port-channel([0-9]*).*$',
               result: { index: 11, text: 'PC$1' },
@@ -839,7 +839,7 @@ export function getErrorDescriptionsPanel() {
   return PanelBuilders.table()
     .setTitle('')
     .setData(transformer)
-    .setOption('cellHeight', 'sm')
+    .setOption('cellHeight', 'sm' as any)
     .setOption('showHeader', true)
     .setOverrides((builder) => {
       builder.matchFieldsWithNameByRegex('.*')
@@ -1110,7 +1110,7 @@ export function getFIEthernetUplinkDetailTable() {
   return PanelBuilders.table()
     .setTitle('')
     .setData(createNetworkErrorsQueryRunner('eth_uplink'))
-    .setOption('cellHeight', 'sm')
+    .setOption('cellHeight', 'sm' as any)
     .setOption('showHeader', true)
     .build();
 }
@@ -1182,7 +1182,7 @@ export function getFIEthernetUplinkPortChannelDetailTable() {
   return PanelBuilders.table()
     .setTitle('')
     .setData(createNetworkErrorsQueryRunner('eth_uplink_port_channel'))
-    .setOption('cellHeight', 'sm')
+    .setOption('cellHeight', 'sm' as any)
     .setOption('showHeader', true)
     .build();
 }
@@ -1464,13 +1464,13 @@ export function getFIDownlinksPanel() {
   return PanelBuilders.table()
     .setTitle('')
     .setData(transformer)
-    .setOption('cellHeight', 'sm')
+    .setOption('cellHeight', 'sm' as any)
     .setOption('showHeader', true)
     .setOption('sortBy', [{ desc: true, displayName: 'Total' }])
     .setMin(0)
     .setUnit('none')
     .setThresholds({
-      mode: 'percentage',
+      mode: 'percentage' as any as any,
       steps: [
         { color: 'transparent', value: 0 },
         { color: '#EAB839', value: 10 },
@@ -1478,7 +1478,7 @@ export function getFIDownlinksPanel() {
       ],
     })
     .setCustomFieldConfig('align', 'auto')
-    .setCustomFieldConfig('cellOptions', { type: 'auto' })
+    .setCustomFieldConfig('cellOptions', { type: 'auto' as any })
     .setCustomFieldConfig('filterable', true)
     .setCustomFieldConfig('inspect', false)
     .setCustomFieldConfig('wrapText', false)
@@ -1494,7 +1494,7 @@ export function getFIDownlinksPanel() {
         .overrideCustomFieldConfig('align', 'center')
         .overrideMappings([
           {
-            type: 'regex',
+            type: 'regex' as any,
             options: {
               pattern: '^.*Ethernet([0-9]+/[0-9]+).*$',
               result: { index: 0, text: '$1' },
@@ -1503,8 +1503,8 @@ export function getFIDownlinksPanel() {
         ]);
 
       builder
-        .matchFieldsByType('number')
-        .overrideCustomFieldConfig('cellOptions', { applyToRow: false, mode: 'basic', type: 'color-background' })
+        .matchFieldsByType('number' as any)
+        .overrideCustomFieldConfig('cellOptions', { applyToRow: false, mode: 'basic' as any as any, type: 'color-background' as any as any })
         .overrideCustomFieldConfig('wrapText', false)
         .overrideCustomFieldConfig('width', 120);
     })
@@ -1631,13 +1631,13 @@ export function getIFMUplinksPanel() {
   return PanelBuilders.table()
     .setTitle('')
     .setData(transformer)
-    .setOption('cellHeight', 'sm')
+    .setOption('cellHeight', 'sm' as any)
     .setOption('showHeader', true)
     .setOption('sortBy', [{ desc: true, displayName: 'Total' }])
     .setMin(0)
     .setUnit('none')
     .setThresholds({
-      mode: 'percentage',
+      mode: 'percentage' as any as any,
       steps: [
         { color: 'transparent', value: 0 },
         { color: '#EAB839', value: 10 },
@@ -1645,7 +1645,7 @@ export function getIFMUplinksPanel() {
       ],
     })
     .setCustomFieldConfig('align', 'auto')
-    .setCustomFieldConfig('cellOptions', { type: 'auto' })
+    .setCustomFieldConfig('cellOptions', { type: 'auto' as any })
     .setCustomFieldConfig('filterable', true)
     .setCustomFieldConfig('inspect', false)
     .setCustomFieldConfig('wrapText', false)
@@ -1661,7 +1661,7 @@ export function getIFMUplinksPanel() {
         .overrideCustomFieldConfig('align', 'center')
         .overrideMappings([
           {
-            type: 'regex',
+            type: 'regex' as any,
             options: {
               pattern: '^.*Ethernet([0-9]+/[0-9]+).*$',
               result: { index: 0, text: '$1' },
@@ -1670,8 +1670,8 @@ export function getIFMUplinksPanel() {
         ]);
 
       builder
-        .matchFieldsByType('number')
-        .overrideCustomFieldConfig('cellOptions', { applyToRow: false, mode: 'basic', type: 'color-background' })
+        .matchFieldsByType('number' as any)
+        .overrideCustomFieldConfig('cellOptions', { applyToRow: false, mode: 'basic' as any as any, type: 'color-background' as any as any })
         .overrideCustomFieldConfig('wrapText', false)
         .overrideCustomFieldConfig('width', 120);
     })
@@ -1793,13 +1793,13 @@ export function getIFMDownlinksPanel() {
   return PanelBuilders.table()
     .setTitle('')
     .setData(transformer)
-    .setOption('cellHeight', 'sm')
+    .setOption('cellHeight', 'sm' as any)
     .setOption('showHeader', true)
     .setOption('sortBy', [{ desc: true, displayName: 'Total' }])
     .setMin(0)
     .setUnit('none')
     .setThresholds({
-      mode: 'percentage',
+      mode: 'percentage' as any as any,
       steps: [
         { color: 'transparent', value: 0 },
         { color: '#EAB839', value: 10 },
@@ -1807,7 +1807,7 @@ export function getIFMDownlinksPanel() {
       ],
     })
     .setCustomFieldConfig('align', 'auto')
-    .setCustomFieldConfig('cellOptions', { type: 'auto' })
+    .setCustomFieldConfig('cellOptions', { type: 'auto' as any })
     .setCustomFieldConfig('filterable', true)
     .setCustomFieldConfig('inspect', false)
     .setCustomFieldConfig('wrapText', false)
@@ -1823,56 +1823,56 @@ export function getIFMDownlinksPanel() {
         .overrideCustomFieldConfig('width', 105)
         .overrideMappings([
           {
-            type: 'regex',
+            type: 'regex' as any,
             options: {
               pattern: '^.*Ethernet([0-9]+/1/[1-4])$',
               result: { index: 0, text: 'Slot 1 ($1)' },
             },
           },
           {
-            type: 'regex',
+            type: 'regex' as any,
             options: {
               pattern: '^.*Ethernet([0-9]+/1/[5-8])$',
               result: { index: 1, text: 'Slot 2 ($1)' },
             },
           },
           {
-            type: 'regex',
+            type: 'regex' as any,
             options: {
               pattern: '^.*Ethernet([0-9]+/1/([9]|1[0-2]))$',
               result: { index: 2, text: 'Slot 3 ($1)' },
             },
           },
           {
-            type: 'regex',
+            type: 'regex' as any,
             options: {
               pattern: '^.*Ethernet([0-9]+/1/1[3-6])$',
               result: { index: 3, text: 'Slot 4 ($1)' },
             },
           },
           {
-            type: 'regex',
+            type: 'regex' as any,
             options: {
               pattern: '^.*Ethernet([0-9]+/1/(1[7-9]|20))$',
               result: { index: 4, text: 'Slot 5 ($1)' },
             },
           },
           {
-            type: 'regex',
+            type: 'regex' as any,
             options: {
               pattern: '^.*Ethernet([0-9]+/1/2[1-4])$',
               result: { index: 5, text: 'Slot 6 ($1)' },
             },
           },
           {
-            type: 'regex',
+            type: 'regex' as any,
             options: {
               pattern: '^.*Ethernet([0-9]+/1/2[5-8])$',
               result: { index: 6, text: 'Slot 7 ($1)' },
             },
           },
           {
-            type: 'regex',
+            type: 'regex' as any,
             options: {
               pattern: '^.*Ethernet([0-9]+/1/(29|3[0-2]))$',
               result: { index: 7, text: 'Slot 8 ($1)' },
@@ -1881,8 +1881,8 @@ export function getIFMDownlinksPanel() {
         ]);
 
       builder
-        .matchFieldsByType('number')
-        .overrideCustomFieldConfig('cellOptions', { applyToRow: false, mode: 'basic', type: 'color-background' })
+        .matchFieldsByType('number' as any)
+        .overrideCustomFieldConfig('cellOptions', { applyToRow: false, mode: 'basic' as any as any, type: 'color-background' as any as any })
         .overrideCustomFieldConfig('wrapText', false)
         .overrideCustomFieldConfig('width', 120);
 
@@ -2017,13 +2017,13 @@ export function getVNICVHBAPanel() {
   return PanelBuilders.table()
     .setTitle('')
     .setData(transformer)
-    .setOption('cellHeight', 'sm')
+    .setOption('cellHeight', 'sm' as any)
     .setOption('showHeader', true)
     .setOption('sortBy', [{ desc: true, displayName: 'Total' }])
     .setMin(0)
     .setUnit('none')
     .setThresholds({
-      mode: 'percentage',
+      mode: 'percentage' as any as any,
       steps: [
         { color: 'transparent', value: 0 },
         { color: '#EAB839', value: 10 },
@@ -2031,14 +2031,14 @@ export function getVNICVHBAPanel() {
       ],
     })
     .setCustomFieldConfig('align', 'auto')
-    .setCustomFieldConfig('cellOptions', { type: 'auto' })
+    .setCustomFieldConfig('cellOptions', { type: 'auto' as any })
     .setCustomFieldConfig('filterable', true)
     .setCustomFieldConfig('inspect', false)
     .setCustomFieldConfig('wrapText', false)
     .setOverrides((builder) => {
       builder
-        .matchFieldsByType('number')
-        .overrideCustomFieldConfig('cellOptions', { applyToRow: false, mode: 'basic', type: 'color-background' })
+        .matchFieldsByType('number' as any)
+        .overrideCustomFieldConfig('cellOptions', { applyToRow: false, mode: 'basic' as any as any, type: 'color-background' as any as any })
         .overrideCustomFieldConfig('wrapText', false)
         .overrideCustomFieldConfig('width', 120);
 
@@ -2057,4 +2057,3 @@ export function getVNICVHBAPanel() {
     })
     .build();
 }
-

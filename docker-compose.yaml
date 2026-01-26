@@ -1,6 +1,6 @@
 services:
   grafana:
-    image: grafana/grafana:latest
+    image: grafana/grafana:12.0.0
     container_name: grafana-scenes-dev
     ports:
       - "3000:3000"

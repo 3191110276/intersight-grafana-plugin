@@ -439,6 +439,7 @@ function getPowerSupplyStatusPanel() {
           },
         ],
         $data: {
+          // @ts-ignore
           processor: 'groupingToMatrix',
           processorOptions: {
             matrixColumns: 'Hostname',
@@ -448,13 +449,13 @@ function getPowerSupplyStatusPanel() {
         },
       })
     )
-    .setCustomFieldConfig('drawStyle', 'bars')
+    .setCustomFieldConfig('drawStyle', 'bars' as any)
     .setCustomFieldConfig('fillOpacity', 100)
-    .setCustomFieldConfig('stacking', { mode: 'normal' })
+    .setCustomFieldConfig('stacking', { mode: 'normal' as any })
     .setCustomFieldConfig('barAlignment', 0)
     .setCustomFieldConfig('axisSoftMin', 0)
     .setThresholds({
-      mode: 'percentage',
+      mode: 'percentage' as any as any,
       steps: [
         { value: 0, color: 'semi-dark-red' },
         { value: 100, color: 'transparent' },
@@ -492,6 +493,7 @@ function getDomainPowerConsumptionPanel() {
           },
         ],
         $data: {
+          // @ts-ignore
           processor: 'renameByRegex',
           processorOptions: {
             regex: 'Power (.*)',
@@ -532,6 +534,7 @@ function getFIPowerConsumptionPanel() {
           },
         ],
         $data: {
+          // @ts-ignore
           processor: 'renameByRegex',
           processorOptions: {
             regex: 'Host Power (.*)',
@@ -637,6 +640,7 @@ function getHostPowerConsumptionPanel() {
           },
         ],
         $data: {
+          // @ts-ignore
           processor: 'timeSeriesTable',
           processorOptions: {},
         },
@@ -684,6 +688,7 @@ function getFIFanSpeedPanel() {
           },
         ],
         $data: {
+          // @ts-ignore
           processor: 'renameByRegex',
           processorOptions: {
             regex: 'Fan Speed (.*)',
@@ -731,6 +736,7 @@ function getChassisFanSpeedPanel() {
           },
         ],
         $data: {
+          // @ts-ignore
           processor: 'renameByRegex',
           processorOptions: {
             regex: 'Fan Speed (.*)',
@@ -771,6 +777,7 @@ function getFIIntakeTemperaturePanel() {
           },
         ],
         $data: {
+          // @ts-ignore
           processor: 'renameByRegex',
           processorOptions: {
             regex: 'Temperature (.*)',
@@ -781,7 +788,7 @@ function getFIIntakeTemperaturePanel() {
     )
     .setUnit('celsius')
     .setThresholds({
-      mode: 'absolute',
+      mode: 'absolute' as any as any,
       steps: [
         { value: 0, color: 'transparent' },
         { value: 50, color: 'dark-yellow' },
@@ -819,6 +826,7 @@ function getFIExhaustTemperaturePanel() {
           },
         ],
         $data: {
+          // @ts-ignore
           processor: 'renameByRegex',
           processorOptions: {
             regex: 'Temperature (.*)',
@@ -829,7 +837,7 @@ function getFIExhaustTemperaturePanel() {
     )
     .setUnit('celsius')
     .setThresholds({
-      mode: 'absolute',
+      mode: 'absolute' as any as any,
       steps: [
         { value: 0, color: 'transparent' },
         { value: 50, color: 'dark-yellow' },
@@ -867,6 +875,7 @@ function getFICPUTemperaturePanel() {
           },
         ],
         $data: {
+          // @ts-ignore
           processor: 'renameByRegex',
           processorOptions: {
             regex: 'Temperature (.*)',
@@ -877,7 +886,7 @@ function getFICPUTemperaturePanel() {
     )
     .setUnit('celsius')
     .setThresholds({
-      mode: 'absolute',
+      mode: 'absolute' as any as any,
       steps: [
         { value: 0, color: 'transparent' },
         { value: 50, color: 'dark-yellow' },
@@ -915,6 +924,7 @@ function getFIASICTemperaturePanel() {
           },
         ],
         $data: {
+          // @ts-ignore
           processor: 'renameByRegex',
           processorOptions: {
             regex: 'Temperature (.*)',
@@ -925,7 +935,7 @@ function getFIASICTemperaturePanel() {
     )
     .setUnit('celsius')
     .setThresholds({
-      mode: 'absolute',
+      mode: 'absolute' as any as any,
       steps: [
         { value: 0, color: 'transparent' },
         { value: 50, color: 'dark-yellow' },
@@ -963,6 +973,7 @@ function getChassisIntakeTemperaturePanel() {
           },
         ],
         $data: {
+          // @ts-ignore
           processor: 'renameByRegex',
           processorOptions: {
             regex: 'Temperature (.*)',
@@ -973,7 +984,7 @@ function getChassisIntakeTemperaturePanel() {
     )
     .setUnit('celsius')
     .setThresholds({
-      mode: 'absolute',
+      mode: 'absolute' as any as any,
       steps: [
         { value: 0, color: 'transparent' },
         { value: 50, color: 'dark-yellow' },
@@ -1011,6 +1022,7 @@ function getChassisExhaustTemperaturePanel() {
           },
         ],
         $data: {
+          // @ts-ignore
           processor: 'renameByRegex',
           processorOptions: {
             regex: 'Temperature (.*)',
@@ -1021,7 +1033,7 @@ function getChassisExhaustTemperaturePanel() {
     )
     .setUnit('celsius')
     .setThresholds({
-      mode: 'absolute',
+      mode: 'absolute' as any as any,
       steps: [
         { value: 0, color: 'transparent' },
         { value: 50, color: 'dark-yellow' },
@@ -1103,6 +1115,7 @@ function getHostTemperaturePanel() {
           },
         ],
         $data: {
+          // @ts-ignore
           processor: 'timeSeriesTable',
           processorOptions: {},
         },
@@ -1196,6 +1209,7 @@ function getCoolingBudgetPanel() {
           },
         ],
         $data: {
+          // @ts-ignore
           processor: 'timeSeriesTable',
           processorOptions: {},
         },

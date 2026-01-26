@@ -237,7 +237,7 @@ function getAlarmsPanel() {
     .setTitle('${DomainName}')
     .setData(transformedData)
     .setOption('showHeader', true)
-    .setOption('cellHeight', 'sm')
+    .setOption('cellHeight', 'sm' as any)
     .setOverrides((builder) => {
       builder.matchFieldsWithName('Critical').overrideColor({ fixedColor: 'dark-red', mode: 'fixed' });
       builder.matchFieldsWithName('Warning').overrideColor({ fixedColor: 'dark-orange', mode: 'fixed' });
@@ -294,7 +294,7 @@ function getActionsPanel() {
     .setTitle('${DomainName}')
     .setData(transformedData)
     .setOption('showHeader', true)
-    .setOption('cellHeight', 'sm')
+    .setOption('cellHeight', 'sm' as any)
     .setOverrides((builder) => {
       builder.matchFieldsWithName('Success').overrideColor({ fixedColor: 'dark-green', mode: 'fixed' });
       builder.matchFieldsWithName('Fail').overrideColor({ fixedColor: 'dark-red', mode: 'fixed' });

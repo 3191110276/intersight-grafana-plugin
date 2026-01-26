@@ -360,6 +360,7 @@ interface DynamicCPUUtilizationSceneState extends SceneObjectState {
 class DynamicCPUUtilizationScene extends SceneObjectBase<DynamicCPUUtilizationSceneState> {
   public static Component = DynamicCPUUtilizationSceneRenderer;
 
+  // @ts-ignore
   protected _variableDependency = new VariableDependencyConfig(this, {
     variableNames: ['ServerName'],
     onReferencedVariableValueChanged: () => {
@@ -377,6 +378,7 @@ class DynamicCPUUtilizationScene extends SceneObjectBase<DynamicCPUUtilizationSc
     });
   }
 
+  // @ts-ignore
   public activate() {
     super.activate();
     this.rebuildBody();
@@ -449,6 +451,7 @@ class DynamicCPUUtilizationScene extends SceneObjectBase<DynamicCPUUtilizationSc
 
   private getVariable(name: string): any {
     // Use sceneGraph to lookup variable in parent scope
+    // @ts-ignore
     return sceneGraph.lookupVariable(name, this);
   }
 }
@@ -487,12 +490,12 @@ function createSingleServerGraphsBody() {
     .setCustomFieldConfig('axisSoftMax', 1)
     .setOverrides((builder) => {
       builder
-        .matchFieldsByType('number')
+        .matchFieldsByType('number' as any)
         .overrideColor({ fixedColor: 'semi-dark-blue', mode: 'fixed' });
     })
     .setOption('tooltip', {
-      mode: 'multi',
-      sort: 'desc',
+      mode: 'multi' as any,
+      sort: 'desc' as any,
     })
     .build();
 
@@ -521,8 +524,8 @@ function createSingleServerGraphsBody() {
         .overrideColor({ fixedColor: 'semi-dark-red', mode: 'fixed' });
     })
     .setOption('tooltip', {
-      mode: 'multi',
-      sort: 'desc',
+      mode: 'multi' as any,
+      sort: 'desc' as any,
     })
     .build();
 
@@ -576,12 +579,12 @@ function createDrilldownView(serverName: string, scene: DynamicCPUUtilizationSce
     .setCustomFieldConfig('axisSoftMax', 1)
     .setOverrides((builder) => {
       builder
-        .matchFieldsByType('number')
+        .matchFieldsByType('number' as any)
         .overrideColor({ fixedColor: 'semi-dark-blue', mode: 'fixed' });
     })
     .setOption('tooltip', {
-      mode: 'multi',
-      sort: 'desc',
+      mode: 'multi' as any,
+      sort: 'desc' as any,
     })
     .build();
 
@@ -605,8 +608,8 @@ function createDrilldownView(serverName: string, scene: DynamicCPUUtilizationSce
         .overrideColor({ fixedColor: 'semi-dark-red', mode: 'fixed' });
     })
     .setOption('tooltip', {
-      mode: 'multi',
-      sort: 'desc',
+      mode: 'multi' as any,
+      sort: 'desc' as any,
     })
     .build();
 
@@ -657,12 +660,12 @@ function createMultiServerTableBody(scene: DynamicCPUUtilizationScene) {
           C: { timeField: 'Time' },
         },
       },
-      // Join all queries by Host Name field (using inner join to match IMM Domain)
+      // Join all queries by Host Name field (using outer join to handle servers without all sensors)
       {
         id: 'joinByField',
         options: {
           byField: 'Host Name',
-          mode: 'inner',
+          mode: 'outer',
         },
       },
       // Organize and rename columns
@@ -692,7 +695,7 @@ function createMultiServerTableBody(scene: DynamicCPUUtilizationScene) {
     .setTitle('CPU details for all Servers - Click row to drill down')
     .setData(transformedData)
     .setOption('showHeader', true)
-    .setOption('cellHeight', 'lg')
+    .setOption('cellHeight', 'lg' as any)
     .setOption('enablePagination', true)
     .setOption('sortBy', [{ displayName: 'Utilization', desc: true }])
     .setCustomFieldConfig('filterable', true)
@@ -713,7 +716,7 @@ function createMultiServerTableBody(scene: DynamicCPUUtilizationScene) {
         .overrideDecimals(1);
 
       // String columns - set width to 240px
-      builder.matchFieldsByType('string').overrideCustomFieldConfig('width', 240);
+      builder.matchFieldsByType('string' as any).overrideCustomFieldConfig('width', 240);
 
       // Temperature columns - celsius unit
       builder

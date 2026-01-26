@@ -267,7 +267,7 @@ function getSFPMetricsPanel() {
     .setTitle('')
     .setData(transformedData)
     .setOption('showHeader', true)
-    .setOption('cellHeight', 'lg')
+    .setOption('cellHeight', 'lg' as any)
     .setOption('enablePagination', true)
     .setNoValue('No SFP data available. SFP require DOM capability, and Advantage licenses.')
     .setOverrides((builder) => {
@@ -399,23 +399,23 @@ function getPowerSupplyStatusPanel() {
     .setTitle('Active PSUs per device')
     .setDescription('Displays the count of active power supplies- one color per device. Maximum count of power supplies is used as threshold. Adding or removing devices can skew the threshold.')
     .setData(queryRunner)
-    .setCustomFieldConfig('drawStyle', 'bars')
+    .setCustomFieldConfig('drawStyle', 'bars' as any)
     .setCustomFieldConfig('fillOpacity', 100)
     .setCustomFieldConfig('barAlignment', 0)
     .setCustomFieldConfig('barWidthFactor', 1)
     .setCustomFieldConfig('axisSoftMin', 0)
-    .setCustomFieldConfig('stacking', { mode: 'normal', group: 'A' })
-    .setCustomFieldConfig('thresholdsStyle', { mode: 'dashed+area' })
+    .setCustomFieldConfig('stacking', { mode: 'normal' as any, group: 'A' })
+    .setCustomFieldConfig('thresholdsStyle', { mode: 'dashed+area' as any })
     .setDecimals(0)
     .setColor({ mode: 'palette-classic' })
     .setThresholds({
-      mode: 'percentage',
+      mode: 'percentage' as any as any,
       steps: [
         { value: 0, color: 'semi-dark-red' },
         { value: 100, color: 'transparent' },
       ],
     })
-    .setOption('legend', { displayMode: 'list', placement: 'bottom', showLegend: true })
+    .setOption('legend', { displayMode: 'list' as any as any, placement: 'bottom', showLegend: true })
     .build();
 }
 
@@ -535,7 +535,7 @@ function getDomainPowerConsumptionPanel() {
     .setCustomFieldConfig('axisSoftMin', 0)
     .setUnit('watt')
     .setColor({ mode: 'palette-classic' })
-    .setOption('legend', { displayMode: 'list', placement: 'bottom', showLegend: true })
+    .setOption('legend', { displayMode: 'list' as any as any, placement: 'bottom', showLegend: true })
     .build();
 }
 
@@ -621,7 +621,7 @@ function getFIPowerConsumptionPanel() {
     .setCustomFieldConfig('axisSoftMin', 0)
     .setUnit('watt')
     .setColor({ mode: 'palette-classic' })
-    .setOption('legend', { displayMode: 'list', placement: 'bottom', showLegend: true })
+    .setOption('legend', { displayMode: 'list' as any as any, placement: 'bottom', showLegend: true })
     .build();
 }
 
@@ -733,7 +733,7 @@ function getFIPairPowerConsumptionPanel() {
     .setCustomFieldConfig('axisSoftMin', 0)
     .setUnit('watt')
     .setColor({ mode: 'palette-classic' })
-    .setOption('legend', { displayMode: 'list', placement: 'bottom', showLegend: true })
+    .setOption('legend', { displayMode: 'list' as any as any, placement: 'bottom', showLegend: true })
     .build();
 }
 
@@ -849,7 +849,7 @@ function getChassisPowerConsumptionPanel() {
     .setCustomFieldConfig('axisSoftMin', 0)
     .setUnit('watt')
     .setColor({ mode: 'palette-classic' })
-    .setOption('legend', { displayMode: 'list', placement: 'bottom', showLegend: true })
+    .setOption('legend', { displayMode: 'list' as any as any, placement: 'bottom', showLegend: true })
     .build();
 }
 
@@ -933,7 +933,7 @@ function getHostPowerConsumptionPanel() {
     .setTitle('')
     .setData(queryRunner)
     .setUnit('watt')
-    .setOption('cellHeight', 'lg')
+    .setOption('cellHeight', 'lg' as any)
     .setOption('enablePagination', true)
     .setOption('showHeader', true)
     .setOption('sortBy', [{ displayName: 'Power', desc: true }])
@@ -1062,7 +1062,7 @@ function getFIFanSpeedPanel() {
     .setData(transformer)
     .setUnit('rotrpm')
     .setColor({ mode: 'palette-classic' })
-    .setOption('legend', { displayMode: 'list', placement: 'bottom', showLegend: true })
+    .setOption('legend', { displayMode: 'list' as any as any, placement: 'bottom', showLegend: true })
     .build();
 }
 
@@ -1184,7 +1184,7 @@ function getChassisFanSpeedPanel() {
     .setUnit('rotrpm')
     .setCustomFieldConfig('axisSoftMin', 0)
     .setColor({ mode: 'palette-classic' })
-    .setOption('legend', { displayMode: 'list', placement: 'bottom', showLegend: true })
+    .setOption('legend', { displayMode: 'list' as any as any, placement: 'bottom', showLegend: true })
     .build();
 }
 
@@ -1300,7 +1300,7 @@ function getFIIntakeTemperaturePanel() {
     .setData(transformer)
     .setUnit('celsius')
     .setColor({ mode: 'palette-classic' })
-    .setOption('legend', { displayMode: 'list', placement: 'bottom', showLegend: true })
+    .setOption('legend', { displayMode: 'list' as any as any, placement: 'bottom', showLegend: true })
     .build();
 }
 
@@ -1416,7 +1416,7 @@ function getFIExhaustTemperaturePanel() {
     .setData(transformer)
     .setUnit('celsius')
     .setColor({ mode: 'palette-classic' })
-    .setOption('legend', { displayMode: 'list', placement: 'bottom', showLegend: true })
+    .setOption('legend', { displayMode: 'list' as any as any, placement: 'bottom', showLegend: true })
     .build();
 }
 
@@ -1532,7 +1532,7 @@ function getFICPUTemperaturePanel() {
     .setData(transformer)
     .setUnit('celsius')
     .setColor({ mode: 'palette-classic' })
-    .setOption('legend', { displayMode: 'list', placement: 'bottom', showLegend: true })
+    .setOption('legend', { displayMode: 'list' as any as any, placement: 'bottom', showLegend: true })
     .build();
 }
 
@@ -1648,7 +1648,7 @@ function getFIASICTemperaturePanel() {
     .setData(transformer)
     .setUnit('celsius')
     .setColor({ mode: 'palette-classic' })
-    .setOption('legend', { displayMode: 'list', placement: 'bottom', showLegend: true })
+    .setOption('legend', { displayMode: 'list' as any as any, placement: 'bottom', showLegend: true })
     .build();
 }
 
@@ -1769,7 +1769,7 @@ function getChassisIntakeTemperaturePanel() {
     .setData(transformer)
     .setUnit('celsius')
     .setColor({ mode: 'palette-classic' })
-    .setOption('legend', { displayMode: 'list', placement: 'bottom', showLegend: true })
+    .setOption('legend', { displayMode: 'list' as any as any, placement: 'bottom', showLegend: true })
     .build();
 }
 
@@ -1894,7 +1894,7 @@ function getChassisExhaustTemperaturePanel() {
     .setData(transformer)
     .setUnit('celsius')
     .setColor({ mode: 'palette-classic' })
-    .setOption('legend', { displayMode: 'list', placement: 'bottom', showLegend: true })
+    .setOption('legend', { displayMode: 'list' as any as any, placement: 'bottom', showLegend: true })
     .build();
 }
 
@@ -2244,12 +2244,13 @@ function getHostTemperaturePanel() {
     .setTitle('')
     .setData(transformer)
     .setUnit('celsius')
-    .setOption('cellHeight', 'md')
+    .setOption('cellHeight', 'md' as any)
     .setOption('showHeader', true)
     .setOption('enablePagination', true)
-    .setOverride({
-      matcher: { id: 'byName', options: 'Hostname' },
-      properties: [{ id: 'custom.filterable', value: true }],
+    .setOverrides((builder) => {
+      builder
+        .matchFieldsWithName('Hostname')
+        .overrideCustomFieldConfig('filterable', true);
     })
     .build();
 }
@@ -2644,11 +2645,12 @@ function getCoolingBudgetPanel() {
     .setTitle('')
     .setData(transformer)
     .setUnit('celsius')
-    .setOption('cellHeight', 'md')
+    .setOption('cellHeight', 'md' as any)
     .setOption('showHeader', true)
-    .setOverride({
-      matcher: { id: 'byName', options: 'Hostname' },
-      properties: [{ id: 'custom.filterable', value: true }],
+    .setOverrides((builder) => {
+      builder
+        .matchFieldsWithName('Hostname')
+        .overrideCustomFieldConfig('filterable', true);
     })
     .build();
 }
@@ -2656,4 +2658,3 @@ function getCoolingBudgetPanel() {
 // ============================================================================
 // ENVIRONMENTAL TAB - Complete implementation with all 8 rows
 // ============================================================================
-

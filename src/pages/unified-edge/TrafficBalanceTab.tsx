@@ -166,6 +166,7 @@ interface TrafficBalanceDetailsContainerState extends SceneObjectState {
 class TrafficBalanceDetailsContainer extends SceneObjectBase<TrafficBalanceDetailsContainerState> {
   public static Component = TrafficBalanceDetailsContainerRenderer;
 
+  // @ts-ignore
   protected _variableDependency = new VariableDependencyConfig(this, {
     variableNames: ['ChassisName'],
     onReferencedVariableValueChanged: () => {
@@ -184,10 +185,12 @@ class TrafficBalanceDetailsContainer extends SceneObjectBase<TrafficBalanceDetai
     });
   }
 
+  // @ts-ignore
   public activate() {
-    super.activate();
+    const result = super.activate();
     // Build panels when scene becomes active (when it has access to variables)
     this.rebuildBody();
+    return result;
   }
 
   public drillToChassis(chassisName: string) {
@@ -511,10 +514,10 @@ function createPanel189_LineChart(isDrilldown: boolean, chassisName?: string) {
     .setTitle(title)
     .setData(transformer)
     .setUnit('decbytes')
-    .setCustomFieldConfig('drawStyle', 'line')
+    .setCustomFieldConfig('drawStyle', 'line' as any)
     .setCustomFieldConfig('fillOpacity', 0)
     .setCustomFieldConfig('axisSoftMin', 0)
-    .setOption('tooltip', { mode: 'multi' })
+    .setOption('tooltip', { mode: 'multi' as any })
     .build();
 }
 
@@ -629,10 +632,10 @@ function createPanel190_LineChart(isDrilldown: boolean, chassisName?: string) {
     .setTitle(title)
     .setData(transformer)
     .setUnit('decbytes')
-    .setCustomFieldConfig('drawStyle', 'line')
+    .setCustomFieldConfig('drawStyle', 'line' as any)
     .setCustomFieldConfig('fillOpacity', 0)
     .setCustomFieldConfig('axisSoftMin', 0)
-    .setOption('tooltip', { mode: 'multi' })
+    .setOption('tooltip', { mode: 'multi' as any })
     .build();
 }
 
@@ -747,10 +750,10 @@ function createPanel191_LineChart(isDrilldown: boolean, chassisName?: string) {
     .setTitle(title)
     .setData(transformer)
     .setUnit('decbytes')
-    .setCustomFieldConfig('drawStyle', 'line')
+    .setCustomFieldConfig('drawStyle', 'line' as any)
     .setCustomFieldConfig('fillOpacity', 0)
     .setCustomFieldConfig('axisSoftMin', 0)
-    .setOption('tooltip', { mode: 'multi' })
+    .setOption('tooltip', { mode: 'multi' as any })
     .build();
 }
 
@@ -865,10 +868,10 @@ function createPanel192_LineChart(isDrilldown: boolean, chassisName?: string) {
     .setTitle(title)
     .setData(transformer)
     .setUnit('decbytes')
-    .setCustomFieldConfig('drawStyle', 'line')
+    .setCustomFieldConfig('drawStyle', 'line' as any)
     .setCustomFieldConfig('fillOpacity', 0)
     .setCustomFieldConfig('axisSoftMin', 0)
-    .setOption('tooltip', { mode: 'multi' })
+    .setOption('tooltip', { mode: 'multi' as any })
     .build();
 }
 
@@ -996,7 +999,7 @@ function createPanel189_Table(parent: TrafficBalanceDetailsContainer) {
     .setTitle('A: Eth uplink transmit utilization per chassis - Click row to drill down')
     .setData(transformer)
     .setUnit('decbytes')
-    .setOption('footer', {
+    .setOption('footer' as any, {
       enablePagination: true,
       show: false,
     })
@@ -1135,7 +1138,7 @@ function createPanel190_Table(parent: TrafficBalanceDetailsContainer) {
     .setTitle('B: Eth uplink transmit utilization per chassis - Click row to drill down')
     .setData(transformer)
     .setUnit('decbytes')
-    .setOption('footer', {
+    .setOption('footer' as any, {
       enablePagination: true,
       show: false,
     })
@@ -1274,7 +1277,7 @@ function createPanel191_Table(parent: TrafficBalanceDetailsContainer) {
     .setTitle('A: Eth uplink receive utilization per chassis - Click row to drill down')
     .setData(transformer)
     .setUnit('decbytes')
-    .setOption('footer', {
+    .setOption('footer' as any, {
       enablePagination: true,
       show: false,
     })
@@ -1413,7 +1416,7 @@ function createPanel192_Table(parent: TrafficBalanceDetailsContainer) {
     .setTitle('B: Eth uplink receive utilization per chassis - Click row to drill down')
     .setData(transformer)
     .setUnit('decbytes')
-    .setOption('footer', {
+    .setOption('footer' as any, {
       enablePagination: true,
       show: false,
     })
@@ -1577,13 +1580,13 @@ function getPanel185_EthTransmitTrafficA() {
     .setUnit('decbytes')
     .setDecimals(1)
     .setMin(0)
-    .setOption('graphMode', 'area')
-    .setOption('colorMode', 'none')
-    .setOption('textMode', 'auto')
-    .setOption('orientation', 'auto')
-    .setOption('justifyMode', 'auto')
+    .setOption('graphMode', 'area' as any)
+    .setOption('colorMode', 'none' as any)
+    .setOption('textMode', 'auto' as any)
+    .setOption('orientation', 'auto' as any)
+    .setOption('justifyMode', 'auto' as any)
     .setThresholds({
-      mode: 'percentage',
+      mode: 'percentage' as any as any,
       steps: [{ value: 0, color: 'purple' }],
     })
     .build();
@@ -1684,13 +1687,13 @@ function getPanel186_EthTransmitTrafficB() {
     .setUnit('decbytes')
     .setDecimals(1)
     .setMin(0)
-    .setOption('graphMode', 'area')
-    .setOption('colorMode', 'none')
-    .setOption('textMode', 'auto')
-    .setOption('orientation', 'auto')
-    .setOption('justifyMode', 'auto')
+    .setOption('graphMode', 'area' as any)
+    .setOption('colorMode', 'none' as any)
+    .setOption('textMode', 'auto' as any)
+    .setOption('orientation', 'auto' as any)
+    .setOption('justifyMode', 'auto' as any)
     .setThresholds({
-      mode: 'percentage',
+      mode: 'percentage' as any as any,
       steps: [{ value: 0, color: 'purple' }],
     })
     .build();
@@ -1791,13 +1794,13 @@ function getPanel187_EthReceiveTrafficA() {
     .setUnit('decbytes')
     .setDecimals(1)
     .setMin(0)
-    .setOption('graphMode', 'area')
-    .setOption('colorMode', 'none')
-    .setOption('textMode', 'auto')
-    .setOption('orientation', 'auto')
-    .setOption('justifyMode', 'auto')
+    .setOption('graphMode', 'area' as any)
+    .setOption('colorMode', 'none' as any)
+    .setOption('textMode', 'auto' as any)
+    .setOption('orientation', 'auto' as any)
+    .setOption('justifyMode', 'auto' as any)
     .setThresholds({
-      mode: 'percentage',
+      mode: 'percentage' as any as any,
       steps: [{ value: 0, color: 'blue' }],
     })
     .build();
@@ -1898,13 +1901,13 @@ function getPanel188_EthReceiveTrafficB() {
     .setUnit('decbytes')
     .setDecimals(1)
     .setMin(0)
-    .setOption('graphMode', 'area')
-    .setOption('colorMode', 'none')
-    .setOption('textMode', 'auto')
-    .setOption('orientation', 'auto')
-    .setOption('justifyMode', 'auto')
+    .setOption('graphMode', 'area' as any)
+    .setOption('colorMode', 'none' as any)
+    .setOption('textMode', 'auto' as any)
+    .setOption('orientation', 'auto' as any)
+    .setOption('justifyMode', 'auto' as any)
     .setThresholds({
-      mode: 'percentage',
+      mode: 'percentage' as any as any,
       steps: [{ value: 0, color: 'blue' }],
     })
     .build();

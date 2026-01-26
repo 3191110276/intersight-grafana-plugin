@@ -241,6 +241,7 @@ interface SynchronizedPowerConsumptionContainerState extends SceneObjectState {
 class SynchronizedPowerConsumptionContainer extends SceneObjectBase<SynchronizedPowerConsumptionContainerState> {
   public static Component = SynchronizedPowerConsumptionContainerRenderer;
 
+  // @ts-ignore
   protected _variableDependency = new VariableDependencyConfig(this, {
     variableNames: ['ChassisName'],
     onReferencedVariableValueChanged: () => {
@@ -259,10 +260,12 @@ class SynchronizedPowerConsumptionContainer extends SceneObjectBase<Synchronized
     });
   }
 
+  // @ts-ignore
   public activate() {
-    super.activate();
+    const result = super.activate();
     // Build panels when scene becomes active (when it has access to variables)
     this.rebuildPanels();
+    return result;
   }
 
   public drillToChassis(chassisName: string) {
@@ -512,10 +515,10 @@ function createChassisLineGraph(scene: SceneObjectBase, isDrilldown: boolean, ch
     .setTitle(title)
     .setData(transformer)
     .setUnit('watt')
-    .setCustomFieldConfig('drawStyle', 'line')
+    .setCustomFieldConfig('drawStyle', 'line' as any)
     .setCustomFieldConfig('fillOpacity', 0)
     .setCustomFieldConfig('axisSoftMin', 0)
-    .setOption('tooltip', { mode: 'multi' })
+    .setOption('tooltip', { mode: 'multi' as any })
     .build();
 }
 
@@ -645,7 +648,7 @@ function createChassisTable(scene: SceneObjectBase, parent: SynchronizedPowerCon
     .setTitle('Chassis Power Consumption (Max) - Click row to drill down')
     .setData(transformer)
     .setUnit('watt')
-    .setOption('footer', {
+    .setOption('footer' as any, {
       enablePagination: true,
       show: false,
     })
@@ -780,10 +783,10 @@ function createHostLineGraph(
     .setTitle(title)
     .setData(transformer)
     .setUnit('watt')
-    .setCustomFieldConfig('drawStyle', 'line')
+    .setCustomFieldConfig('drawStyle', 'line' as any)
     .setCustomFieldConfig('fillOpacity', 0)
     .setCustomFieldConfig('axisSoftMin', 0)
-    .setOption('tooltip', { mode: 'multi' })
+    .setOption('tooltip', { mode: 'multi' as any })
     .build();
 }
 
@@ -888,7 +891,7 @@ function createHostTable(scene: SceneObjectBase, parent: SynchronizedPowerConsum
     .setTitle('Host Power Consumption (Max) - Click row to drill down')
     .setData(transformer)
     .setUnit('watt')
-    .setOption('footer', {
+    .setOption('footer' as any, {
       enablePagination: true,
       show: false,
     })
@@ -1018,6 +1021,7 @@ interface DynamicChassisFanSpeedSceneState extends SceneObjectState {
 class DynamicChassisFanSpeedScene extends SceneObjectBase<DynamicChassisFanSpeedSceneState> {
   public static Component = DynamicChassisFanSpeedSceneRenderer;
 
+  // @ts-ignore
   protected _variableDependency = new VariableDependencyConfig(this, {
     variableNames: ['ChassisName'],
     onReferencedVariableValueChanged: () => {
@@ -1038,6 +1042,7 @@ class DynamicChassisFanSpeedScene extends SceneObjectBase<DynamicChassisFanSpeed
     });
   }
 
+  // @ts-ignore
   public activate() {
     const deactivate = super.activate();
     this.rebuildBody();
@@ -1127,8 +1132,8 @@ function createChassisFanSpeedLineChartView() {
     .setUnit('rotrpm')
     .setCustomFieldConfig('axisSoftMin', 0)
     .setOption('tooltip', {
-      mode: 'multi',
-      sort: 'desc',
+      mode: 'multi' as any,
+      sort: 'desc' as any,
     })
     .build();
 
@@ -1187,7 +1192,7 @@ function createChassisFanSpeedTableView(scene: DynamicChassisFanSpeedScene) {
     .setTitle('Fan speed per Chassis (Avg) - Click row to drill down')
     .setData(dataTransformer)
     .setUnit('rotrpm')
-    .setOption('footer', {
+    .setOption('footer' as any, {
       enablePagination: true,
       show: false,
     })
@@ -1199,7 +1204,7 @@ function createChassisFanSpeedTableView(scene: DynamicChassisFanSpeedScene) {
           mode: 'fixed',
         });
       builder
-        .matchFieldsByType('string')
+        .matchFieldsByType('string' as any)
         .overrideCustomFieldConfig('width', 240);
     })
     .build();
@@ -1255,8 +1260,8 @@ function createChassisFanSpeedDrilldownView(chassisName: string, scene: DynamicC
     .setUnit('rotrpm')
     .setCustomFieldConfig('axisSoftMin', 0)
     .setOption('tooltip', {
-      mode: 'multi',
-      sort: 'desc',
+      mode: 'multi' as any,
+      sort: 'desc' as any,
     })
     .build();
 
@@ -1470,6 +1475,7 @@ interface DynamicChassisTemperatureSceneState extends SceneObjectState {
 class DynamicChassisTemperatureScene extends SceneObjectBase<DynamicChassisTemperatureSceneState> {
   public static Component = DynamicChassisTemperatureSceneRenderer;
 
+  // @ts-ignore
   protected _variableDependency = new VariableDependencyConfig(this, {
     variableNames: ['ChassisName'],
     onReferencedVariableValueChanged: () => {
@@ -1490,6 +1496,7 @@ class DynamicChassisTemperatureScene extends SceneObjectBase<DynamicChassisTempe
     });
   }
 
+  // @ts-ignore
   public activate() {
     const deactivate = super.activate();
     this.rebuildBody();
@@ -1581,11 +1588,11 @@ function createChassisTemperatureLineChartView() {
     .setUnit('celsius')
     .setCustomFieldConfig('axisSoftMin', 0)
     .setOption('tooltip', {
-      mode: 'multi',
-      sort: 'desc',
+      mode: 'multi' as any,
+      sort: 'desc' as any,
     })
     .setThresholds({
-      mode: 'absolute',
+      mode: 'absolute' as any as any,
       steps: [
         { value: 0, color: 'transparent' },
         { value: 50, color: 'dark-yellow' },
@@ -1620,11 +1627,11 @@ function createChassisTemperatureLineChartView() {
     .setUnit('celsius')
     .setCustomFieldConfig('axisSoftMin', 0)
     .setOption('tooltip', {
-      mode: 'multi',
-      sort: 'desc',
+      mode: 'multi' as any,
+      sort: 'desc' as any,
     })
     .setThresholds({
-      mode: 'absolute',
+      mode: 'absolute' as any as any,
       steps: [
         { value: 0, color: 'transparent' },
         { value: 90, color: 'dark-yellow' },
@@ -1701,13 +1708,13 @@ function createChassisTemperatureTableView(scene: DynamicChassisTemperatureScene
     .setTitle('Chassis Temperature (Avg) - Click row to drill down')
     .setData(dataTransformer)
     .setUnit('celsius')
-    .setOption('footer', {
+    .setOption('footer' as any, {
       enablePagination: true,
       show: false,
     })
-    .setOption('cellHeight', 'md')
+    .setOption('cellHeight', 'md' as any)
     .setThresholds({
-      mode: 'absolute',
+      mode: 'absolute' as any as any,
       steps: [
         { value: 0, color: 'transparent' },
         { value: 50, color: 'dark-yellow' },
@@ -1782,11 +1789,11 @@ function createChassisTemperatureDrilldownView(chassisName: string, scene: Dynam
     .setUnit('celsius')
     .setCustomFieldConfig('axisSoftMin', 0)
     .setOption('tooltip', {
-      mode: 'multi',
-      sort: 'desc',
+      mode: 'multi' as any,
+      sort: 'desc' as any,
     })
     .setThresholds({
-      mode: 'absolute',
+      mode: 'absolute' as any as any,
       steps: [
         { value: 0, color: 'transparent' },
         { value: 50, color: 'dark-yellow' },
@@ -1820,11 +1827,11 @@ function createChassisTemperatureDrilldownView(chassisName: string, scene: Dynam
     .setUnit('celsius')
     .setCustomFieldConfig('axisSoftMin', 0)
     .setOption('tooltip', {
-      mode: 'multi',
-      sort: 'desc',
+      mode: 'multi' as any,
+      sort: 'desc' as any,
     })
     .setThresholds({
-      mode: 'absolute',
+      mode: 'absolute' as any as any,
       steps: [
         { value: 0, color: 'transparent' },
         { value: 90, color: 'dark-yellow' },
@@ -2101,6 +2108,7 @@ interface DynamicHostTemperatureSceneState extends SceneObjectState {
 class DynamicHostTemperatureScene extends SceneObjectBase<DynamicHostTemperatureSceneState> {
   public static Component = DynamicHostTemperatureSceneRenderer;
 
+  // @ts-ignore
   protected _variableDependency = new VariableDependencyConfig(this, {
     variableNames: ['ChassisName'],
     onReferencedVariableValueChanged: () => {
@@ -2120,6 +2128,7 @@ class DynamicHostTemperatureScene extends SceneObjectBase<DynamicHostTemperature
     });
   }
 
+  // @ts-ignore
   public activate() {
     const deactivate = super.activate();
     this.rebuildBody();
@@ -2210,11 +2219,11 @@ function createHostTemperatureLineChartView() {
     .setUnit('celsius')
     .setCustomFieldConfig('axisSoftMin', 0)
     .setOption('tooltip', {
-      mode: 'multi',
-      sort: 'desc',
+      mode: 'multi' as any,
+      sort: 'desc' as any,
     })
     .setThresholds({
-      mode: 'absolute',
+      mode: 'absolute' as any as any,
       steps: [
         { value: 0, color: 'transparent' },
         { value: 50, color: 'dark-yellow' },
@@ -2248,11 +2257,11 @@ function createHostTemperatureLineChartView() {
     .setUnit('celsius')
     .setCustomFieldConfig('axisSoftMin', 0)
     .setOption('tooltip', {
-      mode: 'multi',
-      sort: 'desc',
+      mode: 'multi' as any,
+      sort: 'desc' as any,
     })
     .setThresholds({
-      mode: 'absolute',
+      mode: 'absolute' as any as any,
       steps: [
         { value: 0, color: 'transparent' },
         { value: 70, color: 'dark-yellow' },
@@ -2286,11 +2295,11 @@ function createHostTemperatureLineChartView() {
     .setUnit('celsius')
     .setCustomFieldConfig('axisSoftMin', 0)
     .setOption('tooltip', {
-      mode: 'multi',
-      sort: 'desc',
+      mode: 'multi' as any,
+      sort: 'desc' as any,
     })
     .setThresholds({
-      mode: 'absolute',
+      mode: 'absolute' as any as any,
       steps: [
         { value: 0, color: 'transparent' },
         { value: 90, color: 'dark-yellow' },
@@ -2422,11 +2431,11 @@ function createHostTemperatureDrilldownView(hostName: string, scene: DynamicHost
     .setUnit('celsius')
     .setCustomFieldConfig('axisSoftMin', 0)
     .setOption('tooltip', {
-      mode: 'multi',
-      sort: 'desc',
+      mode: 'multi' as any,
+      sort: 'desc' as any,
     })
     .setThresholds({
-      mode: 'absolute',
+      mode: 'absolute' as any as any,
       steps: [
         { value: 0, color: 'transparent' },
         { value: 50, color: 'dark-yellow' },
@@ -2460,11 +2469,11 @@ function createHostTemperatureDrilldownView(hostName: string, scene: DynamicHost
     .setUnit('celsius')
     .setCustomFieldConfig('axisSoftMin', 0)
     .setOption('tooltip', {
-      mode: 'multi',
-      sort: 'desc',
+      mode: 'multi' as any,
+      sort: 'desc' as any,
     })
     .setThresholds({
-      mode: 'absolute',
+      mode: 'absolute' as any as any,
       steps: [
         { value: 0, color: 'transparent' },
         { value: 70, color: 'dark-yellow' },
@@ -2498,11 +2507,11 @@ function createHostTemperatureDrilldownView(hostName: string, scene: DynamicHost
     .setUnit('celsius')
     .setCustomFieldConfig('axisSoftMin', 0)
     .setOption('tooltip', {
-      mode: 'multi',
-      sort: 'desc',
+      mode: 'multi' as any,
+      sort: 'desc' as any,
     })
     .setThresholds({
-      mode: 'absolute',
+      mode: 'absolute' as any as any,
       steps: [
         { value: 0, color: 'transparent' },
         { value: 90, color: 'dark-yellow' },
@@ -2653,22 +2662,22 @@ function createEnvironmentalTabContent() {
     .setTitle('Active PSUs per device')
     .setDescription('Displays the count of active power supplies- one color per device. Maximum count of power supplies is used as threshold. Adding or removing devices can skew the threshold.')
     .setData(powerSupplyDataTransformer)
-    .setCustomFieldConfig('drawStyle', 'bars')
+    .setCustomFieldConfig('drawStyle', 'bars' as any)
     .setCustomFieldConfig('fillOpacity', 100)
     .setCustomFieldConfig('barAlignment', 0)
     .setCustomFieldConfig('barWidthFactor', 1)
-    .setCustomFieldConfig('stacking', { mode: 'normal', group: 'A' })
-    .setCustomFieldConfig('thresholdsStyle', { mode: 'dashed+area' })
+    .setCustomFieldConfig('stacking', { mode: 'normal' as any, group: 'A' })
+    .setCustomFieldConfig('thresholdsStyle', { mode: 'dashed+area' as any })
     .setCustomFieldConfig('axisSoftMin', 0)
     .setDecimals(0)
     .setThresholds({
-      mode: 'percentage',
+      mode: 'percentage' as any as any,
       steps: [
         { value: 0, color: 'semi-dark-red' },
         { value: 100, color: 'transparent' },
       ],
     })
-    .setOption('tooltip', { mode: 'multi' })
+    .setOption('tooltip', { mode: 'multi' as any })
     .build();
 
   const powerSupplyRow = new SceneGridRow({
@@ -2791,6 +2800,7 @@ interface DynamicEnvironmentalSceneState extends SceneObjectState {
 class DynamicEnvironmentalScene extends SceneObjectBase<DynamicEnvironmentalSceneState> {
   public static Component = DynamicEnvironmentalSceneRenderer;
 
+  // @ts-ignore
   protected _variableDependency = new VariableDependencyConfig(this, {
     variableNames: ['ChassisName'],
     onReferencedVariableValueChanged: () => {
@@ -2807,6 +2817,7 @@ class DynamicEnvironmentalScene extends SceneObjectBase<DynamicEnvironmentalScen
     });
   }
 
+  // @ts-ignore
   public activate() {
     const deactivate = super.activate();
     this.rebuildBody();

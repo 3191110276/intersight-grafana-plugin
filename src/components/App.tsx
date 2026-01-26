@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import React, { useMemo } from 'react';
 import { BrowserRouter } from 'react-router-dom';
 import { AppRootProps } from '@grafana/data';

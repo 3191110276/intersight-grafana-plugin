@@ -155,6 +155,7 @@ interface DynamicPowerConsumptionSceneState extends SceneObjectState {
 class DynamicPowerConsumptionScene extends SceneObjectBase<DynamicPowerConsumptionSceneState> {
   public static Component = DynamicPowerConsumptionSceneRenderer;
 
+  // @ts-ignore
   protected _variableDependency = new VariableDependencyConfig(this, {
     variableNames: ['ServerName'],
     onReferencedVariableValueChanged: () => {
@@ -172,6 +173,7 @@ class DynamicPowerConsumptionScene extends SceneObjectBase<DynamicPowerConsumpti
     });
   }
 
+  // @ts-ignore
   public activate() {
     const deactivate = super.activate();
     this.rebuildBody();
@@ -238,6 +240,7 @@ class DynamicPowerConsumptionScene extends SceneObjectBase<DynamicPowerConsumpti
 
   private getVariable(name: string): any {
     // Use sceneGraph to lookup variable in parent scope
+    // @ts-ignore
     return sceneGraph.lookupVariable(name, this);
   }
 }
@@ -898,16 +901,16 @@ function createEnvironmentalTabContent() {
     .setTitle('Active PSUs per device')
     .setDescription('Displays the count of active power supplies- one color per device. Maximum count of power supplies is used as threshold. Adding or removing devices can skew the threshold.')
     .setData(powerSupplyDataTransformer)
-    .setCustomFieldConfig('drawStyle', 'bars')
+    .setCustomFieldConfig('drawStyle', 'bars' as any)
     .setCustomFieldConfig('fillOpacity', 100)
     .setCustomFieldConfig('barAlignment', 0)
     .setCustomFieldConfig('barWidthFactor', 1)
-    .setCustomFieldConfig('stacking', { mode: 'normal', group: 'A' })
-    .setCustomFieldConfig('thresholdsStyle', { mode: 'dashed+area' })
+    .setCustomFieldConfig('stacking', { mode: 'normal' as any, group: 'A' })
+    .setCustomFieldConfig('thresholdsStyle', { mode: 'dashed+area' as any })
     .setCustomFieldConfig('axisSoftMin', 0)
     .setDecimals(0)
     .setThresholds({
-      mode: 'percentage',
+      mode: 'percentage' as any as any,
       steps: [
         { value: 0, color: 'semi-dark-red' },
         { value: 100, color: 'transparent' },
@@ -1016,6 +1019,7 @@ interface DynamicEnvironmentalSceneState extends SceneObjectState {
 class DynamicEnvironmentalScene extends SceneObjectBase<DynamicEnvironmentalSceneState> {
   public static Component = DynamicEnvironmentalSceneRenderer;
 
+  // @ts-ignore
   protected _variableDependency = new VariableDependencyConfig(this, {
     variableNames: ['ServerName'],
     onReferencedVariableValueChanged: () => {
@@ -1032,6 +1036,7 @@ class DynamicEnvironmentalScene extends SceneObjectBase<DynamicEnvironmentalScen
     });
   }
 
+  // @ts-ignore
   public activate() {
     const deactivate = super.activate();
     this.rebuildBody();
@@ -1167,6 +1172,7 @@ interface DynamicFanSpeedSceneState extends SceneObjectState {
 class DynamicFanSpeedScene extends SceneObjectBase<DynamicFanSpeedSceneState> {
   public static Component = DynamicFanSpeedSceneRenderer;
 
+  // @ts-ignore
   protected _variableDependency = new VariableDependencyConfig(this, {
     variableNames: ['ServerName'],
     onReferencedVariableValueChanged: () => {
@@ -1183,6 +1189,7 @@ class DynamicFanSpeedScene extends SceneObjectBase<DynamicFanSpeedSceneState> {
     });
   }
 
+  // @ts-ignore
   public activate() {
     const deactivate = super.activate();
     this.rebuildBody();
@@ -1239,6 +1246,7 @@ class DynamicFanSpeedScene extends SceneObjectBase<DynamicFanSpeedSceneState> {
   }
 
   private getVariable(name: string): any {
+    // @ts-ignore
     return sceneGraph.lookupVariable(name, this);
   }
 }
@@ -1278,8 +1286,8 @@ function createFanSpeedLineChartView() {
     .setUnit('rotrpm')
     .setCustomFieldConfig('axisSoftMin', 0)
     .setOption('tooltip', {
-      mode: 'multi',
-      sort: 'desc',
+      mode: 'multi' as any,
+      sort: 'desc' as any,
     })
     .build();
 
@@ -1335,7 +1343,7 @@ function createFanSpeedTableView(scene: DynamicFanSpeedScene) {
     .setTitle('Fan speed per Host (Avg) - Click row to drill down')
     .setData(dataTransformer)
     .setUnit('rotrpm')
-    .setOption('cellHeight', 'lg')
+    .setOption('cellHeight', 'lg' as any)
     .setOverrides((builder) => {
       builder
         .matchFieldsWithName('Fan Speed')
@@ -1344,7 +1352,7 @@ function createFanSpeedTableView(scene: DynamicFanSpeedScene) {
           mode: 'fixed',
         });
       builder
-        .matchFieldsByType('string')
+        .matchFieldsByType('string' as any)
         .overrideCustomFieldConfig('width', 240);
     })
     .build();
@@ -1400,8 +1408,8 @@ function createFanSpeedDrilldownView(serverName: string, scene: DynamicFanSpeedS
     .setUnit('rotrpm')
     .setCustomFieldConfig('axisSoftMin', 0)
     .setOption('tooltip', {
-      mode: 'multi',
-      sort: 'desc',
+      mode: 'multi' as any,
+      sort: 'desc' as any,
     })
     .build();
 
@@ -1636,6 +1644,7 @@ interface DynamicTemperatureSceneState extends SceneObjectState {
 class DynamicTemperatureScene extends SceneObjectBase<DynamicTemperatureSceneState> {
   public static Component = DynamicTemperatureSceneRenderer;
 
+  // @ts-ignore
   protected _variableDependency = new VariableDependencyConfig(this, {
     variableNames: ['ServerName'],
     onReferencedVariableValueChanged: () => {
@@ -1652,6 +1661,7 @@ class DynamicTemperatureScene extends SceneObjectBase<DynamicTemperatureSceneSta
     });
   }
 
+  // @ts-ignore
   public activate() {
     const deactivate = super.activate();
     this.rebuildBody();
@@ -1708,6 +1718,7 @@ class DynamicTemperatureScene extends SceneObjectBase<DynamicTemperatureSceneSta
   }
 
   private getVariable(name: string): any {
+    // @ts-ignore
     return sceneGraph.lookupVariable(name, this);
   }
 }
@@ -1757,8 +1768,8 @@ function createTemperatureTimeseriesView() {
         .overrideColor({ fixedColor: 'semi-dark-red', mode: 'fixed' });
     })
     .setOption('tooltip', {
-      mode: 'multi',
-      sort: 'desc',
+      mode: 'multi' as any,
+      sort: 'desc' as any,
     })
     .build();
 
@@ -1819,7 +1830,7 @@ function createTemperatureTableView(scene: DynamicTemperatureScene) {
   const tablePanel = PanelBuilders.table()
     .setTitle('Host Temperature Details - Click row to drill down')
     .setData(dataTransformer)
-    .setOption('cellHeight', 'lg')
+    .setOption('cellHeight', 'lg' as any)
     .setOverrides((builder) => {
       builder.matchFieldsWithNameByRegex('/Temperature|Processor/')
         .overrideUnit('celsius')
@@ -1891,8 +1902,8 @@ function createTemperatureDrilldownView(serverName: string, scene: DynamicTemper
         .overrideColor({ fixedColor: 'semi-dark-red', mode: 'fixed' });
     })
     .setOption('tooltip', {
-      mode: 'multi',
-      sort: 'desc',
+      mode: 'multi' as any,
+      sort: 'desc' as any,
     })
     .build();
 
@@ -1912,4 +1923,3 @@ function createTemperatureDrilldownView(serverName: string, scene: DynamicTemper
 export function getTemperatureTab() {
   return new DynamicTemperatureScene({});
 }
-

@@ -123,15 +123,15 @@ function getFabricInterconnectAPanel(domainName?: string) {
     .setTitle('FI-A')
     .setData(transformedData)
     .setOption('showHeader', true)
-    .setOption('cellHeight', 'sm')
+    .setOption('cellHeight', 'sm' as any)
     .setOverrides((builder) => {
       // Critical column
       builder.matchFieldsWithName('Critical')
         .overrideCustomFieldConfig('width', 75)
         .overrideCustomFieldConfig('align', 'center')
-        .overrideCustomFieldConfig('cellOptions', { type: 'color-background', mode: 'basic' })
+        .overrideCustomFieldConfig('cellOptions', { type: 'color-background' as any, mode: 'basic' as any })
         .overrideThresholds({
-          mode: 'absolute',
+          mode: 'absolute' as any,
           steps: [
             { value: -Infinity, color: 'transparent' },
             { value: 1, color: 'semi-dark-red' },
@@ -142,9 +142,9 @@ function getFabricInterconnectAPanel(domainName?: string) {
       builder.matchFieldsWithName('Warning')
         .overrideCustomFieldConfig('width', 75)
         .overrideCustomFieldConfig('align', 'center')
-        .overrideCustomFieldConfig('cellOptions', { type: 'color-background', mode: 'basic' })
+        .overrideCustomFieldConfig('cellOptions', { type: 'color-background' as any, mode: 'basic' as any })
         .overrideThresholds({
-          mode: 'absolute',
+          mode: 'absolute' as any,
           steps: [
             { value: -Infinity, color: 'transparent' },
             { value: 1, color: 'semi-dark-yellow' },
@@ -155,30 +155,30 @@ function getFabricInterconnectAPanel(domainName?: string) {
       builder.matchFieldsWithName('ISL State')
         .overrideCustomFieldConfig('width', 80)
         .overrideCustomFieldConfig('align', 'center')
-        .overrideCustomFieldConfig('cellOptions', { type: 'color-background', mode: 'basic' })
+        .overrideCustomFieldConfig('cellOptions', { type: 'color-background' as any, mode: 'basic' as any })
         .overrideMappings([
-          { type: 'value', options: { Up: { color: 'transparent', index: 0, text: 'Up' } } },
-          { type: 'regex', options: { pattern: '.*', result: { color: 'semi-dark-red', index: 1, text: 'Down' } } },
+          { type: 'value' as any, options: { Up: { color: 'transparent', index: 0, text: 'Up' } } },
+          { type: 'regex' as any, options: { pattern: '.*', result: { color: 'semi-dark-red', index: 1, text: 'Down' } } },
         ]);
 
       // Thermal column
       builder.matchFieldsWithName('Thermal')
         .overrideCustomFieldConfig('width', 70)
         .overrideCustomFieldConfig('align', 'center')
-        .overrideCustomFieldConfig('cellOptions', { type: 'color-background', mode: 'basic' })
+        .overrideCustomFieldConfig('cellOptions', { type: 'color-background' as any, mode: 'basic' as any })
         .overrideMappings([
-          { type: 'value', options: { ok: { color: 'transparent', index: 0, text: 'Ok' } } },
-          { type: 'regex', options: { pattern: '.*', result: { color: 'semi-dark-red', index: 1 } } },
+          { type: 'value' as any, options: { ok: { color: 'transparent', index: 0, text: 'Ok' } } },
+          { type: 'regex' as any, options: { pattern: '.*', result: { color: 'semi-dark-red', index: 1 } } },
         ]);
 
       // Evacuation column
       builder.matchFieldsWithName('Evacuation')
         .overrideCustomFieldConfig('width', 100)
         .overrideCustomFieldConfig('align', 'center')
-        .overrideCustomFieldConfig('cellOptions', { type: 'color-background', mode: 'basic' })
+        .overrideCustomFieldConfig('cellOptions', { type: 'color-background' as any, mode: 'basic' as any })
         .overrideMappings([
-          { type: 'value', options: { 'disabled/disabled': { color: 'transparent', index: 0, text: 'Disabled' } } },
-          { type: 'regex', options: { pattern: '.*', result: { color: 'semi-dark-yellow', index: 1, text: 'Active' } } },
+          { type: 'value' as any, options: { 'disabled/disabled': { color: 'transparent', index: 0, text: 'Disabled' } } },
+          { type: 'regex' as any, options: { pattern: '.*', result: { color: 'semi-dark-yellow', index: 1, text: 'Active' } } },
         ]);
     })
     .build();
@@ -283,15 +283,15 @@ function getFabricInterconnectBPanel(domainName?: string) {
     .setTitle('FI-B')
     .setData(transformedData)
     .setOption('showHeader', true)
-    .setOption('cellHeight', 'sm')
+    .setOption('cellHeight', 'sm' as any)
     .setOverrides((builder) => {
       // Critical column
       builder.matchFieldsWithName('Critical')
         .overrideCustomFieldConfig('width', 75)
         .overrideCustomFieldConfig('align', 'center')
-        .overrideCustomFieldConfig('cellOptions', { type: 'color-background', mode: 'basic' })
+        .overrideCustomFieldConfig('cellOptions', { type: 'color-background' as any, mode: 'basic' as any })
         .overrideThresholds({
-          mode: 'absolute',
+          mode: 'absolute' as any,
           steps: [
             { value: -Infinity, color: 'transparent' },
             { value: 1, color: 'semi-dark-red' },
@@ -302,9 +302,9 @@ function getFabricInterconnectBPanel(domainName?: string) {
       builder.matchFieldsWithName('Warning')
         .overrideCustomFieldConfig('width', 75)
         .overrideCustomFieldConfig('align', 'center')
-        .overrideCustomFieldConfig('cellOptions', { type: 'color-background', mode: 'basic' })
+        .overrideCustomFieldConfig('cellOptions', { type: 'color-background' as any, mode: 'basic' as any })
         .overrideThresholds({
-          mode: 'absolute',
+          mode: 'absolute' as any,
           steps: [
             { value: -Infinity, color: 'transparent' },
             { value: 1, color: 'semi-dark-yellow' },
@@ -315,30 +315,30 @@ function getFabricInterconnectBPanel(domainName?: string) {
       builder.matchFieldsWithName('ISL State')
         .overrideCustomFieldConfig('width', 80)
         .overrideCustomFieldConfig('align', 'center')
-        .overrideCustomFieldConfig('cellOptions', { type: 'color-background', mode: 'basic' })
+        .overrideCustomFieldConfig('cellOptions', { type: 'color-background' as any, mode: 'basic' as any })
         .overrideMappings([
-          { type: 'value', options: { Up: { color: 'transparent', index: 0, text: 'Up' } } },
-          { type: 'regex', options: { pattern: '.*', result: { color: 'semi-dark-red', index: 1, text: 'Down' } } },
+          { type: 'value' as any, options: { Up: { color: 'transparent', index: 0, text: 'Up' } } },
+          { type: 'regex' as any, options: { pattern: '.*', result: { color: 'semi-dark-red', index: 1, text: 'Down' } } },
         ]);
 
       // Thermal column
       builder.matchFieldsWithName('Thermal')
         .overrideCustomFieldConfig('width', 70)
         .overrideCustomFieldConfig('align', 'center')
-        .overrideCustomFieldConfig('cellOptions', { type: 'color-background', mode: 'basic' })
+        .overrideCustomFieldConfig('cellOptions', { type: 'color-background' as any, mode: 'basic' as any })
         .overrideMappings([
-          { type: 'value', options: { ok: { color: 'transparent', index: 0, text: 'Ok' } } },
-          { type: 'regex', options: { pattern: '.*', result: { color: 'semi-dark-red', index: 1 } } },
+          { type: 'value' as any, options: { ok: { color: 'transparent', index: 0, text: 'Ok' } } },
+          { type: 'regex' as any, options: { pattern: '.*', result: { color: 'semi-dark-red', index: 1 } } },
         ]);
 
       // Evacuation column
       builder.matchFieldsWithName('Evacuation')
         .overrideCustomFieldConfig('width', 100)
         .overrideCustomFieldConfig('align', 'center')
-        .overrideCustomFieldConfig('cellOptions', { type: 'color-background', mode: 'basic' })
+        .overrideCustomFieldConfig('cellOptions', { type: 'color-background' as any, mode: 'basic' as any })
         .overrideMappings([
-          { type: 'value', options: { 'disabled/disabled': { color: 'transparent', index: 0, text: 'Disabled' } } },
-          { type: 'regex', options: { pattern: '.*', result: { color: 'semi-dark-yellow', index: 1, text: 'Active' } } },
+          { type: 'value' as any, options: { 'disabled/disabled': { color: 'transparent', index: 0, text: 'Disabled' } } },
+          { type: 'regex' as any, options: { pattern: '.*', result: { color: 'semi-dark-yellow', index: 1, text: 'Active' } } },
         ]);
     })
     .build();
@@ -451,7 +451,7 @@ function getChassisInventoryPanel(domainName?: string) {
     .setTitle('Chassis')
     .setData(transformedData)
     .setOption('showHeader', true)
-    .setOption('cellHeight', 'sm')
+    .setOption('cellHeight', 'sm' as any)
     .setOverrides((builder) => {
       // ID column
       builder.matchFieldsWithName('ID')
@@ -462,9 +462,9 @@ function getChassisInventoryPanel(domainName?: string) {
       builder.matchFieldsWithName('Critical')
         .overrideCustomFieldConfig('width', 75)
         .overrideCustomFieldConfig('align', 'center')
-        .overrideCustomFieldConfig('cellOptions', { type: 'color-background' })
+        .overrideCustomFieldConfig('cellOptions', { type: 'color-background' as any })
         .overrideThresholds({
-          mode: 'absolute',
+          mode: 'absolute' as any,
           steps: [
             { value: -Infinity, color: 'transparent' },
             { value: 1, color: 'semi-dark-red' },
@@ -475,9 +475,9 @@ function getChassisInventoryPanel(domainName?: string) {
       builder.matchFieldsWithName('Warning')
         .overrideCustomFieldConfig('width', 75)
         .overrideCustomFieldConfig('align', 'center')
-        .overrideCustomFieldConfig('cellOptions', { type: 'color-background', mode: 'basic' })
+        .overrideCustomFieldConfig('cellOptions', { type: 'color-background' as any, mode: 'basic' as any })
         .overrideThresholds({
-          mode: 'absolute',
+          mode: 'absolute' as any,
           steps: [
             { value: -Infinity, color: 'transparent' },
             { value: 1, color: 'semi-dark-yellow' },
@@ -488,39 +488,39 @@ function getChassisInventoryPanel(domainName?: string) {
       builder.matchFieldsWithName('Connection')
         .overrideCustomFieldConfig('width', 95)
         .overrideCustomFieldConfig('align', 'center')
-        .overrideCustomFieldConfig('cellOptions', { type: 'color-background', mode: 'basic' })
+        .overrideCustomFieldConfig('cellOptions', { type: 'color-background' as any, mode: 'basic' as any })
         .overrideMappings([
-          { type: 'value', options: { 'A,B': { color: 'transparent', index: 0, text: 'A + B' } } },
-          { type: 'regex', options: { pattern: '.*', result: { color: 'semi-dark-red', index: 1 } } },
+          { type: 'value' as any, options: { 'A,B': { color: 'transparent', index: 0, text: 'A + B' } } },
+          { type: 'regex' as any, options: { pattern: '.*', result: { color: 'semi-dark-red', index: 1 } } },
         ]);
 
       // Locator LED column
       builder.matchFieldsWithName('Locator LED')
         .overrideCustomFieldConfig('width', 100)
         .overrideCustomFieldConfig('align', 'center')
-        .overrideCustomFieldConfig('cellOptions', { type: 'color-background', mode: 'basic' })
+        .overrideCustomFieldConfig('cellOptions', { type: 'color-background' as any, mode: 'basic' as any })
         .overrideMappings([
-          { type: 'value', options: { off: { color: 'transparent', index: 0, text: 'Off' }, on: { color: 'blue', index: 1, text: 'On' } } },
+          { type: 'value' as any, options: { off: { color: 'transparent', index: 0, text: 'Off' }, on: { color: 'blue', index: 1, text: 'On' } } },
         ]);
 
       // State column
       builder.matchFieldsWithName('State')
         .overrideCustomFieldConfig('width', 55)
         .overrideCustomFieldConfig('align', 'center')
-        .overrideCustomFieldConfig('cellOptions', { type: 'color-background', mode: 'basic' })
+        .overrideCustomFieldConfig('cellOptions', { type: 'color-background' as any, mode: 'basic' as any })
         .overrideMappings([
-          { type: 'value', options: { OK: { color: 'transparent', index: 0, text: 'Ok' } } },
-          { type: 'regex', options: { pattern: '.*', result: { color: 'semi-dark-red', index: 1, text: 'Error' } } },
+          { type: 'value' as any, options: { OK: { color: 'transparent', index: 0, text: 'Ok' } } },
+          { type: 'regex' as any, options: { pattern: '.*', result: { color: 'semi-dark-red', index: 1, text: 'Error' } } },
         ]);
 
       // PSU State column
       builder.matchFieldsWithName('PSU State')
         .overrideCustomFieldConfig('width', 90)
         .overrideCustomFieldConfig('align', 'center')
-        .overrideCustomFieldConfig('cellOptions', { type: 'color-background', mode: 'basic' })
+        .overrideCustomFieldConfig('cellOptions', { type: 'color-background' as any, mode: 'basic' as any })
         .overrideMappings([
-          { type: 'value', options: { OK: { color: 'transparent', index: 0, text: 'Ok' } } },
-          { type: 'regex', options: { pattern: '.*', result: { color: 'semi-dark-red', index: 1, text: 'Error' } } },
+          { type: 'value' as any, options: { OK: { color: 'transparent', index: 0, text: 'Ok' } } },
+          { type: 'regex' as any, options: { pattern: '.*', result: { color: 'semi-dark-red', index: 1, text: 'Error' } } },
         ]);
 
       // Redundancy column
@@ -690,7 +690,7 @@ function getServerInventoryPanel(domainName?: string) {
     .setTitle('Server')
     .setData(transformedData)
     .setOption('showHeader', true)
-    .setOption('cellHeight', 'sm')
+    .setOption('cellHeight', 'sm' as any)
     .setOption('sortBy', [{ displayName: 'ID', desc: false }])
     .setOverrides((builder) => {
       // ID column
@@ -698,17 +698,17 @@ function getServerInventoryPanel(domainName?: string) {
         .overrideCustomFieldConfig('width', 50)
         .overrideCustomFieldConfig('align', 'center')
         .overrideMappings([
-          { type: 'regex', options: { pattern: '.*0#(.*)', result: { index: 0, text: '$1' } } },
-          { type: 'regex', options: { pattern: '(.*)#0', result: { index: 1, text: '$1' } } },
+          { type: 'regex' as any, options: { pattern: '.*0#(.*)', result: { index: 0, text: '$1' } } },
+          { type: 'regex' as any, options: { pattern: '(.*)#0', result: { index: 1, text: '$1' } } },
         ]);
 
       // Critical column
       builder.matchFieldsWithName('Critical')
         .overrideCustomFieldConfig('width', 75)
         .overrideCustomFieldConfig('align', 'center')
-        .overrideCustomFieldConfig('cellOptions', { type: 'color-background', mode: 'basic' })
+        .overrideCustomFieldConfig('cellOptions', { type: 'color-background' as any, mode: 'basic' as any })
         .overrideThresholds({
-          mode: 'absolute',
+          mode: 'absolute' as any,
           steps: [
             { value: -Infinity, color: 'transparent' },
             { value: 1, color: 'semi-dark-red' },
@@ -719,9 +719,9 @@ function getServerInventoryPanel(domainName?: string) {
       builder.matchFieldsWithName('Warning')
         .overrideCustomFieldConfig('width', 75)
         .overrideCustomFieldConfig('align', 'center')
-        .overrideCustomFieldConfig('cellOptions', { type: 'color-background', mode: 'basic' })
+        .overrideCustomFieldConfig('cellOptions', { type: 'color-background' as any, mode: 'basic' as any })
         .overrideThresholds({
-          mode: 'absolute',
+          mode: 'absolute' as any,
           steps: [
             { value: -Infinity, color: 'transparent' },
             { value: 1, color: 'semi-dark-yellow' },
@@ -732,20 +732,20 @@ function getServerInventoryPanel(domainName?: string) {
       builder.matchFieldsWithName('Power')
         .overrideCustomFieldConfig('width', 60)
         .overrideCustomFieldConfig('align', 'center')
-        .overrideCustomFieldConfig('cellOptions', { type: 'color-background', mode: 'basic' })
+        .overrideCustomFieldConfig('cellOptions', { type: 'color-background' as any, mode: 'basic' as any })
         .overrideMappings([
-          { type: 'value', options: { 'on#true': { color: 'transparent', index: 0, text: 'On' }, 'on#false': { color: 'semi-dark-yellow', index: 1, text: 'On (BIOS Post incomplete)' } } },
-          { type: 'regex', options: { pattern: '.*', result: { color: 'semi-dark-red', index: 2, text: 'Off' } } },
+          { type: 'value' as any, options: { 'on#true': { color: 'transparent', index: 0, text: 'On' }, 'on#false': { color: 'semi-dark-yellow', index: 1, text: 'On (BIOS Post incomplete)' } } },
+          { type: 'regex' as any, options: { pattern: '.*', result: { color: 'semi-dark-red', index: 2, text: 'Off' } } },
         ]);
 
       // State column
       builder.matchFieldsWithName('State')
         .overrideCustomFieldConfig('width', 115)
         .overrideCustomFieldConfig('align', 'center')
-        .overrideCustomFieldConfig('cellOptions', { type: 'color-background', mode: 'basic' })
+        .overrideCustomFieldConfig('cellOptions', { type: 'color-background' as any, mode: 'basic' as any })
         .overrideMappings([
-          { type: 'value', options: { 'Enabled#Active': { color: 'transparent', index: 0, text: 'Ok' }, 'equipped#Active': { color: 'transparent', index: 1, text: 'Ok' }, 'equipped#DiscoveryFailed': { color: 'semi-dark-red', index: 2, text: 'Discovery Failed' } } },
-          { type: 'regex', options: { pattern: '.*', result: { color: 'semi-dark-red', index: 3, text: 'Presence or Lifecycle not ok' } } },
+          { type: 'value' as any, options: { 'Enabled#Active': { color: 'transparent', index: 0, text: 'Ok' }, 'equipped#Active': { color: 'transparent', index: 1, text: 'Ok' }, 'equipped#DiscoveryFailed': { color: 'semi-dark-red', index: 2, text: 'Discovery Failed' } } },
+          { type: 'regex' as any, options: { pattern: '.*', result: { color: 'semi-dark-red', index: 3, text: 'Presence or Lifecycle not ok' } } },
         ]);
 
       // CPU column
@@ -782,7 +782,7 @@ function getServerInventoryPanel(domainName?: string) {
         .overrideCustomFieldConfig('width', 80)
         .overrideCustomFieldConfig('align', 'left')
         .overrideMappings([
-          { type: 'value', options: { IMCBlade: { index: 0, text: 'Blade' }, IMCRack: { index: 1, text: 'Rack' } } },
+          { type: 'value' as any, options: { IMCBlade: { index: 0, text: 'Blade' }, IMCRack: { index: 1, text: 'Rack' } } },
         ]);
     })
     .build();
@@ -805,6 +805,7 @@ interface DynamicInventorySceneState extends SceneObjectState {
 class DynamicInventoryScene extends SceneObjectBase<DynamicInventorySceneState> {
   public static Component = DynamicInventorySceneRenderer;
 
+  // @ts-ignore
   protected _variableDependency = new VariableDependencyConfig(this, {
     variableNames: ['DomainName'],
     onReferencedVariableValueChanged: () => {
@@ -825,8 +826,9 @@ class DynamicInventoryScene extends SceneObjectBase<DynamicInventorySceneState> 
   }
 
   public activate() {
-    super.activate();
+    const result = super.activate();
     this.rebuildTabs();
+    return result;
   }
 
   private rebuildTabs() {
@@ -843,6 +845,11 @@ class DynamicInventoryScene extends SceneObjectBase<DynamicInventorySceneState> 
       return;
     }
 
+    // Extract domain names from variable value
+    const domainNames = Array.isArray(variable.state.value) 
+      ? variable.state.value.map((v: any) => v.text || v.value) 
+      : [];
+
     // Check for empty state scenarios
     const emptyStateScenario = getEmptyStateScenario(variable);
     if (emptyStateScenario) {
@@ -855,7 +862,7 @@ class DynamicInventoryScene extends SceneObjectBase<DynamicInventorySceneState> 
     }
 
     // Create a tab for each domain
-    const newTabs = domainNames.map((domainName) => ({
+    const newTabs = domainNames.map((domainName: string) => ({
       id: domainName,
       label: domainName,
       getBody: () => createDomainInventoryBody(domainName),
@@ -863,12 +870,12 @@ class DynamicInventoryScene extends SceneObjectBase<DynamicInventorySceneState> 
 
     // Set the active tab to the first tab if not already set or if current tab is not in new tabs
     let newActiveTab = this.state.activeTab;
-    if (!newActiveTab || !newTabs.find(t => t.id === newActiveTab)) {
+    if (!newActiveTab || !newTabs.find((t: any) => t.id === newActiveTab)) {
       newActiveTab = newTabs[0]?.id || '';
     }
 
     // Create the new body
-    const newBody = newTabs.find(t => t.id === newActiveTab)?.getBody() || new SceneFlexLayout({ children: [] });
+    const newBody = newTabs.find((t: any) => t.id === newActiveTab)?.getBody() || new SceneFlexLayout({ children: [] });
 
     // Update state - React will handle component lifecycle via key prop
     this.setState({
@@ -992,7 +999,8 @@ function DynamicInventorySceneRenderer({ model }: SceneComponentProps<DynamicInv
         flexShrink: 0,
         minHeight: '48px',
       }}>
-        <TabsBar style={{ border: 'none' }}>
+        <div style={{ border: 'none' }}>
+          <TabsBar>
           {domainTabs.map((tab) => (
             <Tab
               key={tab.id}
@@ -1001,7 +1009,8 @@ function DynamicInventorySceneRenderer({ model }: SceneComponentProps<DynamicInv
               onChangeTab={() => model.setActiveTab(tab.id)}
             />
           ))}
-        </TabsBar>
+          </TabsBar>
+        </div>
       </div>
       <div style={{
         flexGrow: 1,

@@ -255,11 +255,11 @@ function createPortsBody(moidFilter?: string, isSingleServer: boolean = false): 
     .setTitle('Network Ports')
     .setData(transformedData)
     .setOption('showHeader', true)
-    .setOption('cellHeight', 'sm')
+    .setOption('cellHeight', 'sm' as any)
     .setOption('enablePagination', true)
     .setNoValue('-')
     .setCustomFieldConfig('align', 'auto')
-    .setCustomFieldConfig('cellOptions', { type: 'auto' })
+    .setCustomFieldConfig('cellOptions', { type: 'auto' as any })
     .setCustomFieldConfig('filterable', true)
     .setCustomFieldConfig('inspect', false)
     .setOverrides((builder) => {
@@ -267,17 +267,15 @@ function createPortsBody(moidFilter?: string, isSingleServer: boolean = false): 
       builder
         .matchFieldsWithName('QinQ Enabled?')
         .overrideMappings([
+        // @ts-ignore
           {
-            type: 'value',
+            type: 'value' as any,
             options: {
               '': { color: '#646464', index: 0, text: '-' },
               '-': { color: '#646464', index: 1, text: '-' },
-              null: { color: '#646464', index: 2, text: '-' },
-              'null': { color: '#646464', index: 3, text: '-' },
-              'false': { color: '#646464', index: 4, text: 'False' },
-              false: { color: '#646464', index: 5, text: 'False' },
-              'true': { color: 'blue', index: 6, text: 'True' },
-              true: { color: 'blue', index: 7, text: 'True' },
+              'null': { color: '#646464', index: 2, text: '-' },
+              'false': { color: '#646464', index: 3, text: 'False' },
+              'true': { color: 'blue', index: 4, text: 'True' },
             },
           },
         ])
@@ -285,7 +283,7 @@ function createPortsBody(moidFilter?: string, isSingleServer: boolean = false): 
           mode: 'fixed',
           fixedColor: '#646464',
         })
-        .overrideCustomFieldConfig('cellOptions', { type: 'color-text' });
+        .overrideCustomFieldConfig('cellOptions', { type: 'color-text' as any });
     })
     .build();
 
