@@ -24,13 +24,13 @@ function filterSourceMap(sourcemapPath) {
 
   sourceMap.sources.forEach((source, index) => {
     // Keep only our own source files (starting with ./src/ after the webpack prefix)
-    // Our files: webpack://intersight-app/./src/components/App.tsx
-    // Bundled deps: webpack://intersight-app/../../../../src/internal/... (rxjs)
-    //               webpack://intersight-app/../src/... (@grafana/scenes)
+    // Our files: webpack://cisco-intersight-app/./src/components/App.tsx
+    // Bundled deps: webpack://cisco-intersight-app/../../../../src/internal/... (rxjs)
+    //               webpack://cisco-intersight-app/../src/... (@grafana/scenes)
     if (source.match(/webpack:\/\/[^/]+\/\.\/src\//)) {
       // Strip src/ from the path for validator compatibility
       // The validator appends /src to the base path, so our paths should not include src/
-      // e.g., webpack://intersight-app/./src/utils/debug.ts -> webpack://intersight-app/./utils/debug.ts
+      // e.g., webpack://cisco-intersight-app/./src/utils/debug.ts -> webpack://cisco-intersight-app/./utils/debug.ts
       const adjustedSource = source.replace(/\/\.\/src\//, '/./');
       filteredSources.push(adjustedSource);
 

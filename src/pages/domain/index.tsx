@@ -12,7 +12,6 @@ import {
 } from '@grafana/scenes';
 import { TabbedScene } from '../../components/TabbedScene';
 import { debugScene, debugVariable } from '../../utils/debug';
-import { getOverviewTab } from './OverviewTab';
 import { getInventoryTab } from './InventoryTab';
 import { getAlarmsTab } from './AlarmsTab';
 import { getActionsTab } from './ActionsTab';
@@ -118,7 +117,6 @@ export function getDomainSceneBody() {
 
   // Define all tabs
   const immDomainTabs = [
-    { id: 'overview', label: 'Overview', getBody: getOverviewTab },
     { id: 'inventory', label: 'Inventory', getBody: getInventoryTab },
     { id: 'alarms', label: 'Alarms', getBody: getAlarmsTab },
     { id: 'actions', label: 'Actions', getBody: getActionsTab },
@@ -137,8 +135,8 @@ export function getDomainSceneBody() {
   return new TabbedScene({
     $variables: variables,
     tabs: immDomainTabs,
-    activeTab: 'overview',
-    body: getOverviewTab(),
+    activeTab: 'inventory',
+    body: getInventoryTab(),
     urlSync: true,
     isTopLevel: false,
     controls: [new VariableValueSelectors({})],

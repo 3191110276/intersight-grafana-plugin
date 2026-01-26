@@ -1,5 +1,5 @@
 {
-  "name": "intersight-app",
+  "name": "cisco-intersight-app",
   "version": "1.0.0",
   "description": "Cisco Intersight Dashboard App",
   "scripts": {
@@ -8,7 +8,7 @@
     "server": "docker compose up --build",
     "typecheck": "tsc --noEmit",
     "package": "node scripts/package-plugin.js",
-    "validate": "npx -y @grafana/plugin-validator@latest -sourceCodeUri file://. ../intersight-app-1.0.0.zip",
+    "validate": "npx -y @grafana/plugin-validator@latest -sourceCodeUri file://. ../cisco-intersight-app-1.0.0.zip",
     "validate:docker": "bash scripts/validate-docker.sh",
     "package-and-validate": "npm run build && npm run package && npm run validate:docker"
   },

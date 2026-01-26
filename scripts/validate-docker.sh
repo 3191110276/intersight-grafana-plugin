@@ -35,7 +35,7 @@ echo ""
 docker run --rm \
   -v "$DOCKER_PATH:/plugin" \
   node:20-alpine \
-  sh -c "cd /plugin/intersight-app && npx -y @grafana/plugin-validator@latest -sourceCodeUri file://. ../intersight-app-1.0.0.zip"
+  sh -c "cd /plugin/cisco-intersight-app && npx -y @grafana/plugin-validator@latest -sourceCodeUri file://. ../cisco-intersight-app-1.0.0.zip"
 
 EXIT_CODE=$?
 

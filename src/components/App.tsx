@@ -80,7 +80,7 @@ export function App(props: AppRootProps) {
 
   return (
     <BrowserRouter
-      basename="/a/intersight-app"
+      basename="/a/cisco-intersight-app"
       future={{
         v7_startTransition: true,
         v7_relativeSplatPath: true,

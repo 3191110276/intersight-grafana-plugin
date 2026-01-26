@@ -68,6 +68,8 @@ export function getUnifiedEdgeSceneBody() {
   });
 
   // RegisteredDevices variable - hidden, depends on ChassisName
+  // Uses Chassis.Moid directly (not DeviceRegistrations like Domain/Standalone)
+  // defaultToAll: true auto-selects all Moid values (not $__all placeholder)
   const registeredDevicesVariable = new QueryVariable({
     name: 'RegisteredDevices',
     label: 'RegisteredDevices',
@@ -80,7 +82,7 @@ export function getUnifiedEdgeSceneBody() {
         source: 'url',
         parser: 'backend',
         format: 'table',
-        url: '/api/v1/equipment/Chasses?$top=1000&$filter=Name in (${ChassisName:singlequote})',
+        url: '/api/v1/equipment/Chasses?$filter=Name in (${ChassisName:singlequote})',
         root_selector: '$.Results',
         columns: [
           { selector: 'Moid', text: 'Moid', type: 'string' },
@@ -91,6 +93,7 @@ export function getUnifiedEdgeSceneBody() {
     },
     isMulti: true,
     includeAll: false,
+    defaultToAll: true,
     hide: 2,
   });
 

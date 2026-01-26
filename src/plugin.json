@@ -2,7 +2,7 @@
   "$schema": "https://raw.githubusercontent.com/grafana/grafana/main/docs/sources/developers/plugins/plugin.schema.json",
   "type": "app",
   "name": "Intersight",
-  "id": "intersight-app",
+  "id": "cisco-intersight-app",
   "info": {
     "keywords": ["intersight", "cisco", "infrastructure"],
     "description": "Cisco Intersight Dashboard App",
@@ -25,7 +25,7 @@
     {
       "type": "page",
       "name": "Intersight",
-      "path": "/a/intersight-app",
+      "path": "/a/cisco-intersight-app",
       "role": "Viewer",
       "addToNav": true,
       "defaultNav": true,

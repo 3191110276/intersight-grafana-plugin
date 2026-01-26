@@ -1,232 +1,115 @@
 /**
  * Network Errors Tab - IMM Domain Scene
  *
- * This module provides the Network Errors tab functionality for the IMM Domain scene.
- * Shows network error metrics for FI uplinks and downlinks.
+ * TODO: Implement Network Errors functionality
  */
 
+import React from 'react';
 import {
   SceneFlexLayout,
   SceneFlexItem,
   PanelBuilders,
-  SceneGridLayout,
-  SceneGridRow,
-  SceneGridItem,
+  SceneObjectBase,
+  SceneComponentProps,
+  SceneObjectState,
+  VariableDependencyConfig,
+  sceneGraph,
 } from '@grafana/scenes';
-import { TabbedScene } from '../../components/TabbedScene';
-import {
-  getFIEthernetUplinkTXErrorsPanel,
-  getFIEthernetUplinkRXErrorsPanel,
-  getFIEthernetUplinkDetailTable,
-  getFIEthernetUplinkPortChannelTXErrorsPanel,
-  getFIEthernetUplinkPortChannelRXErrorsPanel,
-  getFIEthernetUplinkPortChannelDetailTable,
-  getFIDownlinksPanel,
-  getIFMUplinksPanel,
-  getIFMDownlinksPanel,
-  getVNICVHBAPanel,
-  getErrorDescriptionsPanel,
-} from './CongestionTab';
+import { EmptyStateScene } from '../../components/EmptyStateScene';
+import { getEmptyStateScenario } from '../../utils/emptyStateHelpers';
 
-export function getNetworkErrorsTab() {
-  // Helper to create Ports tab layout
-  const getPortsTabBody = () => new SceneFlexLayout({
-    direction: 'row',
-    children: [
-      new SceneFlexItem({
-        width: '50%',
-        height: 300,
-        body: getFIEthernetUplinkTXErrorsPanel('FI-A'),
-      }),
-      new SceneFlexItem({
-        width: '50%',
-        height: 300,
-        body: getFIEthernetUplinkTXErrorsPanel('FI-B'),
-      }),
-      new SceneFlexItem({
-        width: '50%',
-        height: 300,
-        body: getFIEthernetUplinkRXErrorsPanel('FI-A'),
-      }),
-      new SceneFlexItem({
-        width: '50%',
-        height: 300,
-        body: getFIEthernetUplinkRXErrorsPanel('FI-B'),
-      }),
-      new SceneFlexItem({
-        width: '100%',
-        height: 400,
-        body: getFIEthernetUplinkDetailTable(),
-      }),
-    ],
+// ============================================================================
+// DYNAMIC NETWORK ERRORS SCENE
+// ============================================================================
+
+interface DynamicNetworkErrorsSceneState extends SceneObjectState {
+  body: any;
+}
+
+class DynamicNetworkErrorsScene extends SceneObjectBase<DynamicNetworkErrorsSceneState> {
+  public static Component = DynamicNetworkErrorsSceneRenderer;
+
+  protected _variableDependency = new VariableDependencyConfig(this, {
+    variableNames: ['DomainName'],
+    onReferencedVariableValueChanged: () => {
+      if (this.isActive) {
+        this.rebuildBody();
+      }
+    },
   });
 
-  // Helper to create Port Channels tab layout
-  const getPortChannelsTabBody = () => new SceneFlexLayout({
-    direction: 'row',
-    children: [
-      new SceneFlexItem({
-        width: '50%',
-        height: 300,
-        body: getFIEthernetUplinkPortChannelTXErrorsPanel('FI-A'),
-      }),
-      new SceneFlexItem({
-        width: '50%',
-        height: 300,
-        body: getFIEthernetUplinkPortChannelTXErrorsPanel('FI-B'),
-      }),
-      new SceneFlexItem({
-        width: '50%',
-        height: 300,
-        body: getFIEthernetUplinkPortChannelRXErrorsPanel('FI-A'),
-      }),
-      new SceneFlexItem({
-        width: '50%',
-        height: 300,
-        body: getFIEthernetUplinkPortChannelRXErrorsPanel('FI-B'),
-      }),
-      new SceneFlexItem({
-        width: '100%',
-        height: 400,
-        body: getFIEthernetUplinkPortChannelDetailTable(),
-      }),
-    ],
-  });
+  public constructor(state: Partial<DynamicNetworkErrorsSceneState>) {
+    super({
+      body: new SceneFlexLayout({ children: [] }),
+      ...state,
+    });
+  }
 
-  // Row 1: Fabric Interconnect Ethernet Uplinks (with nested tabs)
-  const ethernetUplinksRow = new SceneGridRow({
-    title: 'Fabric Interconnect Ethernet Uplinks',
-    isCollapsible: true,
-    isCollapsed: false,
-    y: 0,
-    children: [
-      new SceneGridItem({
-        x: 0,
-        y: 0,
-        width: 24,
-        height: 14,
-        body: new TabbedScene({
-          tabs: [
-            {
-              id: 'ports',
-              label: 'Ports',
-              getBody: getPortsTabBody,
-            },
-            {
-              id: 'port-channels',
-              label: 'Port Channels',
-              getBody: getPortChannelsTabBody,
-            },
-          ],
-          activeTab: 'ports',
-          body: getPortsTabBody(),
-        }),
-      }),
-    ],
-  });
+  public activate() {
+    const result = super.activate();
+    this.rebuildBody();
+    return result;
+  }
 
-  // Row 2: Fabric Interconnect Downlinks
-  const downlinksRow = new SceneGridRow({
-    title: 'Fabric Interconnect Downlinks',
-    isCollapsible: true,
-    isCollapsed: false,
-    y: 14,
-    children: [
-      new SceneGridItem({
-        x: 0,
-        y: 14,
-        width: 24,
-        height: 8,
-        body: getFIDownlinksPanel(),
-      }),
-    ],
-  });
+  private rebuildBody() {
+    if (!this.isActive) {
+      return;
+    }
 
-  // Row 3: IFM Uplinks
-  const ifmUplinksRow = new SceneGridRow({
-    title: 'IFM Uplinks',
-    isCollapsible: true,
-    isCollapsed: false,
-    y: 22,
-    children: [
-      new SceneGridItem({
-        x: 0,
-        y: 22,
-        width: 24,
-        height: 8,
-        body: getIFMUplinksPanel(),
-      }),
-    ],
-  });
+    const variable = this.getVariable('DomainName');
 
-  // Row 4: IFM Downlinks
-  const ifmDownlinksRow = new SceneGridRow({
-    title: 'IFM Downlinks',
-    isCollapsible: true,
-    isCollapsed: false,
-    y: 30,
-    children: [
-      new SceneGridItem({
-        x: 0,
-        y: 30,
-        width: 24,
-        height: 8,
-        body: getIFMDownlinksPanel(),
-      }),
-    ],
-  });
+    if (!variable || variable.state.type !== 'query') {
+      console.warn('DomainName variable not found or not a query variable');
+      return;
+    }
 
-  // Row 5: vNIC/vHBA
-  const vnicVhbaRow = new SceneGridRow({
-    title: 'vNIC/vHBA',
-    isCollapsible: true,
-    isCollapsed: false,
-    y: 38,
-    children: [
-      new SceneGridItem({
-        x: 0,
-        y: 38,
-        width: 24,
-        height: 8,
-        body: getVNICVHBAPanel(),
-      }),
-    ],
-  });
+    // Check for empty state scenarios
+    const emptyStateScenario = getEmptyStateScenario(variable);
+    if (emptyStateScenario) {
+      this.setState({
+        body: new EmptyStateScene({ scenario: emptyStateScenario, entityType: 'domain' })
+      });
+      return;
+    }
 
-  // Row 6: Error Descriptions
-  const errorDescriptionsRow = new SceneGridRow({
-    title: 'Error Descriptions',
-    isCollapsible: true,
-    isCollapsed: false,
-    y: 46,
-    children: [
-      new SceneGridItem({
-        x: 0,
-        y: 46,
-        width: 24,
-        height: 8,
-        body: getErrorDescriptionsPanel(),
-      }),
-    ],
-  });
+    // Create TODO placeholder content
+    const newBody = createTodoPlaceholder();
+    this.setState({ body: newBody });
+  }
 
-  // Main layout with all collapsible rows
+  private getVariable(name: string): any {
+    return sceneGraph.lookupVariable(name, this);
+  }
+}
+
+function DynamicNetworkErrorsSceneRenderer({ model }: SceneComponentProps<DynamicNetworkErrorsScene>) {
+  const { body } = model.useState();
+
+  return (
+    <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column' }}>
+      {body && body.Component && <body.Component model={body} />}
+    </div>
+  );
+}
+
+function createTodoPlaceholder() {
   return new SceneFlexLayout({
     direction: 'column',
     children: [
       new SceneFlexItem({
-        minHeight: 1000,
-        body: new SceneGridLayout({
-          children: [
-            ethernetUplinksRow,
-            downlinksRow,
-            ifmUplinksRow,
-            ifmDownlinksRow,
-            vnicVhbaRow,
-            errorDescriptionsRow,
-          ],
-        }),
+        height: 200,
+        ySizing: 'content',
+        body: PanelBuilders.text()
+          .setTitle('')
+          .setOption('content', '### TODO: Network Errors Tab\n\nThis tab is under development.')
+          .setOption('mode', 'markdown' as any)
+          .setDisplayMode('transparent')
+          .build(),
       }),
     ],
   });
+}
+
+export function getNetworkErrorsTab() {
+  return new DynamicNetworkErrorsScene({});
 }

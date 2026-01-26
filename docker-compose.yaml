@@ -5,12 +5,12 @@ services:
     ports:
       - "3000:3000"
     volumes:
-      - ./dist:/var/lib/grafana/plugins/intersight-app
+      - ./dist:/var/lib/grafana/plugins/cisco-intersight-app
       - ./provisioning:/etc/grafana/provisioning
     environment:
       - GF_DEFAULT_APP_MODE=development
       - GF_LOG_LEVEL=debug
-      - GF_PLUGINS_ALLOW_LOADING_UNSIGNED_PLUGINS=intersight-app
+      - GF_PLUGINS_ALLOW_LOADING_UNSIGNED_PLUGINS=cisco-intersight-app
       - GF_AUTH_ANONYMOUS_ENABLED=true
       - GF_AUTH_ANONYMOUS_ORG_ROLE=Admin
       - GF_AUTH_BASIC_ENABLED=false
