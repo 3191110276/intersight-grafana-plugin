@@ -17,9 +17,13 @@ import {
   SceneObjectState,
   VariableDependencyConfig,
   sceneGraph,
+  SceneQueryRunner,
+  SceneDataTransformer,
+  SceneDataProvider,
+  SceneDataState,
 } from '@grafana/scenes';
-import { LoggingQueryRunner } from '../../utils/LoggingQueryRunner';
-import { LoggingDataTransformer } from '../../utils/LoggingDataTransformer';
+import { DataFrame, FieldType, LoadingState, MutableDataFrame, PanelData } from '@grafana/data';
+import { Observable } from 'rxjs';
 import { EmptyStateScene } from '../../components/EmptyStateScene';
 import { getEmptyStateScenario } from '../../utils/emptyStateHelpers';
 
@@ -128,7 +132,8 @@ function ClickableTableWrapperRenderer({ model }: SceneComponentProps<ClickableT
       return;
     }
 
-    const firstCell = row.querySelector('[role="gridcell"][aria-colindex="1"]');
+    // Try both role="cell" and role="gridcell" for compatibility
+    const firstCell = row.querySelector('[role="cell"]:first-child') || row.querySelector('[role="gridcell"][aria-colindex="1"]');
 
     if (firstCell) {
       const name = firstCell.textContent?.trim();
@@ -144,6 +149,126 @@ function ClickableTableWrapperRenderer({ model }: SceneComponentProps<ClickableT
       <tablePanel.Component model={tablePanel} />
     </div>
   );
+}
+
+// ============================================================================
+// CUSTOM PORTS DATA PROVIDER - Transforms nested NetworkElements into flat table
+// ============================================================================
+
+interface PortsDataProviderState extends SceneDataState {
+  $data?: SceneDataProvider;
+}
+
+/**
+ * Custom data provider that wraps the SceneQueryRunner and transforms
+ * the nested NetworkElements JSON into a flat table structure.
+ *
+ * Input: ChassisName, NetworkElements (nested JSON)
+ * Output: Chassis, eCMC-A 1, eCMC-A 2, eCMC-B 1, eCMC-B 2, Slot 1-5
+ */
+// @ts-ignore
+class PortsDataProvider extends SceneObjectBase<PortsDataProviderState> implements SceneDataProvider {
+  public constructor(source: SceneDataProvider) {
+    super({
+      $data: source,
+      data: {
+        state: LoadingState.NotStarted,
+        series: [],
+        timeRange: source.state.data?.timeRange!,
+      },
+    });
+
+    this.addActivationHandler(() => {
+      const sub = this.subscribeToSource();
+      return () => sub.unsubscribe();
+    });
+  }
+
+  private subscribeToSource() {
+    const source = this.state.$data!;
+
+    return source.subscribeToState((newState) => {
+      if (newState.data) {
+        const transformedData = this.transformData(newState.data);
+        this.setState({ data: transformedData });
+      }
+    });
+  }
+
+  /**
+   * Transform nested NetworkElements data into flat port status table
+   */
+  private transformData(data: PanelData): PanelData {
+    // Don't transform if data is still loading or there's no data series
+    if (!data.series || data.series.length === 0 || data.state !== LoadingState.Done) {
+      return data;
+    }
+
+    const series = data.series[0];
+    const chassisNameField = series.fields.find(f => f.name === 'ChassisName');
+    const networkElementsField = series.fields.find(f => f.name === 'NetworkElements');
+
+    if (!chassisNameField || !networkElementsField) {
+      return data;
+    }
+
+    // Process each chassis row
+    const flattenedRows: Record<string, string>[] = [];
+
+    for (let i = 0; i < series.length; i++) {
+      const chassisName = chassisNameField.values[i];
+      const networkElementsRaw = networkElementsField.values[i];
+
+      // Parse NetworkElements JSON if it's a string
+      let networkElements: any[];
+      try {
+        networkElements = typeof networkElementsRaw === 'string'
+          ? JSON.parse(networkElementsRaw)
+          : networkElementsRaw;
+
+        if (Array.isArray(networkElements)) {
+          const row = flattenChassisPortData(chassisName, networkElements);
+          flattenedRows.push(row);
+        }
+      } catch (e) {
+        // Create empty row for this chassis
+        const emptyRow: Record<string, string> = { Chassis: chassisName };
+        ['eCMC-A 1', 'eCMC-A 2', 'eCMC-B 1', 'eCMC-B 2'].forEach(col => emptyRow[col] = '');
+        ['Slot 1', 'Slot 2', 'Slot 3', 'Slot 4', 'Slot 5'].forEach(col => emptyRow[col] = '');
+        flattenedRows.push(emptyRow);
+      }
+    }
+
+    // Create new DataFrame with flattened data
+    if (flattenedRows.length === 0) {
+      return data;
+    }
+
+    const newFrame = new MutableDataFrame({
+      fields: [
+        { name: 'Chassis', type: FieldType.string, values: flattenedRows.map(r => r.Chassis) },
+        { name: 'eCMC-A 1', type: FieldType.string, values: flattenedRows.map(r => r['eCMC-A 1']) },
+        { name: 'eCMC-A 2', type: FieldType.string, values: flattenedRows.map(r => r['eCMC-A 2']) },
+        { name: 'eCMC-B 1', type: FieldType.string, values: flattenedRows.map(r => r['eCMC-B 1']) },
+        { name: 'eCMC-B 2', type: FieldType.string, values: flattenedRows.map(r => r['eCMC-B 2']) },
+        { name: 'Slot 1', type: FieldType.string, values: flattenedRows.map(r => r['Slot 1']) },
+        { name: 'Slot 2', type: FieldType.string, values: flattenedRows.map(r => r['Slot 2']) },
+        { name: 'Slot 3', type: FieldType.string, values: flattenedRows.map(r => r['Slot 3']) },
+        { name: 'Slot 4', type: FieldType.string, values: flattenedRows.map(r => r['Slot 4']) },
+        { name: 'Slot 5', type: FieldType.string, values: flattenedRows.map(r => r['Slot 5']) },
+      ],
+    });
+
+    return {
+      ...data,
+      series: [newFrame],
+    };
+  }
+
+  public getResultsStream(): Observable<any> {
+    const source = this.state.$data!;
+    return source.getResultsStream();
+  }
 }
 
 // ============================================================================
@@ -224,6 +349,34 @@ function createServerPortsQuery(moidFilter?: string, chassisFilter?: string) {
   } as any;
 }
 
+/**
+ * Multi-Chassis Ports Query - Fetches all port data in a single request
+ * Uses $expand to traverse: Chassis → NetworkElements → Cards → HostPorts/PortGroups → EthernetPorts
+ */
+function createMultiChassisPortsQuery() {
+  // Use $expand without $select at NetworkElements level
+  const baseUrl = `/api/v1/equipment/Chasses?$filter=Name in (\${ChassisName:singlequote})&$expand=NetworkElements($expand=Cards($expand=HostPorts($select=PortName,OperState,SwitchId,AdminState),PortGroups($expand=EthernetPorts($select=SwitchId,PortId,OperState))))`;
+
+  return {
+    refId: 'MultiChassis',
+    queryType: 'infinity',
+    type: 'json',
+    source: 'url',
+    parser: 'backend',
+    format: 'table',
+    url: baseUrl,
+    root_selector: '$.Results',
+    columns: [
+      { selector: 'Name', text: 'ChassisName', type: 'string' },
+      { selector: 'NetworkElements', text: 'NetworkElements', type: 'string' },
+    ],
+    url_options: {
+      method: 'GET',
+      data: '',
+    },
+  } as any;
+}
+
 // ============================================================================
 // VIEW CREATION FUNCTIONS
 // ============================================================================
@@ -234,45 +387,12 @@ function createServerPortsQuery(moidFilter?: string, chassisFilter?: string) {
  */
 function createPortsDetailView(moidFilter?: string, chassisName?: string): SceneFlexLayout {
   // eCMC External Ports Table
-  const ecmcQueryRunner = new LoggingQueryRunner({
+  const ecmcQueryRunner = new SceneQueryRunner({
     datasource: { uid: '${Account}' },
     queries: [createEcmcExternalPortsQuery(moidFilter, chassisName)],
   });
 
-  // LOG 2: eCMC External Ports query output
-  ecmcQueryRunner.subscribeToState((state) => {
-    if (state.data && state.data.series && state.data.series.length > 0) {
-      console.log('=== [PortsTab] eCMC EXTERNAL PORTS QUERY OUTPUT ===');
-      state.data.series.forEach((series, idx) => {
-        console.log(`Series ${idx} (${series.name || series.refId}):`, {
-          refId: series.refId,
-          rowCount: series.length,
-          fields: series.fields.map(f => f.name),
-          sampleData: series.length > 0 ? series.fields.map(f => ({
-            name: f.name,
-            type: f.type,
-            firstValue: f.values[0],
-          })) : 'No data',
-        });
-        // Log first 5 rows as sample
-        if (series.length > 0) {
-          const rows = [];
-          for (let i = 0; i < Math.min(5, series.length); i++) {
-            const row: any = {};
-            series.fields.forEach(field => {
-              row[field.name] = field.values[i];
-            });
-            rows.push(row);
-          }
-          console.log(`First ${rows.length} rows:`, rows);
-        }
-      });
-      console.log('====================================================');
-    }
-  });
-
-  // Transformations for eCMC ports
-  const ecmcTransformer = new LoggingDataTransformer({
+  const ecmcTransformer = new SceneDataTransformer({
     $data: ecmcQueryRunner,
     transformations: chassisName
       ? [
@@ -358,8 +478,8 @@ function createPortsDetailView(moidFilter?: string, chassisName?: string): Scene
         {
           type: 'value' as any,
           options: {
-            up: { color: 'green', index: 0, text: 'up' },
-            down: { color: 'red', index: 1, text: 'down' },
+            up: { color: 'green', index: 0, text: 'Up' },
+            down: { color: 'red', index: 1, text: 'Down' },
           },
         },
       ]);
@@ -374,46 +494,12 @@ function createPortsDetailView(moidFilter?: string, chassisName?: string): Scene
     })
     .build();
 
-  // Server Ports Table
-  const serverQueryRunner = new LoggingQueryRunner({
+  const serverQueryRunner = new SceneQueryRunner({
     datasource: { uid: '${Account}' },
     queries: [createServerPortsQuery(moidFilter, chassisName)],
   });
 
-  // LOG 3: Server Ports query output
-  serverQueryRunner.subscribeToState((state) => {
-    if (state.data && state.data.series && state.data.series.length > 0) {
-      console.log('=== [PortsTab] SERVER PORTS QUERY OUTPUT ===');
-      state.data.series.forEach((series, idx) => {
-        console.log(`Series ${idx} (${series.name || series.refId}):`, {
-          refId: series.refId,
-          rowCount: series.length,
-          fields: series.fields.map(f => f.name),
-          sampleData: series.length > 0 ? series.fields.map(f => ({
-            name: f.name,
-            type: f.type,
-            firstValue: f.values[0],
-          })) : 'No data',
-        });
-        // Log first 5 rows as sample
-        if (series.length > 0) {
-          const rows = [];
-          for (let i = 0; i < Math.min(5, series.length); i++) {
-            const row: any = {};
-            series.fields.forEach(field => {
-              row[field.name] = field.values[i];
-            });
-            rows.push(row);
-          }
-          console.log(`First ${rows.length} rows:`, rows);
-        }
-      });
-      console.log('============================================');
-    }
-  });
-
-  // For drilldown, we need to filter server ports by chassis name
-  const serverTransformer = new LoggingDataTransformer({
+  const serverTransformer = new SceneDataTransformer({
     $data: serverQueryRunner,
     transformations: chassisName
       ? [
@@ -488,8 +574,8 @@ function createPortsDetailView(moidFilter?: string, chassisName?: string): Scene
         {
           type: 'value' as any,
           options: {
-            up: { color: 'green', index: 0, text: 'up' },
-            down: { color: 'red', index: 1, text: 'down' },
+            up: { color: 'green', index: 0, text: 'Up' },
+            down: { color: 'red', index: 1, text: 'Down' },
           },
         },
       ]);
@@ -521,302 +607,95 @@ function createPortsDetailView(moidFilter?: string, chassisName?: string): Scene
 }
 
 /**
+ * Flatten chassis port data from nested NetworkElements structure into a single row
+ * Extracts:
+ * - EthernetPorts → eCMC-A 1, eCMC-A 2, eCMC-B 1, eCMC-B 2 columns
+ * - HostPorts → Slot 1-5 columns (aggregated from both eCMC A and B)
+ *
+ * Data paths:
+ * - EthernetPorts: NetworkElements[n].Cards[0].PortGroups[0].EthernetPorts
+ * - HostPorts: NetworkElements[n].Cards[0].HostPorts
+ */
+function flattenChassisPortData(chassisName: string, networkElements: any[]): Record<string, string> {
+  const row: Record<string, string> = { Chassis: chassisName };
+
+  // Initialize all columns with empty values
+  ['eCMC-A 1', 'eCMC-A 2', 'eCMC-B 1', 'eCMC-B 2'].forEach(col => row[col] = '');
+  ['Slot 1', 'Slot 2', 'Slot 3', 'Slot 4', 'Slot 5'].forEach(col => row[col] = '');
+
+  // Track slot states from both eCMC A and B for aggregation
+  const slotStates: Record<string, { A?: string; B?: string }> = {};
+
+  networkElements.forEach((ne) => {
+    const card = ne.Cards?.[0];
+    if (!card) {
+      return;
+    }
+
+    // Extract EthernetPorts (uplink ports) from Cards[0].PortGroups[0].EthernetPorts
+    const ethernetPorts = card.PortGroups?.[0]?.EthernetPorts;
+    ethernetPorts?.forEach((ep: any) => {
+      const colName = `eCMC-${ep.SwitchId} ${ep.PortId}`;
+      row[colName] = ep.OperState;
+    });
+
+    // Extract HostPorts (server-facing ports) from Cards[0].HostPorts
+    const hostPorts = card.HostPorts;
+    // Port name to slot mapping: twe5→1, twe6→4, twe7→5, twe8→2, twe9→3
+    const portToSlotMap: Record<string, number> = {
+      'twe5': 1,
+      'twe6': 4,
+      'twe7': 5,
+      'twe8': 2,
+      'twe9': 3,
+    };
+    hostPorts?.forEach((hp: any) => {
+      const slotNum = portToSlotMap[hp.PortName];
+      if (slotNum) {
+        // If AdminState is Disabled, treat as NA instead of using OperState
+        const state = hp.AdminState === 'Disabled' ? 'NA' : hp.OperState;
+        const slotKey = `Slot ${slotNum}`;
+        if (!slotStates[slotKey]) {
+          slotStates[slotKey] = {};
+        }
+        const switchId: string = hp.SwitchId;
+        if (switchId === 'A') {
+          slotStates[slotKey].A = state;
+        } else if (switchId === 'B') {
+          slotStates[slotKey].B = state;
+        }
+      }
+    });
+  });
+
+  // Aggregate slot states as "A-state,B-state" (e.g., "up,up", "down,up")
+  Object.entries(slotStates).forEach(([slot, states]) => {
+    const parts = [];
+    if (states.A) parts.push(states.A);
+    if (states.B) parts.push(states.B);
+    row[slot] = parts.join(',');
+  });
+
+  return row;
+}
+
+/**
  * Creates the summary view for multiple chassis with drilldown capability
  * Shows: Chassis | eCMC A-1 | eCMC A-2 | eCMC B-1 | eCMC B-2 | Server 1 | Server 2 | Server 3 | Server 4 | Server 5
  */
 function createPortsSummaryView(scene: DynamicPortsScene, moidFilter?: string): SceneFlexLayout {
-  // Use manual moidFilter if provided, otherwise fall back to variable reference
-  const filterExpression = moidFilter
-    ? `Ancestors.Moid in (${moidFilter})`
-    : `Ancestors.Moid in (\${RegisteredDevices:singlequote})`;
-
-  console.log('[PortsTab] Creating summary view with filter:', filterExpression);
-
-  // Build summary table with 9 separate queries:
-  // - 4 for eCMC ports (A-1, A-2, B-1, B-2)
-  // - 5 for Server blades (Server 1-5 with aggregated status)
-  const combinedQueryRunner = new LoggingQueryRunner({
+  // Query for multi-chassis ports data
+  const queryRunner = new SceneQueryRunner({
     datasource: { uid: '${Account}' },
-    queries: [
-      // eCMC Port A-1
-      {
-        refId: 'ECMC_A1',
-        queryType: 'infinity',
-        type: 'json',
-        source: 'url',
-        parser: 'backend',
-        format: 'table',
-        url: `/api/v1/ether/PhysicalPorts?$filter=${filterExpression} and SwitchId eq 'A' and PortId eq 1&$expand=Parent($expand=EquipmentSwitchCard($expand=NetworkElement($expand=EquipmentChassis)))`,
-        root_selector: '$.Results',
-        columns: [
-          { selector: 'Parent.EquipmentSwitchCard.NetworkElement.EquipmentChassis.Name', text: 'Chassis', type: 'string' },
-          { selector: 'OperState', text: 'eCMC-A 1', type: 'string' },
-        ],
-        url_options: { method: 'GET', data: '' },
-      } as any,
-      // eCMC Port A-2
-      {
-        refId: 'ECMC_A2',
-        queryType: 'infinity',
-        type: 'json',
-        source: 'url',
-        parser: 'backend',
-        format: 'table',
-        url: `/api/v1/ether/PhysicalPorts?$filter=${filterExpression} and SwitchId eq 'A' and PortId eq 2&$expand=Parent($expand=EquipmentSwitchCard($expand=NetworkElement($expand=EquipmentChassis)))`,
-        root_selector: '$.Results',
-        columns: [
-          { selector: 'Parent.EquipmentSwitchCard.NetworkElement.EquipmentChassis.Name', text: 'Chassis', type: 'string' },
-          { selector: 'OperState', text: 'eCMC-A 2', type: 'string' },
-        ],
-        url_options: { method: 'GET', data: '' },
-      } as any,
-      // eCMC Port B-1
-      {
-        refId: 'ECMC_B1',
-        queryType: 'infinity',
-        type: 'json',
-        source: 'url',
-        parser: 'backend',
-        format: 'table',
-        url: `/api/v1/ether/PhysicalPorts?$filter=${filterExpression} and SwitchId eq 'B' and PortId eq 1&$expand=Parent($expand=EquipmentSwitchCard($expand=NetworkElement($expand=EquipmentChassis)))`,
-        root_selector: '$.Results',
-        columns: [
-          { selector: 'Parent.EquipmentSwitchCard.NetworkElement.EquipmentChassis.Name', text: 'Chassis', type: 'string' },
-          { selector: 'OperState', text: 'eCMC-B 1', type: 'string' },
-        ],
-        url_options: { method: 'GET', data: '' },
-      } as any,
-      // eCMC Port B-2
-      {
-        refId: 'ECMC_B2',
-        queryType: 'infinity',
-        type: 'json',
-        source: 'url',
-        parser: 'backend',
-        format: 'table',
-        url: `/api/v1/ether/PhysicalPorts?$filter=${filterExpression} and SwitchId eq 'B' and PortId eq 2&$expand=Parent($expand=EquipmentSwitchCard($expand=NetworkElement($expand=EquipmentChassis)))`,
-        root_selector: '$.Results',
-        columns: [
-          { selector: 'Parent.EquipmentSwitchCard.NetworkElement.EquipmentChassis.Name', text: 'Chassis', type: 'string' },
-          { selector: 'OperState', text: 'eCMC-B 2', type: 'string' },
-        ],
-        url_options: { method: 'GET', data: '' },
-      } as any,
-      // Server Blade 1 - Fetch all server data, filter by SlotId in transformation
-      {
-        refId: 'SERVER_1',
-        queryType: 'infinity',
-        type: 'json',
-        source: 'url',
-        parser: 'backend',
-        format: 'table',
-        url: `/api/v1/adapter/ExtEthInterfaces?$filter=${filterExpression}&$expand=Parent($expand=ComputeBlade($expand=Ancestors))`,
-        root_selector: '$.Results',
-        columns: [
-          { selector: 'Parent.ComputeBlade.Ancestors.0.Name', text: 'Chassis', type: 'string' },
-          { selector: 'Parent.ComputeBlade.SlotId', text: 'SlotId', type: 'number' },
-          { selector: 'OperState', text: 'Server1State', type: 'string' },
-        ],
-        url_options: { method: 'GET', data: '' },
-      } as any,
-      // Server Blade 2
-      {
-        refId: 'SERVER_2',
-        queryType: 'infinity',
-        type: 'json',
-        source: 'url',
-        parser: 'backend',
-        format: 'table',
-        url: `/api/v1/adapter/ExtEthInterfaces?$filter=${filterExpression}&$expand=Parent($expand=ComputeBlade($expand=Ancestors))`,
-        root_selector: '$.Results',
-        columns: [
-          { selector: 'Parent.ComputeBlade.Ancestors.0.Name', text: 'Chassis', type: 'string' },
-          { selector: 'Parent.ComputeBlade.SlotId', text: 'SlotId', type: 'number' },
-          { selector: 'OperState', text: 'Server2State', type: 'string' },
-        ],
-        url_options: { method: 'GET', data: '' },
-      } as any,
-      // Server Blade 3
-      {
-        refId: 'SERVER_3',
-        queryType: 'infinity',
-        type: 'json',
-        source: 'url',
-        parser: 'backend',
-        format: 'table',
-        url: `/api/v1/adapter/ExtEthInterfaces?$filter=${filterExpression}&$expand=Parent($expand=ComputeBlade($expand=Ancestors))`,
-        root_selector: '$.Results',
-        columns: [
-          { selector: 'Parent.ComputeBlade.Ancestors.0.Name', text: 'Chassis', type: 'string' },
-          { selector: 'Parent.ComputeBlade.SlotId', text: 'SlotId', type: 'number' },
-          { selector: 'OperState', text: 'Server3State', type: 'string' },
-        ],
-        url_options: { method: 'GET', data: '' },
-      } as any,
-      // Server Blade 4
-      {
-        refId: 'SERVER_4',
-        queryType: 'infinity',
-        type: 'json',
-        source: 'url',
-        parser: 'backend',
-        format: 'table',
-        url: `/api/v1/adapter/ExtEthInterfaces?$filter=${filterExpression}&$expand=Parent($expand=ComputeBlade($expand=Ancestors))`,
-        root_selector: '$.Results',
-        columns: [
-          { selector: 'Parent.ComputeBlade.Ancestors.0.Name', text: 'Chassis', type: 'string' },
-          { selector: 'Parent.ComputeBlade.SlotId', text: 'SlotId', type: 'number' },
-          { selector: 'OperState', text: 'Server4State', type: 'string' },
-        ],
-        url_options: { method: 'GET', data: '' },
-      } as any,
-      // Server Blade 5
-      {
-        refId: 'SERVER_5',
-        queryType: 'infinity',
-        type: 'json',
-        source: 'url',
-        parser: 'backend',
-        format: 'table',
-        url: `/api/v1/adapter/ExtEthInterfaces?$filter=${filterExpression}&$expand=Parent($expand=ComputeBlade($expand=Ancestors))`,
-        root_selector: '$.Results',
-        columns: [
-          { selector: 'Parent.ComputeBlade.Ancestors.0.Name', text: 'Chassis', type: 'string' },
-          { selector: 'Parent.ComputeBlade.SlotId', text: 'SlotId', type: 'number' },
-          { selector: 'OperState', text: 'Server5State', type: 'string' },
-        ],
-        url_options: { method: 'GET', data: '' },
-      } as any,
-    ],
+    queries: [createMultiChassisPortsQuery()],
   });
 
-  // LOG: Summary view query outputs
-  combinedQueryRunner.subscribeToState((state) => {
-    if (state.data && state.data.series && state.data.series.length > 0) {
-      console.log('=== [PortsTab] SUMMARY VIEW QUERY OUTPUT (RAW) ===');
-      console.log('Total series count:', state.data.series.length);
-      state.data.series.forEach((series, idx) => {
-        console.log(`\n--- Series ${idx}: ${series.name || series.refId} ---`);
-        console.log('RefId:', series.refId);
-        console.log('Row count:', series.length);
-        console.log('Fields:', series.fields.map(f => f.name));
-
-        // Log ALL rows for debugging
-        if (series.length > 0) {
-          const rows = [];
-          for (let i = 0; i < series.length; i++) {
-            const row: any = {};
-            series.fields.forEach(field => {
-              row[field.name] = field.values[i];
-            });
-            rows.push(row);
-          }
-          console.log('All rows:', rows);
-        } else {
-          console.log('⚠️ EMPTY SERIES - No data returned');
-        }
-      });
-      console.log('\n============================================\n');
-    }
-  });
-
-  const summaryTransformer = new LoggingDataTransformer({
-    $data: combinedQueryRunner,
-    logLabel: 'SUMMARY TABLE AFTER TRANSFORMATIONS',
-    transformations: [
-      // Step 1: Group by Chassis (for eCMC) and by Chassis+SlotId (for SERVERS)
-      {
-        id: 'groupBy',
-        options: {
-          fields: {
-            Chassis: {
-              aggregations: [],
-              operation: 'groupby',
-            },
-            SlotId: {
-              aggregations: [],
-              operation: 'groupby',
-            },
-            'eCMC-A 1': {
-              aggregations: ['lastNotNull'],
-              operation: 'aggregate',
-            },
-            'eCMC-A 2': {
-              aggregations: ['lastNotNull'],
-              operation: 'aggregate',
-            },
-            'eCMC-B 1': {
-              aggregations: ['lastNotNull'],
-              operation: 'aggregate',
-            },
-            'eCMC-B 2': {
-              aggregations: ['lastNotNull'],
-              operation: 'aggregate',
-            },
-            Server1State: {
-              aggregations: ['allValues'],
-              operation: 'aggregate',
-            },
-            Server2State: {
-              aggregations: ['allValues'],
-              operation: 'aggregate',
-            },
-            Server3State: {
-              aggregations: ['allValues'],
-              operation: 'aggregate',
-            },
-            Server4State: {
-              aggregations: ['allValues'],
-              operation: 'aggregate',
-            },
-            Server5State: {
-              aggregations: ['allValues'],
-              operation: 'aggregate',
-            },
-          },
-        },
-      },
-      // Step 2: Drop rows from SERVER series that don't match their intended SlotId
-      // SERVER_1 should only keep SlotId=1, etc.
-      // Unfortunately, we can't do this with standard transformations
-      // So we'll have duplicate data across the 5 SERVER series
-      // The workaround: use only one SERVER series and partition it
-      // But for now, let's just join and see what happens
-      {
-        id: 'joinByField',
-        options: {
-          byField: 'Chassis',
-          mode: 'outer',
-        },
-      },
-      // Step 3: Organize and rename columns
-      {
-        id: 'organize',
-        options: {
-          excludeByName: {
-            SlotId: true,
-          },
-          includeByName: {},
-          indexByName: {},
-          renameByName: {
-            'eCMC A-1 (lastNotNull)': 'eCMC-A 1',
-            'eCMC A-2 (lastNotNull)': 'eCMC-A 2',
-            'eCMC B-1 (lastNotNull)': 'eCMC-B 1',
-            'eCMC B-2 (lastNotNull)': 'eCMC-B 2',
-            'Server1State (allValues)': 'Slot 1',
-            'Server2State (allValues)': 'Slot 2',
-            'Server3State (allValues)': 'Slot 3',
-            'Server4State (allValues)': 'Slot 4',
-            'Server5State (allValues)': 'Slot 5',
-          },
-        },
-      },
-    ],
-  });
+  // Wrap with custom data provider that transforms nested NetworkElements into flat structure
+  const portsDataProvider = new PortsDataProvider(queryRunner);
 
   const tablePanel = PanelBuilders.table()
     .setTitle('Port Status Summary - Click row to drill down')
-    .setData(summaryTransformer)
+    .setData(portsDataProvider)
     .setOption('showHeader', true)
     .setOption('cellHeight', 'sm' as any)
     .setOption('footer' as any, {
@@ -841,15 +720,15 @@ function createPortsSummaryView(scene: DynamicPortsScene, moidFilter?: string): 
               options: {
                 'up': { color: 'green', index: 0, text: 'Up' },
                 'down': { color: 'red', index: 1, text: 'Down' },
-                'null': { color: 'light-gray', index: 2, text: 'NA' },
-                '': { color: 'light-gray', index: 3, text: 'NA' },
+                'null': { color: '#525252', index: 2, text: 'NA' },
+                '': { color: '#525252', index: 3, text: 'NA' },
               },
             },
             {
               type: 'special' as any,
               options: {
-                match: 'null',
-                result: { color: 'light-gray', index: 0, text: 'NA' },
+                match: 'null' as any,
+                result: { color: '#525252', index: 0, text: 'NA' },
               },
             },
           ]);
@@ -875,15 +754,28 @@ function createPortsSummaryView(scene: DynamicPortsScene, moidFilter?: string): 
                 'down, up': { color: 'yellow', index: 7, text: 'Partial' },
                 'up': { color: 'yellow', index: 8, text: 'Partial' },
                 'down': { color: 'red', index: 9, text: 'Down' },
-                'null': { color: 'light-gray', index: 10, text: 'NA' },
-                '': { color: 'light-gray', index: 11, text: 'NA' },
+                'NA,NA': { color: '#525252', index: 10, text: 'NA' },
+                'NA': { color: '#525252', index: 11, text: 'NA' },
+                'up,NA': { color: 'yellow', index: 12, text: 'Partial' },
+                'NA,up': { color: 'yellow', index: 13, text: 'Partial' },
+                'down,NA': { color: 'red', index: 14, text: 'Down' },
+                'NA,down': { color: 'red', index: 15, text: 'Down' },
+                'null': { color: '#525252', index: 16, text: 'NA' },
+                '': { color: '#525252', index: 17, text: 'NA' },
               },
             },
             {
               type: 'special' as any,
               options: {
-                match: 'null',
-                result: { color: 'light-gray', index: 0, text: 'NA' },
+                match: 'null' as any,
+                result: { color: '#525252', index: 0, text: 'NA' },
+              },
+            },
+            {
+              type: 'regex' as any,
+              options: {
+                pattern: '.*',
+                result: { color: 'red', index: 99, text: '$&' },
               },
             },
           ]);
@@ -1016,48 +908,26 @@ class DynamicPortsScene extends SceneObjectBase<DynamicPortsSceneState> {
       return;
     }
 
-    // Extract Moid values from RegisteredDevices variable (same pattern as Standalone)
     const registeredDevicesVar = sceneGraph.lookupVariable('RegisteredDevices', this);
     const chassisNameVar = sceneGraph.lookupVariable('ChassisName', this);
-
-    // LOG 1: RegisteredDevices BEFORE query runs
-    console.log('=== [PortsTab] BEFORE QUERY ===');
-    console.log('[PortsTab] RegisteredDevices variable:', {
-      value: (registeredDevicesVar?.state as any)?.value,
-      options: (registeredDevicesVar?.state as any)?.options,
-      isMulti: (registeredDevicesVar?.state as any)?.isMulti,
-      includeAll: (registeredDevicesVar?.state as any)?.includeAll,
-    });
 
     let moidFilter: string | undefined = undefined;
 
     if (registeredDevicesVar && 'state' in registeredDevicesVar) {
       let moids: string[] = [];
 
-      // Access the variable's options (all query results)
       const varState = registeredDevicesVar.state as any;
       if (varState.options && Array.isArray(varState.options)) {
-        // Extract all option values (these are the Moids from the query)
         moids = varState.options
           .map((opt: any) => opt.value)
           .filter((v: any) => v && v !== '$__all')
           .map((v: any) => String(v));
       }
 
-      // Build filter string: 'moid1','moid2','moid3'
       if (moids.length > 0) {
         moidFilter = moids.map(m => `'${m}'`).join(',');
       }
     }
-
-    console.log('[PortsTab] Extracted Moid filter for queries:', {
-      ChassisCount: Array.isArray((chassisNameVar?.state as any)?.value)
-        ? (chassisNameVar?.state as any)?.value.length
-        : 1,
-      MoidCount: moidFilter ? moidFilter.split(',').length : 0,
-      MoidFilter: moidFilter,
-    });
-    console.log('=================================');
 
     // Check for empty state first
     const variable = sceneGraph.lookupVariable('ChassisName', this);

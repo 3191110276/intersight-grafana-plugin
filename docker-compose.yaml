@@ -6,7 +6,7 @@ services:
       - "3000:3000"
     volumes:
       - ./dist:/var/lib/grafana/plugins/cisco-intersight-app
-      - ./provisioning:/etc/grafana/provisioning
+      - ../provisioning:/etc/grafana/provisioning
     environment:
       - GF_DEFAULT_APP_MODE=development
       - GF_LOG_LEVEL=debug

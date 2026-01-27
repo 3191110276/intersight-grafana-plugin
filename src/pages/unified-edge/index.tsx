@@ -1,10 +1,19 @@
+import React from 'react';
 import {
   QueryVariable,
   SceneVariableSet,
   VariableValueSelectors,
+  SceneObjectBase,
+  SceneObjectState,
+  SceneComponentProps,
+  VariableDependencyConfig,
+  sceneGraph,
+  SceneDataLayerSet,
 } from '@grafana/scenes';
 import { TabbedScene } from '../../components/TabbedScene';
 import { debugScene, debugVariable } from '../../utils/debug';
+import { getSingleSelectedValue } from '../../utils/emptyStateHelpers';
+import { createUnifiedEdgeAnnotations, AnnotationToggleControl } from './annotations';
 
 // Import all 10 tab functions
 import { getInventoryTab } from './InventoryTab';
@@ -18,11 +27,113 @@ import { getEnvironmentalTab } from './EnvironmentalTab';
 import { getCPUUtilizationTab } from './CPUUtilizationTab';
 import { getStorageTab } from './StorageTab';
 
+// ============================================================================
+// ANNOTATION-AWARE SCENE WRAPPER
+// ============================================================================
+
+interface UnifiedEdgeSceneWithAnnotationsState extends SceneObjectState {
+  body: TabbedScene;
+  $data?: SceneDataLayerSet;
+}
+
+/**
+ * Wrapper scene that manages annotations reactively based on ChassisName selection.
+ * Annotations are only enabled when exactly one chassis is selected.
+ */
+class UnifiedEdgeSceneWithAnnotations extends SceneObjectBase<UnifiedEdgeSceneWithAnnotationsState> {
+  public static Component = UnifiedEdgeSceneWithAnnotationsRenderer;
+
+  // Store controls as instance properties (not state) to avoid parent conflicts
+  // These controls belong to TabbedScene, not to this wrapper
+  private _annotationToggle: AnnotationToggleControl;
+  private _variableSelectors: VariableValueSelectors;
+
+  // @ts-ignore
+  protected _variableDependency = new VariableDependencyConfig(this, {
+    variableNames: ['ChassisName'],
+    onReferencedVariableValueChanged: () => {
+      if (this.isActive) {
+        this.updateAnnotations();
+      }
+    },
+  });
+
+  public constructor(
+    state: UnifiedEdgeSceneWithAnnotationsState,
+    annotationToggle: AnnotationToggleControl,
+    variableSelectors: VariableValueSelectors
+  ) {
+    super(state);
+    this._annotationToggle = annotationToggle;
+    this._variableSelectors = variableSelectors;
+  }
+
+  // @ts-ignore - Override return type doesn't match base class exactly
+  public activate() {
+    super.activate();
+    // Initial annotation setup
+    this.updateAnnotations();
+    // Return empty cleanup function to satisfy type requirements
+    return () => {};
+  }
+
+  private updateAnnotations() {
+    // @ts-ignore - sceneGraph.lookupVariable returns a compatible type
+    const variable = sceneGraph.lookupVariable('ChassisName', this as any);
+    const chassisName = getSingleSelectedValue(variable);
+
+    if (chassisName) {
+      // Single chassis selected: enable annotations
+      debugScene('Enabling annotations for single chassis', { chassisName });
+      const dataLayerSet = createUnifiedEdgeAnnotations(chassisName);
+
+      // Wire up the toggle control with the data layer set
+      this._annotationToggle.setDataLayerSet(dataLayerSet);
+
+      // Apply current toggle state to the new layers
+      const isEnabled = this._annotationToggle.state.enabled;
+      dataLayerSet.state.layers.forEach((layer) => {
+        layer.setState({ isEnabled });
+      });
+
+      // Update TabbedScene controls to include annotation toggle (left of variable selectors)
+      this.state.body.setState({
+        controls: [this._annotationToggle, this._variableSelectors],
+      });
+
+      this.setState({ $data: dataLayerSet });
+    } else {
+      // Multiple or no chassis selected: disable annotations
+      debugScene('Disabling annotations (multiple/no chassis selected)');
+
+      // Update TabbedScene controls to only have variable selectors
+      this.state.body.setState({
+        controls: [this._variableSelectors],
+      });
+
+      this.setState({ $data: undefined });
+    }
+  }
+}
+
+/**
+ * Renderer component for UnifiedEdgeSceneWithAnnotations
+ */
+function UnifiedEdgeSceneWithAnnotationsRenderer({ model }: SceneComponentProps<UnifiedEdgeSceneWithAnnotations>) {
+  const { body } = model.useState();
+
+  return (
+    <div style={{ width: '100%', height: '100%' }}>
+      {body && body.Component && <body.Component model={body} />}
+    </div>
+  );
+}
+
 const unifiedEdgeTabs = [
   { id: 'inventory', label: 'Inventory', getBody: getInventoryTab },
-  { id: 'alarms', label: 'Alarms**', getBody: getAlarmsTab },
-  { id: 'actions', label: 'Actions**', getBody: getActionsTab },
-  { id: 'ports', label: 'Ports**', getBody: getPortsTab },
+  { id: 'alarms', label: 'Alarms', getBody: getAlarmsTab },
+  { id: 'actions', label: 'Actions', getBody: getActionsTab },
+  { id: 'ports', label: 'Ports', getBody: getPortsTab },
   { id: 'network-utilization', label: 'Network Utilization**', getBody: getNetworkUtilizationTab },
   { id: 'traffic-balance', label: 'Traffic Balance', getBody: getTrafficBalanceTab },
   { id: 'network-errors', label: 'Network Errors**', getBody: getNetworkErrorsTab },
@@ -139,13 +250,28 @@ export function getUnifiedEdgeSceneBody() {
     variables: [chassisNameVariable, registeredDevicesVariable, domainNameVariable],
   });
 
-  return new TabbedScene({
-    $variables: variables,
+  // Create shared controls - these belong to TabbedScene
+  const variableSelectors = new VariableValueSelectors({});
+  const annotationToggle = new AnnotationToggleControl({ enabled: true });
+
+  const tabbedScene = new TabbedScene({
     tabs: unifiedEdgeTabs,
     activeTab: 'inventory',
     body: getInventoryTab(),
     urlSync: true,
     isTopLevel: false,
-    controls: [new VariableValueSelectors({})],
+    controls: [variableSelectors], // Start with just variable selectors, annotation toggle added when single chassis selected
   });
+
+  // Wrap TabbedScene with annotation-aware wrapper
+  // Variables are set on the wrapper so they're available to both the tabs and annotation layers
+  // Controls are passed separately (not in state) to avoid parent conflicts
+  return new UnifiedEdgeSceneWithAnnotations(
+    {
+      $variables: variables,
+      body: tabbedScene,
+    },
+    annotationToggle,
+    variableSelectors
+  );
 }

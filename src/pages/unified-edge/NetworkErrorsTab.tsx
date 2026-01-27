@@ -1,3 +1,11 @@
+/**
+ * Network Errors Tab - Unified Edge Scene
+ *
+ * This module provides the Network Errors tab functionality for the Unified Edge scene.
+ * Includes eCMC Uplinks (Ports + Port Channels), eCMC Downlinks, and Error Descriptions.
+ */
+
+import React from 'react';
 import {
   SceneGridLayout,
   SceneGridRow,
@@ -5,10 +13,1410 @@ import {
   SceneFlexLayout,
   SceneFlexItem,
   PanelBuilders,
+  SceneObjectBase,
+  SceneComponentProps,
+  SceneObjectState,
+  VariableDependencyConfig,
+  sceneGraph,
+  behaviors,
 } from '@grafana/scenes';
+import { DashboardCursorSync } from '@grafana/data';
 import { TabbedScene } from '../../components/TabbedScene';
 import { LoggingQueryRunner } from '../../utils/LoggingQueryRunner';
 import { LoggingDataTransformer } from '../../utils/LoggingDataTransformer';
+
+// ============================================================================
+// HELPER FUNCTIONS
+// ============================================================================
+
+/**
+ * Get chassis count from ChassisName variable
+ * Used to determine single vs multiple chassis view
+ */
+function getChassisCount(scene: SceneObjectBase): number {
+  const variable = sceneGraph.lookupVariable('ChassisName', scene);
+  if (!variable || !('state' in variable)) {
+    return 0;
+  }
+
+  const value = (variable.state as any).value;
+
+  if (Array.isArray(value)) {
+    return value.filter((v) => v && v !== '$__all').length;
+  } else if (value && value !== '$__all') {
+    return 1;
+  }
+
+  return 0;
+}
+
+/**
+ * Create drilldown query by replacing ChassisName variable with hardcoded value
+ */
+function createDrilldownQuery(baseQuery: any, chassisName: string): any {
+  const drilldownQuery = JSON.parse(JSON.stringify(baseQuery));
+  const escapedChassisName = JSON.stringify(chassisName);
+
+  // Replace [${ChassisName:doublequote}] with ["chassisName"]
+  drilldownQuery.url_options.data = drilldownQuery.url_options.data.replace(
+    /\[\$\{ChassisName:doublequote\}\]/g,
+    `[${escapedChassisName}]`
+  );
+
+  return drilldownQuery;
+}
+
+// ============================================================================
+// DRILLDOWN HEADER COMPONENT
+// ============================================================================
+
+interface DrilldownHeaderControlState extends SceneObjectState {
+  chassisName: string;
+  onBack: () => void;
+}
+
+class DrilldownHeaderControl extends SceneObjectBase<DrilldownHeaderControlState> {
+  public static Component = DrilldownHeaderRenderer;
+}
+
+function DrilldownHeaderRenderer({ model }: SceneComponentProps<DrilldownHeaderControl>) {
+  const { chassisName, onBack } = model.useState();
+
+  return (
+    <div
+      style={{
+        padding: '12px 0',
+        display: 'flex',
+        alignItems: 'center',
+        gap: '20px',
+        borderBottom: '1px solid rgba(204, 204, 220, 0.15)',
+      }}
+    >
+      <button
+        onClick={onBack}
+        style={{
+          padding: '6px 12px',
+          cursor: 'pointer',
+          background: 'transparent',
+          border: '1px solid rgba(204, 204, 220, 0.25)',
+          borderRadius: '2px',
+          color: 'inherit',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '6px',
+          fontSize: '14px',
+        }}
+      >
+        <span>&larr;</span>
+        <span>Back to Overview</span>
+      </button>
+      <div
+        style={{
+          fontSize: '18px',
+          fontWeight: 500,
+        }}
+      >
+        Drilldown: Chassis: {chassisName}
+      </div>
+    </div>
+  );
+}
+
+// ============================================================================
+// CLICKABLE TABLE WRAPPER COMPONENT
+// ============================================================================
+
+interface ClickableTableWrapperState extends SceneObjectState {
+  tablePanel: any;
+  onRowClick: (name: string) => void;
+}
+
+class ClickableTableWrapper extends SceneObjectBase<ClickableTableWrapperState> {
+  public static Component = ClickableTableWrapperRenderer;
+}
+
+function ClickableTableWrapperRenderer({ model }: SceneComponentProps<ClickableTableWrapper>) {
+  const { tablePanel, onRowClick } = model.useState();
+
+  const handleClick = (event: React.MouseEvent) => {
+    const row = (event.target as HTMLElement).closest('[role="row"]');
+
+    if (!row) {
+      return;
+    }
+
+    const firstCell = row.querySelector('[role="gridcell"][aria-colindex="1"]');
+
+    if (firstCell) {
+      const name = firstCell.textContent?.trim();
+
+      if (name) {
+        onRowClick(name);
+      }
+    }
+  };
+
+  return (
+    <div onClick={handleClick} style={{ cursor: 'pointer', width: '100%', height: '100%' }}>
+      <tablePanel.Component model={tablePanel} />
+    </div>
+  );
+}
+
+// ============================================================================
+// BASE QUERIES - eCMC UPLINKS (PORTS)
+// ============================================================================
+
+/**
+ * Base query for uplink port network errors
+ * Filters: ethernet + eth_uplink
+ */
+function createUplinkPortsQuery() {
+  return {
+    refId: 'A',
+    queryType: 'infinity',
+    type: 'json',
+    source: 'url',
+    parser: 'backend',
+    format: 'table',
+    url: '/api/v1/telemetry/TimeSeries',
+    root_selector: '',
+    columns: [
+      { selector: 'timestamp', text: 'Time', type: 'timestamp' },
+      { selector: 'event.Identifier', text: 'Name', type: 'string' },
+      { selector: 'event.tx_sum', text: 'TX', type: 'number' },
+      { selector: 'event.rx_sum', text: 'RX', type: 'number' },
+      { selector: 'event.host_name', text: 'Hostname', type: 'string' },
+    ],
+    url_options: {
+      method: 'POST',
+      body_type: 'raw',
+      body_content_type: 'application/json',
+      data: `{
+  "queryType": "groupBy",
+  "dataSource": "NetworkInterfaces",
+  "granularity": {
+    "type": "duration",
+    "duration": $__interval_ms,
+    "timeZone": "$__timezone"
+  },
+  "intervals": ["\${__from:date}/\${__to:date}"],
+  "dimensions": [
+    "Identifier",
+    "host_name"
+  ],
+  "virtualColumns": [
+    {
+      "type": "nested-field",
+      "columnName": "intersight.domain.name",
+      "outputName": "domain_name",
+      "expectedType": "STRING",
+      "path": "$"
+    },
+    {
+      "type": "expression",
+      "name": "Identifier",
+      "expression": "concat(domain_name + ' (' + name + ')')",
+      "outputType": "STRING"
+    },
+    {
+      "type": "nested-field",
+      "columnName": "host.name",
+      "outputName": "host_name",
+      "expectedType": "STRING",
+      "path": "$"
+    }
+  ],
+  "filter": {
+    "type": "and",
+    "fields": [
+      {
+        "type": "in",
+        "dimension": "intersight.domain.name",
+        "values": [\${ChassisName:doublequote}]
+      },
+      {
+        "type": "selector",
+        "dimension": "hw.network.port.type",
+        "value": "ethernet"
+      },
+      {
+        "type": "selector",
+        "dimension": "hw.network.port.role",
+        "value": "eth_uplink"
+      },
+      {
+        "type": "selector",
+        "dimension": "instrument.name",
+        "value": "hw.network"
+      }
+    ]
+  },
+  "aggregations": [
+    {
+      "type": "longSum",
+      "name": "runt",
+      "fieldName": "hw.errors_network_receive_runt"
+    },
+    {
+      "type": "longSum",
+      "name": "too_long",
+      "fieldName": "hw.errors_network_receive_too_long"
+    },
+    {
+      "type": "longSum",
+      "name": "crc",
+      "fieldName": "hw.errors_network_receive_crc"
+    },
+    {
+      "type": "longSum",
+      "name": "no_buffer",
+      "fieldName": "hw.errors_network_receive_no_buffer"
+    },
+    {
+      "type": "longSum",
+      "name": "too_short",
+      "fieldName": "hw.errors_network_receive_too_short"
+    },
+    {
+      "type": "longSum",
+      "name": "rx_discard",
+      "fieldName": "hw.errors_network_receive_discard"
+    },
+    {
+      "type": "longSum",
+      "name": "deferred",
+      "fieldName": "hw.errors_network_transmit_deferred"
+    },
+    {
+      "type": "longSum",
+      "name": "late_collisions",
+      "fieldName": "hw.errors_network_late_collisions"
+    },
+    {
+      "type": "longSum",
+      "name": "carrier_sense",
+      "fieldName": "hw.errors_network_carrier_sense"
+    },
+    {
+      "type": "longSum",
+      "name": "tx_discard",
+      "fieldName": "hw.errors_network_transmit_discard"
+    },
+    {
+      "type": "longSum",
+      "name": "jabber",
+      "fieldName": "hw.errors_network_transmit_jabber"
+    }
+  ],
+  "postAggregations": [
+    {
+      "type": "expression",
+      "name": "rx_sum",
+      "expression": "\\"too_short\\" + \\"crc\\" + \\"too_long\\""
+    },
+    {
+      "type": "expression",
+      "name": "tx_sum",
+      "expression": "\\"jabber\\" + \\"late_collisions\\""
+    },
+    {
+      "type": "expression",
+      "name": "total",
+      "expression": "\\"tx_sum\\" + \\"rx_sum\\""
+    }
+  ]
+}`,
+    },
+  } as any;
+}
+
+/**
+ * Base query for uplink port channel network errors
+ * Filters: ethernet_port_channel + eth_uplink_pc
+ */
+function createUplinkPortChannelsQuery() {
+  return {
+    refId: 'A',
+    queryType: 'infinity',
+    type: 'json',
+    source: 'url',
+    parser: 'backend',
+    format: 'table',
+    url: '/api/v1/telemetry/TimeSeries',
+    root_selector: '',
+    columns: [
+      { selector: 'timestamp', text: 'Time', type: 'timestamp' },
+      { selector: 'event.Identifier', text: 'Name', type: 'string' },
+      { selector: 'event.tx_sum', text: 'TX', type: 'number' },
+      { selector: 'event.rx_sum', text: 'RX', type: 'number' },
+      { selector: 'event.host_name', text: 'Hostname', type: 'string' },
+    ],
+    url_options: {
+      method: 'POST',
+      body_type: 'raw',
+      body_content_type: 'application/json',
+      data: `{
+  "queryType": "groupBy",
+  "dataSource": "NetworkInterfaces",
+  "granularity": {
+    "type": "duration",
+    "duration": $__interval_ms,
+    "timeZone": "$__timezone"
+  },
+  "intervals": ["\${__from:date}/\${__to:date}"],
+  "dimensions": [
+    "Identifier",
+    "host_name"
+  ],
+  "virtualColumns": [
+    {
+      "type": "nested-field",
+      "columnName": "intersight.domain.name",
+      "outputName": "domain_name",
+      "expectedType": "STRING",
+      "path": "$"
+    },
+    {
+      "type": "expression",
+      "name": "Identifier",
+      "expression": "concat(domain_name + ' (' + name + ')')",
+      "outputType": "STRING"
+    },
+    {
+      "type": "nested-field",
+      "columnName": "host.name",
+      "outputName": "host_name",
+      "expectedType": "STRING",
+      "path": "$"
+    }
+  ],
+  "filter": {
+    "type": "and",
+    "fields": [
+      {
+        "type": "in",
+        "dimension": "intersight.domain.name",
+        "values": [\${ChassisName:doublequote}]
+      },
+      {
+        "type": "selector",
+        "dimension": "hw.network.port.type",
+        "value": "ethernet_port_channel"
+      },
+      {
+        "type": "selector",
+        "dimension": "hw.network.port.role",
+        "value": "eth_uplink_pc"
+      },
+      {
+        "type": "selector",
+        "dimension": "instrument.name",
+        "value": "hw.network"
+      }
+    ]
+  },
+  "aggregations": [
+    {
+      "type": "longSum",
+      "name": "runt",
+      "fieldName": "hw.errors_network_receive_runt"
+    },
+    {
+      "type": "longSum",
+      "name": "too_long",
+      "fieldName": "hw.errors_network_receive_too_long"
+    },
+    {
+      "type": "longSum",
+      "name": "crc",
+      "fieldName": "hw.errors_network_receive_crc"
+    },
+    {
+      "type": "longSum",
+      "name": "no_buffer",
+      "fieldName": "hw.errors_network_receive_no_buffer"
+    },
+    {
+      "type": "longSum",
+      "name": "too_short",
+      "fieldName": "hw.errors_network_receive_too_short"
+    },
+    {
+      "type": "longSum",
+      "name": "rx_discard",
+      "fieldName": "hw.errors_network_receive_discard"
+    },
+    {
+      "type": "longSum",
+      "name": "deferred",
+      "fieldName": "hw.errors_network_transmit_deferred"
+    },
+    {
+      "type": "longSum",
+      "name": "late_collisions",
+      "fieldName": "hw.errors_network_late_collisions"
+    },
+    {
+      "type": "longSum",
+      "name": "carrier_sense",
+      "fieldName": "hw.errors_network_carrier_sense"
+    },
+    {
+      "type": "longSum",
+      "name": "tx_discard",
+      "fieldName": "hw.errors_network_transmit_discard"
+    },
+    {
+      "type": "longSum",
+      "name": "jabber",
+      "fieldName": "hw.errors_network_transmit_jabber"
+    }
+  ],
+  "postAggregations": [
+    {
+      "type": "expression",
+      "name": "rx_sum",
+      "expression": "\\"rx_discard\\" + \\"too_short\\" + \\"no_buffer\\" + \\"crc\\" + \\"too_long\\" + \\"runt\\""
+    },
+    {
+      "type": "expression",
+      "name": "tx_sum",
+      "expression": "\\"jabber\\" + \\"tx_discard\\" + \\"carrier_sense\\" + \\"late_collisions\\" + \\"deferred\\""
+    },
+    {
+      "type": "expression",
+      "name": "total",
+      "expression": "\\"tx_sum\\" + \\"rx_sum\\""
+    }
+  ]
+}`,
+    },
+  } as any;
+}
+
+// ============================================================================
+// DYNAMIC UPLINKS PORTS SCENE
+// ============================================================================
+
+interface DynamicUplinksPortsSceneState extends SceneObjectState {
+  body: any;
+  drilldownChassis?: string;
+  isDrilldown?: boolean;
+}
+
+class DynamicUplinksPortsScene extends SceneObjectBase<DynamicUplinksPortsSceneState> {
+  public static Component = DynamicUplinksPortsSceneRenderer;
+
+  // @ts-ignore
+  protected _variableDependency = new VariableDependencyConfig(this, {
+    variableNames: ['ChassisName'],
+    onReferencedVariableValueChanged: () => {
+      if (this.isActive) {
+        // Reset drilldown when variable changes
+        if (this.state.isDrilldown) {
+          this.exitDrilldown();
+        }
+        this.rebuildBody();
+      }
+    },
+  });
+
+  public constructor(state: Partial<DynamicUplinksPortsSceneState>) {
+    super({
+      body: new SceneFlexLayout({ children: [] }),
+      ...state,
+    });
+  }
+
+  // @ts-ignore
+  public activate() {
+    const deactivate = super.activate();
+    this.rebuildBody();
+    return deactivate;
+  }
+
+  public drillToChassis(chassisName: string) {
+    this.setState({
+      drilldownChassis: chassisName,
+      isDrilldown: true,
+    });
+    this.rebuildBody();
+  }
+
+  public exitDrilldown() {
+    this.setState({
+      drilldownChassis: undefined,
+      isDrilldown: false,
+    });
+    this.rebuildBody();
+  }
+
+  private rebuildBody() {
+    if (!this.isActive) {
+      return;
+    }
+
+    // Priority 1: Drilldown mode
+    if (this.state.isDrilldown && this.state.drilldownChassis) {
+      const drilldownBody = createDrilldownView(this.state.drilldownChassis, this, 'ports');
+      this.setState({ body: drilldownBody });
+      return;
+    }
+
+    // Priority 2: Get chassis count for conditional rendering
+    const chassisCount = getChassisCount(this);
+
+    // Single chassis - show line charts directly (2x2 grid)
+    if (chassisCount === 1) {
+      const lineChartBody = createLineChartView('ports');
+      this.setState({ body: lineChartBody });
+      return;
+    }
+
+    // Multiple chassis - show summary table with conditional aggregate charts
+    const summaryBody = createSummaryView(this, chassisCount, 'ports');
+    this.setState({ body: summaryBody });
+  }
+}
+
+function DynamicUplinksPortsSceneRenderer({ model }: SceneComponentProps<DynamicUplinksPortsScene>) {
+  const { body } = model.useState();
+  return (
+    <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column' }}>
+      {body && body.Component && <body.Component model={body} />}
+    </div>
+  );
+}
+
+// ============================================================================
+// DYNAMIC UPLINKS PORT CHANNELS SCENE
+// ============================================================================
+
+interface DynamicUplinksPortChannelsSceneState extends SceneObjectState {
+  body: any;
+  drilldownChassis?: string;
+  isDrilldown?: boolean;
+}
+
+class DynamicUplinksPortChannelsScene extends SceneObjectBase<DynamicUplinksPortChannelsSceneState> {
+  public static Component = DynamicUplinksPortChannelsSceneRenderer;
+
+  // @ts-ignore
+  protected _variableDependency = new VariableDependencyConfig(this, {
+    variableNames: ['ChassisName'],
+    onReferencedVariableValueChanged: () => {
+      if (this.isActive) {
+        // Reset drilldown when variable changes
+        if (this.state.isDrilldown) {
+          this.exitDrilldown();
+        }
+        this.rebuildBody();
+      }
+    },
+  });
+
+  public constructor(state: Partial<DynamicUplinksPortChannelsSceneState>) {
+    super({
+      body: new SceneFlexLayout({ children: [] }),
+      ...state,
+    });
+  }
+
+  // @ts-ignore
+  public activate() {
+    const deactivate = super.activate();
+    this.rebuildBody();
+    return deactivate;
+  }
+
+  public drillToChassis(chassisName: string) {
+    this.setState({
+      drilldownChassis: chassisName,
+      isDrilldown: true,
+    });
+    this.rebuildBody();
+  }
+
+  public exitDrilldown() {
+    this.setState({
+      drilldownChassis: undefined,
+      isDrilldown: false,
+    });
+    this.rebuildBody();
+  }
+
+  private rebuildBody() {
+    if (!this.isActive) {
+      return;
+    }
+
+    // Priority 1: Drilldown mode
+    if (this.state.isDrilldown && this.state.drilldownChassis) {
+      const drilldownBody = createDrilldownView(this.state.drilldownChassis, this, 'port-channels');
+      this.setState({ body: drilldownBody });
+      return;
+    }
+
+    // Priority 2: Get chassis count for conditional rendering
+    const chassisCount = getChassisCount(this);
+
+    // Single chassis - show line charts directly (2x2 grid)
+    if (chassisCount === 1) {
+      const lineChartBody = createLineChartView('port-channels');
+      this.setState({ body: lineChartBody });
+      return;
+    }
+
+    // Multiple chassis - show summary table with conditional aggregate charts
+    const summaryBody = createSummaryView(this, chassisCount, 'port-channels');
+    this.setState({ body: summaryBody });
+  }
+}
+
+function DynamicUplinksPortChannelsSceneRenderer({ model }: SceneComponentProps<DynamicUplinksPortChannelsScene>) {
+  const { body } = model.useState();
+  return (
+    <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column' }}>
+      {body && body.Component && <body.Component model={body} />}
+    </div>
+  );
+}
+
+// ============================================================================
+// VIEW CREATION FUNCTIONS
+// ============================================================================
+
+/**
+ * Create line chart view for single chassis (2x2 grid)
+ * Shows: eCMC-A TX, eCMC-A RX, eCMC-B TX, eCMC-B RX (for Ports)
+ * Shows: FI-A TX, FI-A RX, FI-B TX, FI-B RX (for Port Channels)
+ */
+function createLineChartView(tabType: 'ports' | 'port-channels'): SceneFlexLayout {
+  const baseQuery = tabType === 'ports' ? createUplinkPortsQuery() : createUplinkPortChannelsQuery();
+
+  // Hostname filter values differ by tab type
+  const hostA = tabType === 'ports' ? 'eCMC-A' : 'FI-A';
+  const hostB = tabType === 'ports' ? 'eCMC-B' : 'FI-B';
+
+  // Rename regex to strip port type prefix
+  const renameRegex = tabType === 'ports' ? '(.*)Ethernet(.*)' : '(.*)port-channel(.*)';
+
+  // Panel titles
+  const titlePrefix = tabType === 'ports' ? 'uplink port' : 'uplink port channel';
+
+  // A: Transmit errors
+  const aTxQueryRunner = new LoggingQueryRunner({
+    datasource: { uid: '${Account}' },
+    queries: [baseQuery],
+  });
+
+  const aTxTransformer = new LoggingDataTransformer({
+    $data: aTxQueryRunner,
+    transformations: [
+      {
+        id: 'filterByValue',
+        options: {
+          filters: [
+            {
+              fieldName: 'Hostname',
+              config: {
+                id: 'substring',
+                options: { value: hostA },
+              },
+            },
+          ],
+          type: 'include',
+          match: 'all',
+        },
+      },
+      {
+        id: 'groupingToMatrix',
+        options: {
+          columnField: 'Name',
+          rowField: 'Time',
+          valueField: 'TX',
+        },
+      },
+      {
+        id: 'renameByRegex',
+        options: {
+          regex: renameRegex,
+          renamePattern: '$1$2',
+        },
+      },
+    ],
+  });
+
+  const aTxPanel = PanelBuilders.timeseries()
+    .setTitle(`${hostA}: Transmit errors per ${titlePrefix}`)
+    .setData(aTxTransformer)
+    .setCustomFieldConfig('drawStyle', 'line' as any)
+    .setCustomFieldConfig('fillOpacity', 0)
+    .setOption('tooltip', { mode: 'multi' as any, sort: 'desc' as any })
+    .build();
+
+  // A: Receive errors
+  const aRxQueryRunner = new LoggingQueryRunner({
+    datasource: { uid: '${Account}' },
+    queries: [baseQuery],
+  });
+
+  const aRxTransformer = new LoggingDataTransformer({
+    $data: aRxQueryRunner,
+    transformations: [
+      {
+        id: 'filterByValue',
+        options: {
+          filters: [
+            {
+              fieldName: 'Hostname',
+              config: {
+                id: 'substring',
+                options: { value: hostA },
+              },
+            },
+          ],
+          type: 'include',
+          match: 'all',
+        },
+      },
+      {
+        id: 'groupingToMatrix',
+        options: {
+          columnField: 'Name',
+          rowField: 'Time',
+          valueField: 'RX',
+        },
+      },
+      {
+        id: 'renameByRegex',
+        options: {
+          regex: renameRegex,
+          renamePattern: '$1$2',
+        },
+      },
+    ],
+  });
+
+  const aRxPanel = PanelBuilders.timeseries()
+    .setTitle(`${hostA}: Receive errors per ${titlePrefix}`)
+    .setData(aRxTransformer)
+    .setCustomFieldConfig('drawStyle', 'line' as any)
+    .setCustomFieldConfig('fillOpacity', 0)
+    .setOption('tooltip', { mode: 'multi' as any, sort: 'desc' as any })
+    .build();
+
+  // B: Transmit errors
+  const bTxQueryRunner = new LoggingQueryRunner({
+    datasource: { uid: '${Account}' },
+    queries: [baseQuery],
+  });
+
+  const bTxTransformer = new LoggingDataTransformer({
+    $data: bTxQueryRunner,
+    transformations: [
+      {
+        id: 'filterByValue',
+        options: {
+          filters: [
+            {
+              fieldName: 'Hostname',
+              config: {
+                id: 'substring',
+                options: { value: hostB },
+              },
+            },
+          ],
+          type: 'include',
+          match: 'all',
+        },
+      },
+      {
+        id: 'groupingToMatrix',
+        options: {
+          columnField: 'Name',
+          rowField: 'Time',
+          valueField: 'TX',
+        },
+      },
+      {
+        id: 'renameByRegex',
+        options: {
+          regex: renameRegex,
+          renamePattern: '$1$2',
+        },
+      },
+    ],
+  });
+
+  const bTxPanel = PanelBuilders.timeseries()
+    .setTitle(`${hostB}: Transmit errors per ${titlePrefix}`)
+    .setData(bTxTransformer)
+    .setCustomFieldConfig('drawStyle', 'line' as any)
+    .setCustomFieldConfig('fillOpacity', 0)
+    .setOption('tooltip', { mode: 'multi' as any, sort: 'desc' as any })
+    .build();
+
+  // B: Receive errors
+  const bRxQueryRunner = new LoggingQueryRunner({
+    datasource: { uid: '${Account}' },
+    queries: [baseQuery],
+  });
+
+  const bRxTransformer = new LoggingDataTransformer({
+    $data: bRxQueryRunner,
+    transformations: [
+      {
+        id: 'filterByValue',
+        options: {
+          filters: [
+            {
+              fieldName: 'Hostname',
+              config: {
+                id: 'substring',
+                options: { value: hostB },
+              },
+            },
+          ],
+          type: 'include',
+          match: 'all',
+        },
+      },
+      {
+        id: 'groupingToMatrix',
+        options: {
+          columnField: 'Name',
+          rowField: 'Time',
+          valueField: 'RX',
+        },
+      },
+      {
+        id: 'renameByRegex',
+        options: {
+          regex: renameRegex,
+          renamePattern: '$1$2',
+        },
+      },
+    ],
+  });
+
+  const bRxPanel = PanelBuilders.timeseries()
+    .setTitle(`${hostB}: Receive errors per ${titlePrefix}`)
+    .setData(bRxTransformer)
+    .setCustomFieldConfig('drawStyle', 'line' as any)
+    .setCustomFieldConfig('fillOpacity', 0)
+    .setOption('tooltip', { mode: 'multi' as any, sort: 'desc' as any })
+    .build();
+
+  // 2x2 grid layout
+  return new SceneFlexLayout({
+    direction: 'column',
+    children: [
+      new SceneFlexItem({
+        ySizing: 'fill',
+        body: new SceneFlexLayout({
+          direction: 'row',
+          children: [
+            new SceneFlexItem({ ySizing: 'fill', body: aTxPanel }),
+            new SceneFlexItem({ ySizing: 'fill', body: aRxPanel }),
+          ],
+        }),
+      }),
+      new SceneFlexItem({
+        ySizing: 'fill',
+        body: new SceneFlexLayout({
+          direction: 'row',
+          children: [
+            new SceneFlexItem({ ySizing: 'fill', body: bTxPanel }),
+            new SceneFlexItem({ ySizing: 'fill', body: bRxPanel }),
+          ],
+        }),
+      }),
+    ],
+    $behaviors: [
+      new behaviors.CursorSync({ key: 'uplinks-errors', sync: DashboardCursorSync.Tooltip }),
+    ],
+  });
+}
+
+/**
+ * Create summary view for multiple chassis
+ * Shows table + optional aggregate charts (if chassisCount <= 5)
+ */
+function createSummaryView(
+  scene: DynamicUplinksPortsScene | DynamicUplinksPortChannelsScene,
+  chassisCount: number,
+  tabType: 'ports' | 'port-channels'
+): SceneFlexLayout {
+  const baseQuery = tabType === 'ports' ? createUplinkPortsQuery() : createUplinkPortChannelsQuery();
+
+  // Summary table query
+  const tableQueryRunner = new LoggingQueryRunner({
+    datasource: { uid: '${Account}' },
+    queries: [baseQuery],
+  });
+
+  const tableTransformer = new LoggingDataTransformer({
+    $data: tableQueryRunner,
+    transformations: [
+      {
+        id: 'reduce',
+        options: {
+          reducers: ['sum'],
+        },
+      },
+      {
+        id: 'organize',
+        options: {
+          excludeByName: { Time: true },
+          includeByName: {},
+          indexByName: {},
+          renameByName: {
+            'Field': 'Chassis',
+            'TX (sum)': 'TX Errors',
+            'RX (sum)': 'RX Errors',
+          },
+        },
+      },
+      {
+        id: 'calculateField',
+        options: {
+          alias: 'Total Errors',
+          mode: 'reduceRow',
+          reduce: {
+            reducer: 'sum',
+          },
+          replaceFields: false,
+        },
+      },
+      {
+        id: 'organize',
+        options: {
+          excludeByName: {},
+          includeByName: {},
+          indexByName: {
+            'Chassis': 0,
+            'Total Errors': 1,
+            'TX Errors': 2,
+            'RX Errors': 3,
+          },
+          renameByName: {},
+        },
+      },
+    ],
+  });
+
+  const tablePanel = PanelBuilders.table()
+    .setTitle('Network Errors Summary per Chassis - Click row to drill down')
+    .setData(tableTransformer)
+    .setOption('showHeader', true)
+    .setOption('cellHeight', 'sm' as any)
+    .setOption('footer' as any, {
+      enablePagination: true,
+      show: false,
+    })
+    .setOption('sortBy', [{ displayName: 'Total Errors', desc: true }])
+    .setCustomFieldConfig('filterable', true)
+    .setOverrides((builder) => {
+      builder.matchFieldsWithName('Chassis').overrideCustomFieldConfig('width', 240);
+    })
+    .build();
+
+  const clickableTable = new ClickableTableWrapper({
+    tablePanel: tablePanel,
+    onRowClick: (chassisName: string) => {
+      scene.drillToChassis(chassisName);
+    },
+  });
+
+  const children: any[] = [
+    new SceneFlexItem({
+      ySizing: 'fill',
+      body: clickableTable,
+    }),
+  ];
+
+  // Add aggregate line charts if chassisCount <= 5
+  if (chassisCount > 0 && chassisCount <= 5) {
+    // TX aggregate chart
+    const txQueryRunner = new LoggingQueryRunner({
+      datasource: { uid: '${Account}' },
+      queries: [baseQuery],
+    });
+
+    const txTransformer = new LoggingDataTransformer({
+      $data: txQueryRunner,
+      transformations: [
+        {
+          id: 'groupingToMatrix',
+          options: {
+            columnField: 'Name',
+            rowField: 'Time',
+            valueField: 'TX',
+          },
+        },
+        {
+          id: 'reduce',
+          options: {
+            reducers: ['sum'],
+          },
+        },
+        {
+          id: 'renameByRegex',
+          options: {
+            regex: 'TX \\((.*?)\\).*',
+            renamePattern: '$1',
+          },
+        },
+      ],
+    });
+
+    const txPanel = PanelBuilders.timeseries()
+      .setTitle('Total TX Errors by Chassis')
+      .setData(txTransformer)
+      .setCustomFieldConfig('drawStyle', 'line' as any)
+      .setCustomFieldConfig('fillOpacity', 0)
+      .setOption('tooltip', { mode: 'multi' as any, sort: 'desc' as any })
+      .build();
+
+    // RX aggregate chart
+    const rxQueryRunner = new LoggingQueryRunner({
+      datasource: { uid: '${Account}' },
+      queries: [baseQuery],
+    });
+
+    const rxTransformer = new LoggingDataTransformer({
+      $data: rxQueryRunner,
+      transformations: [
+        {
+          id: 'groupingToMatrix',
+          options: {
+            columnField: 'Name',
+            rowField: 'Time',
+            valueField: 'RX',
+          },
+        },
+        {
+          id: 'reduce',
+          options: {
+            reducers: ['sum'],
+          },
+        },
+        {
+          id: 'renameByRegex',
+          options: {
+            regex: 'RX \\((.*?)\\).*',
+            renamePattern: '$1',
+          },
+        },
+      ],
+    });
+
+    const rxPanel = PanelBuilders.timeseries()
+      .setTitle('Total RX Errors by Chassis')
+      .setData(rxTransformer)
+      .setCustomFieldConfig('drawStyle', 'line' as any)
+      .setCustomFieldConfig('fillOpacity', 0)
+      .setOption('tooltip', { mode: 'multi' as any, sort: 'desc' as any })
+      .build();
+
+    // Add aggregate charts in a row
+    children.push(
+      new SceneFlexItem({
+        ySizing: 'fill',
+        body: new SceneFlexLayout({
+          direction: 'row',
+          children: [
+            new SceneFlexItem({ ySizing: 'fill', body: txPanel }),
+            new SceneFlexItem({ ySizing: 'fill', body: rxPanel }),
+          ],
+          $behaviors: [
+            new behaviors.CursorSync({ key: 'uplinks-aggregate', sync: DashboardCursorSync.Tooltip }),
+          ],
+        }),
+      })
+    );
+  }
+
+  return new SceneFlexLayout({
+    direction: 'column',
+    children: children,
+  });
+}
+
+/**
+ * Create drilldown view with back button + line charts
+ */
+function createDrilldownView(
+  chassisName: string,
+  scene: DynamicUplinksPortsScene | DynamicUplinksPortChannelsScene,
+  tabType: 'ports' | 'port-channels'
+): SceneFlexLayout {
+  const drilldownHeader = new DrilldownHeaderControl({
+    chassisName: chassisName,
+    onBack: () => scene.exitDrilldown(),
+  });
+
+  const baseQuery = tabType === 'ports' ? createUplinkPortsQuery() : createUplinkPortChannelsQuery();
+  const drilldownQuery = createDrilldownQuery(baseQuery, chassisName);
+
+  // Hostname filter values differ by tab type
+  const hostA = tabType === 'ports' ? 'eCMC-A' : 'FI-A';
+  const hostB = tabType === 'ports' ? 'eCMC-B' : 'FI-B';
+
+  // Rename regex to strip port type prefix
+  const renameRegex = tabType === 'ports' ? '(.*)Ethernet(.*)' : '(.*)port-channel(.*)';
+
+  // Panel titles
+  const titlePrefix = tabType === 'ports' ? 'uplink port' : 'uplink port channel';
+
+  // A: Transmit errors
+  const aTxQueryRunner = new LoggingQueryRunner({
+    datasource: { uid: '${Account}' },
+    queries: [drilldownQuery],
+  });
+
+  const aTxTransformer = new LoggingDataTransformer({
+    $data: aTxQueryRunner,
+    transformations: [
+      {
+        id: 'filterByValue',
+        options: {
+          filters: [
+            {
+              fieldName: 'Hostname',
+              config: {
+                id: 'substring',
+                options: { value: hostA },
+              },
+            },
+          ],
+          type: 'include',
+          match: 'all',
+        },
+      },
+      {
+        id: 'groupingToMatrix',
+        options: {
+          columnField: 'Name',
+          rowField: 'Time',
+          valueField: 'TX',
+        },
+      },
+      {
+        id: 'renameByRegex',
+        options: {
+          regex: renameRegex,
+          renamePattern: '$1$2',
+        },
+      },
+    ],
+  });
+
+  const aTxPanel = PanelBuilders.timeseries()
+    .setTitle(`${hostA}: Transmit errors - ${chassisName}`)
+    .setData(aTxTransformer)
+    .setCustomFieldConfig('drawStyle', 'line' as any)
+    .setCustomFieldConfig('fillOpacity', 0)
+    .setOption('tooltip', { mode: 'multi' as any, sort: 'desc' as any })
+    .build();
+
+  // A: Receive errors
+  const aRxQueryRunner = new LoggingQueryRunner({
+    datasource: { uid: '${Account}' },
+    queries: [drilldownQuery],
+  });
+
+  const aRxTransformer = new LoggingDataTransformer({
+    $data: aRxQueryRunner,
+    transformations: [
+      {
+        id: 'filterByValue',
+        options: {
+          filters: [
+            {
+              fieldName: 'Hostname',
+              config: {
+                id: 'substring',
+                options: { value: hostA },
+              },
+            },
+          ],
+          type: 'include',
+          match: 'all',
+        },
+      },
+      {
+        id: 'groupingToMatrix',
+        options: {
+          columnField: 'Name',
+          rowField: 'Time',
+          valueField: 'RX',
+        },
+      },
+      {
+        id: 'renameByRegex',
+        options: {
+          regex: renameRegex,
+          renamePattern: '$1$2',
+        },
+      },
+    ],
+  });
+
+  const aRxPanel = PanelBuilders.timeseries()
+    .setTitle(`${hostA}: Receive errors - ${chassisName}`)
+    .setData(aRxTransformer)
+    .setCustomFieldConfig('drawStyle', 'line' as any)
+    .setCustomFieldConfig('fillOpacity', 0)
+    .setOption('tooltip', { mode: 'multi' as any, sort: 'desc' as any })
+    .build();
+
+  // B: Transmit errors
+  const bTxQueryRunner = new LoggingQueryRunner({
+    datasource: { uid: '${Account}' },
+    queries: [drilldownQuery],
+  });
+
+  const bTxTransformer = new LoggingDataTransformer({
+    $data: bTxQueryRunner,
+    transformations: [
+      {
+        id: 'filterByValue',
+        options: {
+          filters: [
+            {
+              fieldName: 'Hostname',
+              config: {
+                id: 'substring',
+                options: { value: hostB },
+              },
+            },
+          ],
+          type: 'include',
+          match: 'all',
+        },
+      },
+      {
+        id: 'groupingToMatrix',
+        options: {
+          columnField: 'Name',
+          rowField: 'Time',
+          valueField: 'TX',
+        },
+      },
+      {
+        id: 'renameByRegex',
+        options: {
+          regex: renameRegex,
+          renamePattern: '$1$2',
+        },
+      },
+    ],
+  });
+
+  const bTxPanel = PanelBuilders.timeseries()
+    .setTitle(`${hostB}: Transmit errors - ${chassisName}`)
+    .setData(bTxTransformer)
+    .setCustomFieldConfig('drawStyle', 'line' as any)
+    .setCustomFieldConfig('fillOpacity', 0)
+    .setOption('tooltip', { mode: 'multi' as any, sort: 'desc' as any })
+    .build();
+
+  // B: Receive errors
+  const bRxQueryRunner = new LoggingQueryRunner({
+    datasource: { uid: '${Account}' },
+    queries: [drilldownQuery],
+  });
+
+  const bRxTransformer = new LoggingDataTransformer({
+    $data: bRxQueryRunner,
+    transformations: [
+      {
+        id: 'filterByValue',
+        options: {
+          filters: [
+            {
+              fieldName: 'Hostname',
+              config: {
+                id: 'substring',
+                options: { value: hostB },
+              },
+            },
+          ],
+          type: 'include',
+          match: 'all',
+        },
+      },
+      {
+        id: 'groupingToMatrix',
+        options: {
+          columnField: 'Name',
+          rowField: 'Time',
+          valueField: 'RX',
+        },
+      },
+      {
+        id: 'renameByRegex',
+        options: {
+          regex: renameRegex,
+          renamePattern: '$1$2',
+        },
+      },
+    ],
+  });
+
+  const bRxPanel = PanelBuilders.timeseries()
+    .setTitle(`${hostB}: Receive errors - ${chassisName}`)
+    .setData(bRxTransformer)
+    .setCustomFieldConfig('drawStyle', 'line' as any)
+    .setCustomFieldConfig('fillOpacity', 0)
+    .setOption('tooltip', { mode: 'multi' as any, sort: 'desc' as any })
+    .build();
+
+  return new SceneFlexLayout({
+    direction: 'column',
+    children: [
+      new SceneFlexItem({ height: 50, body: drilldownHeader }),
+      new SceneFlexItem({
+        ySizing: 'fill',
+        body: new SceneFlexLayout({
+          direction: 'column',
+          children: [
+            new SceneFlexItem({
+              ySizing: 'fill',
+              body: new SceneFlexLayout({
+                direction: 'row',
+                children: [
+                  new SceneFlexItem({ ySizing: 'fill', body: aTxPanel }),
+                  new SceneFlexItem({ ySizing: 'fill', body: aRxPanel }),
+                ],
+              }),
+            }),
+            new SceneFlexItem({
+              ySizing: 'fill',
+              body: new SceneFlexLayout({
+                direction: 'row',
+                children: [
+                  new SceneFlexItem({ ySizing: 'fill', body: bTxPanel }),
+                  new SceneFlexItem({ ySizing: 'fill', body: bRxPanel }),
+                ],
+              }),
+            }),
+          ],
+          $behaviors: [
+            new behaviors.CursorSync({ key: 'uplinks-drilldown', sync: DashboardCursorSync.Tooltip }),
+          ],
+        }),
+      }),
+    ],
+  });
+}
+
+// ============================================================================
+// MAIN TAB EXPORT
+// ============================================================================
 
 export function getNetworkErrorsTab() {
   const uplinksRow = createUplinksRow();
@@ -29,16 +1437,16 @@ export function getNetworkErrorsTab() {
 }
 
 function createUplinksRow() {
-  const uplinksPortsContent = createPlaceholderPanel('eCMC Uplinks - Ports');
-  const uplinksPortChannelsContent = createPlaceholderPanel('eCMC Uplinks - Port Channels');
+  const uplinksPortsScene = new DynamicUplinksPortsScene({});
+  const uplinksPortChannelsScene = new DynamicUplinksPortChannelsScene({});
 
   const uplinksNestedTabs = new TabbedScene({
     tabs: [
-      { id: 'ports', label: 'Ports', getBody: () => uplinksPortsContent },
-      { id: 'port-channels', label: 'Port Channels', getBody: () => uplinksPortChannelsContent },
+      { id: 'ports', label: 'Ports', getBody: () => uplinksPortsScene },
+      { id: 'port-channels', label: 'Port Channels', getBody: () => uplinksPortChannelsScene },
     ],
     activeTab: 'ports',
-    body: uplinksPortsContent,
+    body: uplinksPortsScene,
   });
 
   return new SceneGridRow({
@@ -51,7 +1459,7 @@ function createUplinksRow() {
         x: 0,
         y: 0,
         width: 24,
-        height: 8,
+        height: 16,
         body: uplinksNestedTabs,
       }),
     ],
@@ -63,11 +1471,11 @@ function createDownlinksRow() {
     title: 'eCMC Downlinks',
     isCollapsible: true,
     isCollapsed: false,
-    y: 8,
+    y: 16,
     children: [
       new SceneGridItem({
         x: 0,
-        y: 8,
+        y: 16,
         width: 24,
         height: 6,
         body: createPlaceholderPanel('eCMC Downlinks'),
@@ -164,13 +1572,13 @@ function createErrorDescriptionsRow() {
     title: 'Error Descriptions',
     isCollapsible: true,
     isCollapsed: false,
-    y: 14,
+    y: 22,
     children: [
       new SceneGridItem({
         x: 0,
-        y: 14,
+        y: 22,
         width: 24,
-        height: 6,
+        height: 16,
         body: errorDescriptionsPanel,
       }),
     ],

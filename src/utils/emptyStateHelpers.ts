@@ -172,3 +172,42 @@ export function hasNothingSelected(variable: any): boolean {
 
   return !hasSelection;
 }
+
+// ============================================================================
+// SINGLE SELECTION HELPERS
+// ============================================================================
+
+/**
+ * Checks if exactly one value is selected in a variable.
+ * Useful for enabling features that only work with single selections (e.g., annotations).
+ *
+ * @param variable - The Grafana variable to check
+ * @returns true if exactly one value is selected, false otherwise
+ *
+ * @example
+ * if (isSingleValueSelected(chassisVariable)) {
+ *   // Enable annotations for single chassis
+ * }
+ */
+export function isSingleValueSelected(variable: any): boolean {
+  const values = getSelectedValues(variable);
+  return values.length === 1;
+}
+
+/**
+ * Gets the single selected value from a variable, or null if multiple/none selected.
+ * Useful for getting a specific entity name when exactly one is selected.
+ *
+ * @param variable - The Grafana variable to extract the value from
+ * @returns The single selected value as a string, or null if not exactly one selected
+ *
+ * @example
+ * const chassisName = getSingleSelectedValue(chassisVariable);
+ * if (chassisName) {
+ *   // Create annotations for this specific chassis
+ * }
+ */
+export function getSingleSelectedValue(variable: any): string | null {
+  const values = getSelectedValues(variable);
+  return values.length === 1 ? values[0] : null;
+}
