@@ -18,6 +18,7 @@ import {
 } from '@grafana/scenes';
 import { LoggingQueryRunner } from '../../utils/LoggingQueryRunner';
 import { LoggingDataTransformer } from '../../utils/LoggingDataTransformer';
+import { PaginatedDataProvider } from '../../utils/PaginatedDataProvider';
 import { EmptyStateScene } from '../../components/EmptyStateScene';
 import { getEmptyStateScenario, getSelectedValues } from '../../utils/emptyStateHelpers';
 
@@ -220,9 +221,14 @@ function createPortsBody(moidFilter?: string, isSingleServer: boolean = false): 
     ],
   });
 
+  // Wrap with pagination support for >1000 results
+  const paginatedData = new PaginatedDataProvider({
+    $data: baseQueryRunner,
+  });
+
   // Apply transformations: merge queries, organize columns
   const transformedData = new LoggingDataTransformer({
-    $data: baseQueryRunner,
+    $data: paginatedData,
     transformations: [
       {
         id: 'merge',

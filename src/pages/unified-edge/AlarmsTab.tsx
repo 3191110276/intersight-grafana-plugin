@@ -21,6 +21,7 @@ import {
 } from '@grafana/scenes';
 import { LoggingQueryRunner } from '../../utils/LoggingQueryRunner';
 import { LoggingDataTransformer } from '../../utils/LoggingDataTransformer';
+import { PaginatedDataProvider } from '../../utils/PaginatedDataProvider';
 import { DataFrame, LoadingState, PanelData } from '@grafana/data';
 import { Observable } from 'rxjs';
 import { map } from 'rxjs/operators';
@@ -421,10 +422,15 @@ function getAllChassisAlarmsPanel(chassisNames: string[]) {
     queries: tableQueries,
   });
 
+  // Wrap with pagination support for >1000 results
+  const paginatedQueryRunner = new PaginatedDataProvider({
+    $data: baseQueryRunner,
+  });
+
   // Apply transformations: merge queries, organize columns and format time
   // Note: Sorting by SeverityOrder + TimestampSort is handled by FilterColumnsDataProvider
   const baseTransformedData = new LoggingDataTransformer({
-    $data: baseQueryRunner,
+    $data: paginatedQueryRunner,
     transformations: [
       {
         id: 'merge',

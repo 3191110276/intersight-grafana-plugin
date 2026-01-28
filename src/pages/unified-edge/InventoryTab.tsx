@@ -18,6 +18,7 @@ import {
 } from '@grafana/scenes';
 import { LoggingQueryRunner } from '../../utils/LoggingQueryRunner';
 import { LoggingDataTransformer } from '../../utils/LoggingDataTransformer';
+import { PaginatedDataProvider } from '../../utils/PaginatedDataProvider';
 import { EmptyStateScene } from '../../components/EmptyStateScene';
 import { getEmptyStateScenario, getSelectedValues } from '../../utils/emptyStateHelpers';
 
@@ -160,8 +161,13 @@ function createInventoryBody(chassisNames: string[], showChassisColumn: boolean)
     ],
   });
 
-  const chassisTransformedData = new LoggingDataTransformer({
+  // Wrap with pagination support for >1000 results
+  const chassisPaginatedData = new PaginatedDataProvider({
     $data: chassisQueryRunner,
+  });
+
+  const chassisTransformedData = new LoggingDataTransformer({
+    $data: chassisPaginatedData,
     transformations: [
       {
         id: 'organize',
@@ -364,8 +370,13 @@ function createInventoryBody(chassisNames: string[], showChassisColumn: boolean)
     ],
   });
 
-  const hostTransformedData = new LoggingDataTransformer({
+  // Wrap with pagination support for >1000 results
+  const hostPaginatedData = new PaginatedDataProvider({
     $data: hostQueryRunner,
+  });
+
+  const hostTransformedData = new LoggingDataTransformer({
+    $data: hostPaginatedData,
     transformations: [
       {
         id: 'organize',

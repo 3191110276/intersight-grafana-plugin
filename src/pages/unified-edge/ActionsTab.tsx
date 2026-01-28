@@ -20,6 +20,7 @@ import {
 } from '@grafana/scenes';
 import { LoggingQueryRunner } from '../../utils/LoggingQueryRunner';
 import { LoggingDataTransformer } from '../../utils/LoggingDataTransformer';
+import { PaginatedDataProvider } from '../../utils/PaginatedDataProvider';
 import { DataFrame, LoadingState, PanelData } from '@grafana/data';
 import { Observable } from 'rxjs';
 import { EmptyStateScene } from '../../components/EmptyStateScene';
@@ -523,8 +524,13 @@ function getAllChassisActionsPanel(chassisNames: string[], showChassisColumn: bo
     queries: queries,
   });
 
+  // Wrap with pagination support for >1000 results
+  const paginatedQueryRunner = new PaginatedDataProvider({
+    $data: baseQueryRunner,
+  });
+
   // Build the body using the helper function
-  const body = buildActionsBodyWithQueryRunner(chassisNames, showChassisColumn, baseQueryRunner);
+  const body = buildActionsBodyWithQueryRunner(chassisNames, showChassisColumn, paginatedQueryRunner as any);
 
   return { body, queryRunner: baseQueryRunner };
 }

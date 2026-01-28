@@ -228,21 +228,27 @@ const queryC = {
 // ============================================================================
 
 /**
- * Creates a drilldown query by replacing variable interpolation with a hardcoded chassis name
+ * Creates a drilldown query by replacing variable interpolation with a hardcoded host name
+ * Pattern from Environmental tab's host drilldown
  */
-function createDrilldownQuery(baseQuery: any, chassisName: string): any {
-  // Deep clone the base query (use structured clone to avoid reference issues)
+function createDrilldownQuery(baseQuery: any, hostName: string): any {
+  console.log('[CPUUtil] createDrilldownQuery called with hostName:', hostName);
+
+  // Deep clone the base query
   const drilldownQuery = JSON.parse(JSON.stringify(baseQuery));
 
-  // Replace the ChassisName variable reference with the hardcoded chassis name
-  // The variable is referenced as: "pattern": "^${ChassisName:regex}"
-  // We need to replace it with: "pattern": "^chassisName"
-  // Escape special regex characters in the chassis name
-  const escapedChassisName = chassisName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  // Replace the ChassisName regex pattern with specific hostname pattern
+  // Escape special regex characters in hostname
+  const escapedHostName = hostName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+  console.log('[CPUUtil] Original query data (first 200 chars):', drilldownQuery.url_options.data.substring(0, 200));
+
   drilldownQuery.url_options.data = drilldownQuery.url_options.data.replace(
-    /\^\\?\$\{ChassisName:regex\}/g,
-    `^${escapedChassisName}`
+    /"pattern": "\^\$\{ChassisName:regex\}"/g,
+    `"pattern": "^${escapedHostName}"`
   );
+
+  console.log('[CPUUtil] Modified query data (first 200 chars):', drilldownQuery.url_options.data.substring(0, 200));
 
   return drilldownQuery;
 }
@@ -252,7 +258,7 @@ function createDrilldownQuery(baseQuery: any, chassisName: string): any {
 // ============================================================================
 
 interface DrilldownHeaderControlState extends SceneObjectState {
-  chassisName: string;
+  hostName: string;
   onBack: () => void;
 }
 
@@ -261,7 +267,7 @@ class DrilldownHeaderControl extends SceneObjectBase<DrilldownHeaderControlState
 }
 
 function DrilldownHeaderRenderer({ model }: SceneComponentProps<DrilldownHeaderControl>) {
-  const { chassisName, onBack } = model.useState();
+  const { hostName, onBack } = model.useState();
 
   return (
     <div style={{
@@ -293,7 +299,7 @@ function DrilldownHeaderRenderer({ model }: SceneComponentProps<DrilldownHeaderC
         fontSize: '18px',
         fontWeight: 500,
       }}>
-        Drilldown: {chassisName}
+        Drilldown: {hostName}
       </div>
     </div>
   );
@@ -305,7 +311,7 @@ function DrilldownHeaderRenderer({ model }: SceneComponentProps<DrilldownHeaderC
 
 interface ClickableTableWrapperState extends SceneObjectState {
   tablePanel: any;
-  onRowClick: (chassisName: string) => void;
+  onRowClick: (name: string) => void;
 }
 
 class ClickableTableWrapper extends SceneObjectBase<ClickableTableWrapperState> {
@@ -316,22 +322,29 @@ function ClickableTableWrapperRenderer({ model }: SceneComponentProps<ClickableT
   const { tablePanel, onRowClick } = model.useState();
 
   const handleClick = (event: React.MouseEvent) => {
-    // Find the closest grid row (React Data Grid uses role="row")
+    console.log('[CPUUtil] Click detected on table');
+
+    // Find the closest row (uses role="row")
     const row = (event.target as HTMLElement).closest('[role="row"]');
 
     if (!row) {
+      console.log('[CPUUtil] No row found');
       return;
     }
 
-    // Extract chassis name from the first gridcell (aria-colindex="1")
-    const firstCell = row.querySelector('[role="gridcell"][aria-colindex="1"]');
+    // Get the first cell (uses role="cell" for this table, positioned at left: 0px)
+    const firstCell = row.querySelector('[role="cell"]');
 
     if (firstCell) {
-      const chassisName = firstCell.textContent?.trim();
+      const name = firstCell.textContent?.trim();
+      console.log('[CPUUtil] Extracted name from first cell:', name);
 
-      if (chassisName) {
-        onRowClick(chassisName);
+      if (name) {
+        console.log('[CPUUtil] Calling onRowClick with:', name);
+        onRowClick(name);
       }
+    } else {
+      console.log('[CPUUtil] First cell not found');
     }
   };
 
@@ -348,7 +361,7 @@ function ClickableTableWrapperRenderer({ model }: SceneComponentProps<ClickableT
 
 interface DynamicCPUUtilizationSceneState extends SceneObjectState {
   body: any;
-  drilldownChassis?: string;  // Chassis name when in drilldown mode
+  drilldownHost?: string;     // Host name when in drilldown mode
   isDrilldown?: boolean;      // True when viewing drilldown (from table click)
 }
 
@@ -387,13 +400,15 @@ class DynamicCPUUtilizationScene extends SceneObjectBase<DynamicCPUUtilizationSc
   }
 
   /**
-   * Drills down to a specific chassis's detailed view
+   * Drills down to a specific host's detailed view
    */
-  public drillToChassis(chassisName: string) {
+  public drillToHost(hostName: string) {
+    console.log('[CPUUtil] drillToHost called with:', hostName);
     this.setState({
-      drilldownChassis: chassisName,
+      drilldownHost: hostName,
       isDrilldown: true,
     });
+    console.log('[CPUUtil] State updated, calling rebuildBody');
     this.rebuildBody();
   }
 
@@ -402,21 +417,25 @@ class DynamicCPUUtilizationScene extends SceneObjectBase<DynamicCPUUtilizationSc
    */
   public exitDrilldown() {
     this.setState({
-      drilldownChassis: undefined,
+      drilldownHost: undefined,
       isDrilldown: false,
     });
     this.rebuildBody();
   }
 
   private rebuildBody() {
+    console.log('[CPUUtil] rebuildBody called, isActive:', this.isActive, 'isDrilldown:', this.state.isDrilldown, 'drilldownHost:', this.state.drilldownHost);
+
     // Skip if scene is not active (prevents race conditions during deactivation)
     if (!this.isActive) {
+      console.log('[CPUUtil] Scene not active, skipping rebuild');
       return;
     }
 
     // Check for drilldown mode first
-    if (this.state.isDrilldown && this.state.drilldownChassis) {
-      const drilldownBody = createDrilldownView(this.state.drilldownChassis, this);
+    if (this.state.isDrilldown && this.state.drilldownHost) {
+      console.log('[CPUUtil] Creating drilldown view for host:', this.state.drilldownHost);
+      const drilldownBody = createDrilldownView(this.state.drilldownHost, this);
       this.setState({ body: drilldownBody });
       return;
     }
@@ -554,20 +573,22 @@ function createDualGraphsBody() {
 }
 
 // ============================================================================
-// DRILLDOWN VIEW - Detailed graphs for a single chassis (from table click)
+// DRILLDOWN VIEW - Detailed graphs for a single host (from table click)
 // ============================================================================
 
-function createDrilldownView(chassisName: string, scene: DynamicCPUUtilizationScene) {
+function createDrilldownView(hostName: string, scene: DynamicCPUUtilizationScene) {
+  console.log('[CPUUtil] createDrilldownView called for host:', hostName);
+
   // Create combined header with back button
   const drilldownHeader = new DrilldownHeaderControl({
-    chassisName: chassisName,
+    hostName: hostName,
     onBack: () => scene.exitDrilldown(),
   });
 
-  // Create queries with hardcoded chassis filter (bypass variable)
-  const drilldownQueryA = createDrilldownQuery(queryA, chassisName);
-  const drilldownQueryB = createDrilldownQuery(queryB, chassisName);
-  const drilldownQueryC = createDrilldownQuery(queryC, chassisName);
+  // Create queries with hardcoded host filter (bypass variable)
+  const drilldownQueryA = createDrilldownQuery(queryA, hostName);
+  const drilldownQueryB = createDrilldownQuery(queryB, hostName);
+  const drilldownQueryC = createDrilldownQuery(queryC, hostName);
 
   // Create query runners with drilldown queries
   const cpuUtilQueryRunner = new LoggingQueryRunner({
@@ -753,8 +774,9 @@ function createMultiChassisTableBody(scene: DynamicCPUUtilizationScene) {
   // Wrap table in clickable wrapper
   const clickableTable = new ClickableTableWrapper({
     tablePanel: tablePanel,
-    onRowClick: (chassisName: string) => {
-      scene.drillToChassis(chassisName);
+    onRowClick: (hostName: string) => {
+      console.log('[CPUUtil] onRowClick callback called with:', hostName);
+      scene.drillToHost(hostName);
     },
   });
 

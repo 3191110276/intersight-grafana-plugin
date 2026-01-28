@@ -18,6 +18,7 @@ import {
 } from '@grafana/scenes';
 import { LoggingQueryRunner } from '../../utils/LoggingQueryRunner';
 import { LoggingDataTransformer } from '../../utils/LoggingDataTransformer';
+import { PaginatedDataProvider } from '../../utils/PaginatedDataProvider';
 import { EmptyStateScene } from '../../components/EmptyStateScene';
 import { getEmptyStateScenario } from '../../utils/emptyStateHelpers';
 
@@ -184,8 +185,13 @@ function createInventoryBody(): SceneFlexLayout {
     ],
   });
 
-  const transformedData = new LoggingDataTransformer({
+  // Wrap with pagination support for >1000 results
+  const paginatedData = new PaginatedDataProvider({
     $data: queryRunner,
+  });
+
+  const transformedData = new LoggingDataTransformer({
+    $data: paginatedData,
     transformations: [
       {
         id: 'organize',
