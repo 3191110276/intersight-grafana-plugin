@@ -47,6 +47,7 @@ class UnifiedEdgeSceneWithAnnotations extends SceneObjectBase<UnifiedEdgeSceneWi
   // These controls belong to TabbedScene, not to this wrapper
   private _annotationToggle: AnnotationToggleControl;
   private _variableSelectors: VariableValueSelectors;
+  private _currentLayerSet: SceneDataLayerSet | null = null;
 
   // @ts-ignore
   protected _variableDependency = new VariableDependencyConfig(this, {
@@ -90,10 +91,45 @@ class UnifiedEdgeSceneWithAnnotations extends SceneObjectBase<UnifiedEdgeSceneWi
       // Wire up the toggle control with the data layer set
       this._annotationToggle.setDataLayerSet(dataLayerSet);
 
-      // Apply current toggle state to the new layers
-      const isEnabled = this._annotationToggle.state.enabled;
-      dataLayerSet.state.layers.forEach((layer) => {
-        layer.setState({ isEnabled });
+      // Wire up the toggle callback to control $data on this scene
+      this._annotationToggle.setOnToggle((enabled) => {
+        // @ts-ignore
+        const variable = sceneGraph.lookupVariable('ChassisName', this as any);
+        const chassisName = getSingleSelectedValue(variable);
+
+        if (enabled && chassisName) {
+          // Create fresh annotation layers
+          const freshLayerSet = createUnifiedEdgeAnnotations(chassisName);
+          this._currentLayerSet = freshLayerSet;
+          this.setState({ $data: freshLayerSet });
+
+          // Force the TabbedScene to recreate its body so new panels subscribe to the new $data
+          // This causes a visual "repaint" but is necessary due to Grafana Scenes architecture -
+          // existing panels don't automatically pick up new $data from parent scenes
+          const currentTab = this.state.body.state.activeTab;
+          this.state.body.setActiveTab(currentTab, false);
+        } else {
+          // Explicitly deactivate old layers to remove them from scene graph
+          if (this._currentLayerSet && this._currentLayerSet.state.layers) {
+            this._currentLayerSet.state.layers.forEach((layer) => {
+              if (typeof (layer as any).onDeactivate === 'function') {
+                (layer as any).onDeactivate();
+              }
+            });
+          }
+
+          // Remove from $data
+          this._currentLayerSet = null;
+          this.setState({ $data: undefined });
+
+          // Force a panel refresh to detect the $data change and clear annotations
+          try {
+            const timeRange = sceneGraph.getTimeRange(this);
+            timeRange.onRefresh();
+          } catch {
+            // Ignore errors if time range not available
+          }
+        }
       });
 
       // Update TabbedScene controls to include annotation toggle (left of variable selectors)
@@ -101,10 +137,18 @@ class UnifiedEdgeSceneWithAnnotations extends SceneObjectBase<UnifiedEdgeSceneWi
         controls: [this._annotationToggle, this._variableSelectors],
       });
 
-      this.setState({ $data: dataLayerSet });
+      // Only set $data if toggle is enabled
+      if (this._annotationToggle.state.enabled) {
+        this._currentLayerSet = dataLayerSet;
+        this.setState({ $data: dataLayerSet });
+      } else {
+        this._currentLayerSet = null;
+      }
     } else {
       // Multiple or no chassis selected: disable annotations
       debugScene('Disabling annotations (multiple/no chassis selected)');
+
+      this._currentLayerSet = null;
 
       // Update TabbedScene controls to only have variable selectors
       this.state.body.setState({

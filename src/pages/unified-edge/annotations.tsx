@@ -47,7 +47,6 @@ export const ANNOTATION_COLORS = {
 interface InfinityAnnotationLayerState extends SceneDataLayerProviderState {
   chassisName: string;
   annotationType: 'alarms' | 'actions';
-  $queryRunner?: LoggingQueryRunner;
 }
 
 /**
@@ -60,6 +59,9 @@ interface InfinityAnnotationLayerState extends SceneDataLayerProviderState {
 export class InfinityAnnotationLayer extends SceneDataLayerBase<InfinityAnnotationLayerState> {
   private _querySub: Unsubscribable | null = null;
   private _timeRangeSub: Unsubscribable | null = null;
+  private _queryRunnerDeactivate: (() => void) | null = null;
+  private _queryRunner: LoggingQueryRunner | null = null;
+  private _isRunning = false;
 
   public constructor(state: InfinityAnnotationLayerState) {
     super({
@@ -70,37 +72,58 @@ export class InfinityAnnotationLayer extends SceneDataLayerBase<InfinityAnnotati
     });
   }
 
-  /**
-   * Override setState to react to isEnabled changes.
-   * The base class SceneDataLayerBase doesn't automatically call onEnable/onDisable
-   * when isEnabled is changed via setState() after activation.
-   */
-  public setState(update: Partial<InfinityAnnotationLayerState>) {
-    const prevIsEnabled = this.state.isEnabled;
-    super.setState(update);
-
-    // Only react to isEnabled changes when the layer is already active
-    // The base class handles the initial enable during activation
-    if ('isEnabled' in update && this.isActive && update.isEnabled !== prevIsEnabled) {
-      if (update.isEnabled) {
-        this.onEnable();
-      } else {
-        this.onDisable();
-      }
-    }
-  }
-
   public onEnable(): void {
     this.runLayer();
   }
 
   public onDisable(): void {
-    this.cancelQuery();
+    // Cancel the query runner but DON'T unsubscribe from time range
+    // This allows the layer to respond to refresh and republish empty results
+    if (this._queryRunnerDeactivate) {
+      this._queryRunnerDeactivate();
+      this._queryRunnerDeactivate = null;
+    }
+    if (this._queryRunner) {
+      this._queryRunner = null;
+    }
+    this._isRunning = false;
+
+    // Publish empty results to clear annotations from the UI
+    try {
+      const timeRange = sceneGraph.getTimeRange(this);
+      this.publishResults({
+        state: LoadingState.Done,
+        series: [],
+        annotations: [],
+        timeRange: timeRange.state.value,
+      });
+    } catch {
+      // If we can't get the time range, just publish minimal empty results
+      this.publishResults({
+        state: LoadingState.Done,
+        series: [],
+        annotations: [],
+        timeRange: { from: new Date(), to: new Date(), raw: { from: 'now-1h', to: 'now' } } as any,
+      });
+    }
   }
 
   protected runLayer(): void {
+    // Prevent duplicate runs
+    if (this._isRunning) {
+      return;
+    }
+    this._isRunning = true;
+
     // Get the time range from the scene graph
-    const timeRange = sceneGraph.getTimeRange(this);
+    let timeRange;
+    try {
+      timeRange = sceneGraph.getTimeRange(this);
+    } catch {
+      // If we can't get the time range, we can't run the layer
+      this._isRunning = false;
+      return;
+    }
 
     // Subscribe to time range changes to re-run queries
     if (this._timeRangeSub) {
@@ -108,7 +131,22 @@ export class InfinityAnnotationLayer extends SceneDataLayerBase<InfinityAnnotati
     }
 
     this._timeRangeSub = timeRange.subscribeToState(() => {
-      this.executeQuery();
+      // If active but disabled, republish empty results to clear annotations
+      if (this.isActive && !this.state.isEnabled) {
+        try {
+          this.publishResults({
+            state: LoadingState.Done,
+            series: [],
+            annotations: [],
+            timeRange: timeRange.state.value,
+          });
+        } catch {
+          // Ignore errors
+        }
+      } else if (this.isActive && this.state.isEnabled) {
+        // Only execute if still active and enabled
+        this.executeQuery();
+      }
     });
 
     // Execute the initial query
@@ -116,6 +154,11 @@ export class InfinityAnnotationLayer extends SceneDataLayerBase<InfinityAnnotati
   }
 
   private executeQuery(): void {
+    // Don't execute if not active or not enabled
+    if (!this.isActive || !this.state.isEnabled) {
+      return;
+    }
+
     const { chassisName, annotationType } = this.state;
 
     // Cancel any existing query subscription
@@ -124,35 +167,49 @@ export class InfinityAnnotationLayer extends SceneDataLayerBase<InfinityAnnotati
       this._querySub = null;
     }
 
+    // Deactivate existing query runner before creating a new one
+    if (this._queryRunnerDeactivate) {
+      this._queryRunnerDeactivate();
+      this._queryRunnerDeactivate = null;
+    }
+
+    // Interpolate time range variables
+    const fromDate = sceneGraph.interpolate(this, '${__from:date}');
+    const toDate = sceneGraph.interpolate(this, '${__to:date}');
+
     // Create the appropriate query based on annotation type
     const query = annotationType === 'alarms'
-      ? this.createAlarmsQuery(chassisName)
-      : this.createActionsQuery(chassisName);
+      ? this.createAlarmsQuery(chassisName, fromDate, toDate)
+      : this.createActionsQuery(chassisName, fromDate, toDate);
 
-    // Create a new query runner and set it in state so it becomes part of the scene graph
-    // This is important for variable interpolation (${Account} needs to be resolved)
-    const queryRunner = new LoggingQueryRunner({
-      datasource: { uid: '${Account}' },
+    // Resolve the Account variable to get the actual datasource UID
+    const accountUid = sceneGraph.interpolate(this, '${Account}');
+
+    if (!accountUid || accountUid === '${Account}') {
+      return;
+    }
+
+    // Create a new query runner with the resolved datasource UID
+    this._queryRunner = new LoggingQueryRunner({
+      datasource: { uid: accountUid },
       queries: [query],
     });
 
-    // Set the query runner in state - using $queryRunner makes it a child scene object
-    // which allows it to access variables from the parent scene graph
-    this.setState({ $queryRunner: queryRunner });
-
     // Subscribe to query results BEFORE activating
-    this._querySub = queryRunner.subscribeToState((state) => {
+    this._querySub = this._queryRunner.subscribeToState((state) => {
       if (state.data) {
         const annotations = this.transformToAnnotations(state.data);
-        this.publishResults(annotations);
+        if (annotations) {
+          this.publishResults(annotations);
+        }
       }
     });
 
-    // Explicitly activate the query runner to start executing the query
-    queryRunner.activate();
+    // Explicitly activate the query runner and store the deactivation function
+    this._queryRunnerDeactivate = this._queryRunner.activate();
   }
 
-  private createAlarmsQuery(chassisName: string): any {
+  private createAlarmsQuery(chassisName: string, fromDate: string, toDate: string): any {
     // Query for Critical and Warning alarms only
     // Filter by chassis name and time range
     return {
@@ -162,7 +219,7 @@ export class InfinityAnnotationLayer extends SceneDataLayerBase<InfinityAnnotati
       source: 'url',
       parser: 'backend',
       format: 'table',
-      url: `/api/v1/cond/Alarms?$select=Severity,Description,LastTransitionTime&$filter=(startswith(AffectedMoDisplayName, '${chassisName}')) and (Severity in ('Critical','Warning')) and ((LastTransitionTime ge \${__from:date}) and (LastTransitionTime le \${__to:date}))&$orderby=LastTransitionTime desc&$top=100`,
+      url: `/api/v1/cond/Alarms?$select=Severity,Description,LastTransitionTime&$filter=(startswith(AffectedMoDisplayName, '${chassisName}')) and (Severity in ('Critical','Warning')) and ((LastTransitionTime ge ${fromDate}) and (LastTransitionTime le ${toDate}))&$orderby=LastTransitionTime desc&$top=100`,
       root_selector: '$.Results',
       columns: [
         { selector: 'Severity', text: 'Severity', type: 'string' },
@@ -173,7 +230,7 @@ export class InfinityAnnotationLayer extends SceneDataLayerBase<InfinityAnnotati
     };
   }
 
-  private createActionsQuery(chassisName: string): any {
+  private createActionsQuery(chassisName: string, fromDate: string, toDate: string): any {
     // Query for workflow actions/events
     // Filter by chassis name and time range for both start and end times
     return {
@@ -183,7 +240,7 @@ export class InfinityAnnotationLayer extends SceneDataLayerBase<InfinityAnnotati
       source: 'url',
       parser: 'backend',
       format: 'table',
-      url: `/api/v1/workflow/WorkflowInfos?$select=Name,Email,WorkflowStatus,StartTime,EndTime&$filter=(startswith(WorkflowCtx.TargetCtxList.TargetName, '${chassisName}')) and ((StartTime ge \${__from:date}) and (StartTime le \${__to:date}) or (EndTime ge \${__from:date}) and (EndTime le \${__to:date}))&$orderby=StartTime desc&$top=100`,
+      url: `/api/v1/workflow/WorkflowInfos?$select=Name,Email,WorkflowStatus,StartTime,EndTime&$filter=(startswith(WorkflowCtx.TargetCtxList.TargetName, '${chassisName}')) and ((StartTime ge ${fromDate}) and (StartTime le ${toDate}) or (EndTime ge ${fromDate}) and (EndTime le ${toDate}))&$orderby=StartTime desc&$top=100`,
       root_selector: '$.Results',
       columns: [
         { selector: 'Name', text: 'Name', type: 'string' },
@@ -224,12 +281,13 @@ export class InfinityAnnotationLayer extends SceneDataLayerBase<InfinityAnnotati
 
           const time = typeof timeValue === 'string' ? new Date(timeValue).getTime() : timeValue;
 
+          const severityIcon = severity === 'Critical' ? '🔴' : '🟠';
           events.push({
             time,
-            title: severity,
+            title: `${severityIcon} ${severity}`,
             text: description,
             color: severity === 'Critical' ? ANNOTATION_COLORS.ALARM_CRITICAL : ANNOTATION_COLORS.ALARM_WARNING,
-            tags: ['alarm', severity.toLowerCase()],
+            tags: [],
           });
         }
       }
@@ -252,14 +310,22 @@ export class InfinityAnnotationLayer extends SceneDataLayerBase<InfinityAnnotati
           const startTime = typeof startTimeValue === 'string' ? new Date(startTimeValue).getTime() : startTimeValue;
           const endTime = endTimeValue ? (typeof endTimeValue === 'string' ? new Date(endTimeValue).getTime() : endTimeValue) : undefined;
 
+          // Status icon: green check for Completed, red X for Failed/Terminated, blue circle for others
+          let statusIcon = '🔵';
+          if (status === 'Completed') {
+            statusIcon = '✅';
+          } else if (status === 'Failed' || status === 'Terminated') {
+            statusIcon = '❌';
+          }
+
           events.push({
             time: startTime,
             timeEnd: endTime,
             isRegion: !!endTime,
-            title: name,
-            text: `Status: ${status}\nUser: ${email}`,
+            title: `${statusIcon} ${status}`,
+            text: `${name} (${email})`,
             color: ANNOTATION_COLORS.ACTION,
-            tags: ['action', 'workflow'],
+            tags: [],
           });
         }
       }
@@ -317,11 +383,15 @@ export class InfinityAnnotationLayer extends SceneDataLayerBase<InfinityAnnotati
       this._timeRangeSub.unsubscribe();
       this._timeRangeSub = null;
     }
-    // Deactivate and clear the query runner from state
-    if (this.state.$queryRunner) {
-      this.state.$queryRunner.deactivate();
-      this.setState({ $queryRunner: undefined });
+    // Deactivate the query runner using the stored deactivation function
+    if (this._queryRunnerDeactivate) {
+      this._queryRunnerDeactivate();
+      this._queryRunnerDeactivate = null;
     }
+    // Clear the query runner reference
+    this._queryRunner = null;
+    // Reset running flag so layer can be restarted
+    this._isRunning = false;
   }
 
   protected onDeactivate(): void {
@@ -346,8 +416,8 @@ export class AnnotationToggleControl extends SceneObjectBase<AnnotationToggleCon
   public static Component = AnnotationToggleControlRenderer;
 
   // Store as instance property (not state) to avoid parent conflicts
-  // The SceneDataLayerSet belongs to the wrapper scene, not to this control
   private _dataLayerSet?: SceneDataLayerSet;
+  private _onToggle?: (enabled: boolean, dataLayerSet?: SceneDataLayerSet) => void;
 
   public constructor(state: Partial<AnnotationToggleControlState>) {
     super({
@@ -363,12 +433,9 @@ export class AnnotationToggleControl extends SceneObjectBase<AnnotationToggleCon
     const newEnabled = !this.state.enabled;
     this.setState({ enabled: newEnabled });
 
-    // Update all layers in the data layer set
-    if (this._dataLayerSet) {
-      const layers = this._dataLayerSet.state.layers;
-      layers.forEach((layer) => {
-        layer.setState({ isEnabled: newEnabled });
-      });
+    // Call the toggle callback to update the parent scene's $data
+    if (this._onToggle) {
+      this._onToggle(newEnabled, this._dataLayerSet);
     }
   }
 
@@ -377,6 +444,13 @@ export class AnnotationToggleControl extends SceneObjectBase<AnnotationToggleCon
    */
   public setDataLayerSet(dataLayerSet: SceneDataLayerSet) {
     this._dataLayerSet = dataLayerSet;
+  }
+
+  /**
+   * Set the toggle callback that will be called when annotations are toggled
+   */
+  public setOnToggle(callback: (enabled: boolean, dataLayerSet?: SceneDataLayerSet) => void) {
+    this._onToggle = callback;
   }
 }
 

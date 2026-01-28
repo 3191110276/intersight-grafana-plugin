@@ -117,18 +117,18 @@ export function getDomainSceneBody() {
 
   // Define all tabs
   const immDomainTabs = [
-    { id: 'inventory', label: 'Inventory', getBody: getInventoryTab },
-    { id: 'alarms', label: 'Alarms', getBody: getAlarmsTab },
-    { id: 'actions', label: 'Actions', getBody: getActionsTab },
-    { id: 'ports', label: 'Ports', getBody: getPortsTab },
-    { id: 'network-utilization', label: 'Network Utilization', getBody: getNetworkUtilizationTab },
-    { id: 'traffic-balance', label: 'Traffic Balance', getBody: getTrafficBalanceTab },
-    { id: 'congestion', label: 'Congestion', getBody: getCongestionTab },
-    { id: 'network-errors', label: 'Network Errors', getBody: getNetworkErrorsTab },
-    { id: 'sfp', label: 'SFP', getBody: getSFPTab },
-    { id: 'environmental', label: 'Environmental', getBody: getEnvironmentalTab },
-    { id: 'cpu-utilization', label: 'CPU Utilization', getBody: getCPUUtilizationTab },
-    { id: 'storage', label: 'Storage', getBody: getStorageTab },
+    { id: 'inventory', label: 'Inventory**', getBody: getInventoryTab },
+    { id: 'alarms', label: 'Alarms**', getBody: getAlarmsTab },
+    { id: 'actions', label: 'Actions**', getBody: getActionsTab },
+    { id: 'ports', label: 'Ports**', getBody: getPortsTab },
+    { id: 'network-utilization', label: 'Network Utilization**', getBody: getNetworkUtilizationTab },
+    { id: 'traffic-balance', label: 'Traffic Balance**', getBody: getTrafficBalanceTab },
+    { id: 'congestion', label: 'Congestion**', getBody: getCongestionTab },
+    { id: 'network-errors', label: 'Network Errors**', getBody: getNetworkErrorsTab },
+    { id: 'sfp', label: 'SFP**', getBody: getSFPTab },
+    { id: 'environmental', label: 'Environmental**', getBody: getEnvironmentalTab },
+    { id: 'cpu-utilization', label: 'CPU Utilization**', getBody: getCPUUtilizationTab },
+    { id: 'storage', label: 'Storage**', getBody: getStorageTab },
   ];
 
   // Create the tabbed scene with variables
