@@ -169,7 +169,10 @@ class DynamicStandaloneAlarmsScene extends SceneObjectBase<DynamicStandaloneAlar
     }
 
     // Create the alarms panel with stats and table
+    // Using server names directly with startswith() filter - combines all into single OR clause
     const serverNames = variable?.state?.value || [];
+    console.log('[AlarmsTab] serverNames:', serverNames);
+
     const newBody = getAllServersAlarmsPanel(serverNames);
 
     // Update state
@@ -200,88 +203,105 @@ function DynamicStandaloneAlarmsSceneRenderer({ model }: SceneComponentProps<Dyn
 
 /**
  * Helper function to create Alarms panel with stats and table for selected servers
+ * @param serverNames - Array of selected server names (used for display purposes)
+ * @param moidFilter - Pre-built Moid filter string like "'moid1','moid2'" for efficient API filtering
  */
 function getAllServersAlarmsPanel(serverNames: string[]) {
-  const showServerColumn = serverNames.length > 1;
+  console.log('[AlarmsTab] ========== getAllServersAlarmsPanel DEBUG ==========');
+  console.log('[AlarmsTab] serverNames received:', serverNames);
 
-  // Create one query per server per severity for the table
-  // This creates consistent ordering: Critical > Warning > Info > Cleared, across all servers
+  const showServerColumn = serverNames.length > 1;
+  console.log('[AlarmsTab] showServerColumn:', showServerColumn);
+
+  // Build device filter by combining all server names with OR
+  // This reduces queries from (N servers × 4 severities) to just (4 severities)
+  const serverNameFilters = serverNames.map(name => `startswith(AffectedMoDisplayName, '${name}')`).join(' or ');
+  const deviceFilter = `(${serverNameFilters})`;
+
+  console.log('[AlarmsTab] deviceFilter:', deviceFilter);
+
+  // Create one query per severity for the table (not per server)
   const severities = ['Critical', 'Warning', 'Info', 'Cleared'];
   const tableQueries: any[] = [];
 
-  // Generate queries for table - one per server per severity
+  // Generate queries for table - one per severity only
   severities.forEach((severity, severityIndex) => {
-    serverNames.forEach((serverName) => {
-      let severityFilterClause;
+    let severityFilterClause;
 
-      if (severity === 'Cleared') {
-        // For Cleared, filter by time range
-        severityFilterClause = `Severity eq 'Cleared' and ((CreateTime ge \${__from:date}) and (CreateTime le \${__to:date}) or (LastTransitionTime ge \${__from:date}) and (LastTransitionTime le \${__to:date}))`;
-      } else {
-        // For active alarms (Critical, Warning, Info)
-        severityFilterClause = `Severity eq '${severity}'`;
-      }
+    if (severity === 'Cleared') {
+      // For Cleared, filter by time range
+      severityFilterClause = `Severity eq 'Cleared' and ((CreateTime ge \${__from:date}) and (CreateTime le \${__to:date}) or (LastTransitionTime ge \${__from:date}) and (LastTransitionTime le \${__to:date}))`;
+    } else {
+      // For active alarms (Critical, Warning, Info)
+      severityFilterClause = `Severity eq '${severity}'`;
+    }
 
-      const filterClause = `(startswith(AffectedMoDisplayName, '${serverName}')) and (${severityFilterClause})`;
+    const filterClause = `(${deviceFilter}) and (${severityFilterClause})`;
 
-      // Map severity to numeric order for sorting (Critical=1, Warning=2, Info=3, Cleared=4)
-      const severityOrder = severityIndex + 1;
+    // Map severity to numeric order for sorting (Critical=1, Warning=2, Info=3, Cleared=4)
+    const severityOrder = severityIndex + 1;
 
-      tableQueries.push({
-        refId: `TBL_${serverName}_${severity}`, // Unique ref ID per server per severity
-        queryType: 'infinity',
-        type: 'json',
-        source: 'url',
-        parser: 'backend',
-        format: 'table',
-        url: `/api/v1/cond/Alarms?$top=1000&$expand=RegisteredDevice($select=PlatformType,DeviceHostname,ParentConnection,Pid)&$filter=${filterClause}&$orderby=LastTransitionTime desc`,
-        root_selector: '$.Results',
-        columns: [
-          { selector: 'Acknowledge', text: 'Acknowledge', type: 'string' },
-          { selector: 'AcknowledgeBy', text: 'AcknowledgeBy', type: 'string' },
-          { selector: 'AcknowledgeTime', text: 'AcknowledgeTime', type: 'string' },
-          { selector: 'AffectedMo', text: 'AffectedMo', type: 'string' },
-          { selector: 'AffectedMoDisplayName', text: 'AffectedMoDisplayName', type: 'string' },
-          { selector: 'AffectedMoType', text: 'AffectedMoType', type: 'string' },
-          { selector: 'AlarmSummaryAggregators', text: 'AlarmSummaryAggregators', type: 'string' },
-          { selector: 'AncestorMoType', text: 'AncestorMoType', type: 'string' },
-          { selector: 'Code', text: 'Code', type: 'string' },
-          { selector: 'CreateTime', text: 'CreateTime', type: 'timestamp' },
-          { selector: 'Definition', text: 'Definition', type: 'string' },
-          { selector: 'Description', text: 'Description', type: 'string' },
-          { selector: 'Flapping', text: 'Flap', type: 'string' },
-          { selector: 'FlappingCount', text: 'FlappingCount', type: 'string' },
-          { selector: 'MsAffectedObject', text: 'MsAffectedObject', type: 'string' },
-          { selector: 'Name', text: 'Name', type: 'string' },
-          { selector: 'OrigSeverity', text: 'OrigSeverity', type: 'string' },
-          { selector: 'Owners', text: 'Owners', type: 'string' },
-          { selector: 'RegisteredDevice', text: 'RegisteredDevice', type: 'string' },
-          { selector: 'Severity', text: 'Severity', type: 'string' },
-          { selector: 'Suppressed', text: 'Suppressed', type: 'string' },
-          { selector: 'LastTransitionTime', text: 'LastTransitionTime', type: 'timestamp' },
-        ],
-        computed_columns: [
-          { selector: "Acknowledge + ' (' + AcknowledgeBy + ')'", text: 'Acknowledged', type: 'string' },
-          { selector: "Flap + ' (' + FlappingCount + ')'", text: 'Flapping', type: 'string' },
-          // Inject server name as a computed column
-          { selector: `'${serverName}'`, text: 'Server', type: 'string' },
-          // Add numeric severity order for sorting (Critical=1, Warning=2, Info=3, Cleared=4)
-          { selector: `${severityOrder}`, text: 'SeverityOrder', type: 'number' },
-          // Add timestamp as number for reliable sorting
-          { selector: 'LastTransitionTime', text: 'TimestampSort', type: 'number' },
-        ],
-        url_options: {
-          method: 'GET',
-          data: '',
-        },
-      });
+    // Note: Simplified $expand to just DeviceHostname to keep URL shorter
+    const tableUrl = `/api/v1/cond/Alarms?$top=1000&$expand=RegisteredDevice($select=DeviceHostname)&$filter=${filterClause}&$orderby=LastTransitionTime desc`;
+    console.log(`[AlarmsTab] Table Query ${severity}:`);
+    console.log(`[AlarmsTab]   filterClause: ${filterClause}`);
+    console.log(`[AlarmsTab]   url: ${tableUrl}`);
+
+    tableQueries.push({
+      refId: `TBL_${severity}`, // Now just per-severity, not per-device
+      queryType: 'infinity',
+      type: 'json',
+      source: 'url',
+      parser: 'backend',
+      format: 'table',
+      url: tableUrl,
+      root_selector: '$.Results',
+      columns: [
+        { selector: 'Acknowledge', text: 'Acknowledge', type: 'string' },
+        { selector: 'AcknowledgeBy', text: 'AcknowledgeBy', type: 'string' },
+        { selector: 'AcknowledgeTime', text: 'AcknowledgeTime', type: 'string' },
+        { selector: 'AffectedMo', text: 'AffectedMo', type: 'string' },
+        { selector: 'AffectedMoDisplayName', text: 'AffectedMoDisplayName', type: 'string' },
+        { selector: 'AffectedMoType', text: 'AffectedMoType', type: 'string' },
+        { selector: 'AlarmSummaryAggregators', text: 'AlarmSummaryAggregators', type: 'string' },
+        { selector: 'AncestorMoType', text: 'AncestorMoType', type: 'string' },
+        { selector: 'Code', text: 'Code', type: 'string' },
+        { selector: 'CreateTime', text: 'CreateTime', type: 'timestamp' },
+        { selector: 'Definition', text: 'Definition', type: 'string' },
+        { selector: 'Description', text: 'Description', type: 'string' },
+        { selector: 'Flapping', text: 'Flap', type: 'string' },
+        { selector: 'FlappingCount', text: 'FlappingCount', type: 'string' },
+        { selector: 'MsAffectedObject', text: 'MsAffectedObject', type: 'string' },
+        { selector: 'Name', text: 'Name', type: 'string' },
+        { selector: 'OrigSeverity', text: 'OrigSeverity', type: 'string' },
+        { selector: 'Owners', text: 'Owners', type: 'string' },
+        { selector: 'RegisteredDevice', text: 'RegisteredDevice', type: 'string' },
+        { selector: 'Severity', text: 'Severity', type: 'string' },
+        { selector: 'Suppressed', text: 'Suppressed', type: 'string' },
+        { selector: 'LastTransitionTime', text: 'LastTransitionTime', type: 'timestamp' },
+        // Extract Server name from RegisteredDevice.DeviceHostname
+        { selector: 'RegisteredDevice.DeviceHostname', text: 'Server', type: 'string' },
+      ],
+      computed_columns: [
+        { selector: "Acknowledge + ' (' + AcknowledgeBy + ')'", text: 'Acknowledged', type: 'string' },
+        { selector: "Flap + ' (' + FlappingCount + ')'", text: 'Flapping', type: 'string' },
+        // Add numeric severity order for sorting (Critical=1, Warning=2, Info=3, Cleared=4)
+        { selector: `${severityOrder}`, text: 'SeverityOrder', type: 'number' },
+        // Add timestamp as number for reliable sorting
+        { selector: 'LastTransitionTime', text: 'TimestampSort', type: 'number' },
+      ],
+      url_options: {
+        method: 'GET',
+        data: '',
+      },
     });
   });
 
-  // Create separate queries for stats - one per severity combining all servers
+  console.log(`[AlarmsTab] Total table queries created: ${tableQueries.length}`);
+
+  // Create separate queries for stats - one per severity using Moid filter
   const statQueries: any[] = [];
   severities.forEach((severity, index) => {
-    const serverFilters = serverNames.map(name => `startswith(AffectedMoDisplayName, '${name}')`).join(' or ');
     let severityFilterClause;
 
     if (severity === 'Cleared') {
@@ -290,7 +310,9 @@ function getAllServersAlarmsPanel(serverNames: string[]) {
       severityFilterClause = `Severity eq '${severity}'`;
     }
 
-    const filterClause = `(${serverFilters}) and (${severityFilterClause})`;
+    const filterClause = `(${deviceFilter}) and (${severityFilterClause})`;
+    const statUrl = `/api/v1/cond/Alarms?$top=0&$count=true&$filter=${filterClause}`;
+    console.log(`[AlarmsTab] Stat Query ${severity}: ${statUrl}`);
 
     statQueries.push({
       refId: String.fromCharCode(65 + index), // A, B, C, D
@@ -299,7 +321,7 @@ function getAllServersAlarmsPanel(serverNames: string[]) {
       source: 'url',
       parser: 'backend',
       format: 'table',
-      url: `/api/v1/cond/Alarms?$top=0&$count=true&$filter=${filterClause}`,
+      url: statUrl,
       root_selector: '$.Count',
       columns: [],
       url_options: {
@@ -309,10 +331,9 @@ function getAllServersAlarmsPanel(serverNames: string[]) {
     });
   });
 
-  // Add queries for Suppressed and Acknowledged stat counts
-  const serverFilters = serverNames.map(name => `startswith(AffectedMoDisplayName, '${name}')`).join(' or ');
-
   // Query E: Suppressed alarms count (using $count with $top=0 - optimized)
+  const suppressedUrl = `/api/v1/cond/Alarms?$top=0&$count=true&$filter=(${deviceFilter}) and (Suppressed eq 'true') and (Severity ne 'Cleared')`;
+  console.log(`[AlarmsTab] Stat Query Suppressed: ${suppressedUrl}`);
   statQueries.push({
     refId: 'E',
     queryType: 'infinity',
@@ -320,7 +341,7 @@ function getAllServersAlarmsPanel(serverNames: string[]) {
     source: 'url',
     parser: 'backend',
     format: 'table',
-    url: `/api/v1/cond/Alarms?$top=0&$count=true&$filter=(${serverFilters}) and (Suppressed eq 'true') and (Severity ne 'Cleared')`,
+    url: suppressedUrl,
     root_selector: '$.Count',
     columns: [],
     url_options: {
@@ -330,6 +351,8 @@ function getAllServersAlarmsPanel(serverNames: string[]) {
   });
 
   // Query F: Acknowledged alarms count (using $count with $top=0 - optimized)
+  const acknowledgedUrl = `/api/v1/cond/Alarms?$top=0&$count=true&$filter=(${deviceFilter}) and (Acknowledge eq 'Acknowledge') and (Severity ne 'Cleared')`;
+  console.log(`[AlarmsTab] Stat Query Acknowledged: ${acknowledgedUrl}`);
   statQueries.push({
     refId: 'F',
     queryType: 'infinity',
@@ -337,7 +360,7 @@ function getAllServersAlarmsPanel(serverNames: string[]) {
     source: 'url',
     parser: 'backend',
     format: 'table',
-    url: `/api/v1/cond/Alarms?$top=0&$count=true&$filter=(${serverFilters}) and (Acknowledge eq 'Acknowledge') and (Severity ne 'Cleared')`,
+    url: acknowledgedUrl,
     root_selector: '$.Count',
     columns: [],
     url_options: {
@@ -345,6 +368,9 @@ function getAllServersAlarmsPanel(serverNames: string[]) {
       data: '',
     },
   });
+
+  console.log(`[AlarmsTab] Total stat queries created: ${statQueries.length}`);
+  console.log('[AlarmsTab] ====================================================');
 
   // Create separate query runners for each stat widget (using statQueries)
   const criticalQueryRunner = new LoggingQueryRunner({

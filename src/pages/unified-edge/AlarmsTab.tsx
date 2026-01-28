@@ -36,9 +36,9 @@ interface FilterColumnsDataProviderState extends SceneDataState {
 }
 
 /**
- * Custom data provider that wraps another data provider and filters columns
- * based on their values. Specifically hides Flapping and Acknowledged columns
- * when all values show "No".
+ * Custom data provider that wraps another data provider and:
+ * 1. Sorts data by SeverityOrder (ascending: Critical first) then TimestampSort (descending: newest first)
+ * 2. Filters columns - hides Flapping and Acknowledged columns when table is empty
  */
 // @ts-ignore
 class FilterColumnsDataProvider extends SceneObjectBase<FilterColumnsDataProviderState> implements SceneDataProvider {
@@ -63,42 +63,85 @@ class FilterColumnsDataProvider extends SceneObjectBase<FilterColumnsDataProvide
 
     return source.subscribeToState((newState) => {
       if (newState.data) {
-        const filteredData = this.filterColumns(newState.data);
-        this.setState({ data: filteredData });
+        const processedData = this.processData(newState.data);
+        this.setState({ data: processedData });
       }
     });
   }
 
   /**
-   * Filters columns by hiding Flapping and Acknowledged when the table is empty (no data).
-   * When there's actual alarm data, always show all columns.
+   * Process data: sort by severity then time, and filter columns if empty.
    */
-  private filterColumns(data: PanelData): PanelData {
-    // Don't filter if data is still loading or there's no data series
+  private processData(data: PanelData): PanelData {
+    // Don't process if data is still loading or there's no data series
     if (!data.series || data.series.length === 0 || data.state !== LoadingState.Done) {
       return data;
     }
 
-    const filteredSeries = data.series.map((frame: DataFrame) => {
-      // If table has data (alarm rows), show all columns
-      if (frame.length > 0) {
-        return frame;
+    const processedSeries = data.series.map((frame: DataFrame) => {
+      // If table is empty (no alarm rows), just filter columns
+      if (frame.length === 0) {
+        const filteredFields = frame.fields.filter(field => {
+          return field.name !== 'Flapping' && field.name !== 'Acknowledged';
+        });
+        return {
+          ...frame,
+          fields: filteredFields,
+        };
       }
 
-      // If table is empty (no alarm rows), HIDE Flapping and Acknowledged columns
-      const filteredFields = frame.fields.filter(field => {
-        return field.name !== 'Flapping' && field.name !== 'Acknowledged';
-      });
-
-      return {
-        ...frame,
-        fields: filteredFields,
-      };
+      // Sort the data by SeverityOrder (asc) then TimestampSort (desc)
+      return this.sortFrame(frame);
     });
 
     return {
       ...data,
-      series: filteredSeries,
+      series: processedSeries,
+    };
+  }
+
+  /**
+   * Sort a DataFrame by SeverityOrder (ascending) then TimestampSort (descending).
+   * SeverityOrder: Critical=1, Warning=2, Info=3, Cleared=4
+   */
+  private sortFrame(frame: DataFrame): DataFrame {
+    const severityField = frame.fields.find(f => f.name === 'SeverityOrder');
+    const timestampField = frame.fields.find(f => f.name === 'TimestampSort');
+
+    if (!severityField || !timestampField) {
+      console.warn('[FilterColumnsDataProvider] SeverityOrder or TimestampSort field not found');
+      return frame;
+    }
+
+    // Create an array of indices and sort them
+    const indices = Array.from({ length: frame.length }, (_, i) => i);
+
+    indices.sort((a, b) => {
+      // First sort by SeverityOrder ascending (Critical=1 first)
+      const sevA = severityField.values[a] as number;
+      const sevB = severityField.values[b] as number;
+      if (sevA !== sevB) {
+        return sevA - sevB;
+      }
+
+      // Then sort by TimestampSort descending (newest first)
+      const timeA = timestampField.values[a] as number;
+      const timeB = timestampField.values[b] as number;
+      return timeB - timeA;
+    });
+
+    // Reorder all fields according to sorted indices
+    const sortedFields = frame.fields.map(field => {
+      const sortedValues = indices.map(i => field.values[i]);
+      return {
+        ...field,
+        values: sortedValues,
+      };
+    });
+
+    return {
+      ...frame,
+      fields: sortedFields,
     };
   }
 
@@ -169,7 +212,9 @@ class DynamicUnifiedEdgeAlarmsScene extends SceneObjectBase<DynamicUnifiedEdgeAl
     }
 
     // Create the alarms panel with stats and table
+    // Using chassis names directly with startswith() filter - combines all into single OR clause
     const chassisNames = variable?.state?.value || [];
+
     const newBody = getAllChassisAlarmsPanel(chassisNames);
 
     // Update state
@@ -200,76 +245,81 @@ function DynamicUnifiedEdgeAlarmsSceneRenderer({ model }: SceneComponentProps<Dy
 
 /**
  * Helper function to create Alarms panel with stats and table for selected chassis
+ * @param chassisNames - Array of selected chassis names (used for display purposes)
+ * @param moidFilter - Pre-built Moid filter string like "'moid1','moid2'" for efficient API filtering
  */
 function getAllChassisAlarmsPanel(chassisNames: string[]) {
   const showChassisColumn = chassisNames.length > 1;
 
-  // Create one query per chassis per severity for the table
-  // This creates consistent ordering: Critical > Warning > Info > Cleared, across all chassis
+  // Build device filter by combining all chassis names with OR
+  // This reduces queries from (N chassis × 4 severities) to just (4 severities)
+  const chassisNameFilters = chassisNames.map(name => `startswith(AffectedMoDisplayName, '${name}')`).join(' or ');
+  const deviceFilter = `(${chassisNameFilters})`;
+
+  // Create one query per severity for the table (not per chassis)
   const severities = ['Critical', 'Warning', 'Info', 'Cleared'];
   const tableQueries: any[] = [];
 
-  // Generate queries for table - one per chassis per severity
+  // Generate queries for table - one per severity only
   severities.forEach((severity, severityIndex) => {
-    chassisNames.forEach((chassisName) => {
-      let severityFilterClause;
+    let severityFilterClause;
 
-      if (severity === 'Cleared') {
-        // For Cleared, filter by time range
-        severityFilterClause = `Severity eq 'Cleared' and ((CreateTime ge \${__from:date}) and (CreateTime le \${__to:date}) or (LastTransitionTime ge \${__from:date}) and (LastTransitionTime le \${__to:date}))`;
-      } else {
-        // For active alarms (Critical, Warning, Info)
-        severityFilterClause = `Severity eq '${severity}'`;
-      }
+    if (severity === 'Cleared') {
+      // For Cleared, filter by time range
+      severityFilterClause = `Severity eq 'Cleared' and ((CreateTime ge \${__from:date}) and (CreateTime le \${__to:date}) or (LastTransitionTime ge \${__from:date}) and (LastTransitionTime le \${__to:date}))`;
+    } else {
+      // For active alarms (Critical, Warning, Info)
+      severityFilterClause = `Severity eq '${severity}'`;
+    }
 
-      const filterClause = `(startswith(AffectedMoDisplayName, '${chassisName}')) and (${severityFilterClause})`;
+    const filterClause = `(${deviceFilter}) and (${severityFilterClause})`;
 
-      // Map severity to numeric order for sorting (Critical=1, Warning=2, Info=3, Cleared=4)
-      const severityOrder = severityIndex + 1;
+    // Map severity to numeric order for sorting (Critical=1, Warning=2, Info=3, Cleared=4)
+    const severityOrder = severityIndex + 1;
 
-      tableQueries.push({
-        refId: `TBL_${chassisName}_${severity}`, // Unique ref ID per chassis per severity
-        queryType: 'infinity',
-        type: 'json',
-        source: 'url',
-        parser: 'backend',
-        format: 'table',
-        url: `/api/v1/cond/Alarms?$select=Code,Severity,AncestorMoType,Description,Flapping,FlappingCount,Acknowledge,AcknowledgeBy,Suppressed,LastTransitionTime&$top=1000&$filter=${filterClause}&$orderby=LastTransitionTime desc`,
-        root_selector: '$.Results',
-        columns: [
-          { selector: 'Acknowledge', text: 'Acknowledge', type: 'string' },
-          { selector: 'AcknowledgeBy', text: 'AcknowledgeBy', type: 'string' },
-          { selector: 'AncestorMoType', text: 'AncestorMoType', type: 'string' },
-          { selector: 'Code', text: 'Code', type: 'string' },
-          { selector: 'Description', text: 'Description', type: 'string' },
-          { selector: 'Flapping', text: 'Flap', type: 'string' },
-          { selector: 'FlappingCount', text: 'FlappingCount', type: 'string' },
-          { selector: 'Severity', text: 'Severity', type: 'string' },
-          { selector: 'Suppressed', text: 'Suppressed', type: 'string' },
-          { selector: 'LastTransitionTime', text: 'LastTransitionTime', type: 'timestamp' },
-        ],
-        computed_columns: [
-          { selector: "Acknowledge + ' (' + AcknowledgeBy + ')'", text: 'Acknowledged', type: 'string' },
-          { selector: "Flap + ' (' + FlappingCount + ')'", text: 'Flapping', type: 'string' },
-          // Inject chassis name as a computed column
-          { selector: `'${chassisName}'`, text: 'Chassis', type: 'string' },
-          // Add numeric severity order for sorting (Critical=1, Warning=2, Info=3, Cleared=4)
-          { selector: `${severityOrder}`, text: 'SeverityOrder', type: 'number' },
-          // Add timestamp as number for reliable sorting
-          { selector: 'LastTransitionTime', text: 'TimestampSort', type: 'number' },
-        ],
-        url_options: {
-          method: 'GET',
-          data: '',
-        },
-      });
+    const tableUrl = `/api/v1/cond/Alarms?$expand=RegisteredDevice($select=DeviceHostname)&$top=1000&$filter=${filterClause}&$orderby=LastTransitionTime desc`;
+
+    tableQueries.push({
+      refId: `TBL_${severity}`, // Now just per-severity, not per-device
+      queryType: 'infinity',
+      type: 'json',
+      source: 'url',
+      parser: 'backend',
+      format: 'table',
+      url: tableUrl,
+      root_selector: '$.Results',
+      columns: [
+        { selector: 'Acknowledge', text: 'Acknowledge', type: 'string' },
+        { selector: 'AcknowledgeBy', text: 'AcknowledgeBy', type: 'string' },
+        { selector: 'AncestorMoType', text: 'AncestorMoType', type: 'string' },
+        { selector: 'Code', text: 'Code', type: 'string' },
+        { selector: 'Description', text: 'Description', type: 'string' },
+        { selector: 'Flapping', text: 'Flap', type: 'string' },
+        { selector: 'FlappingCount', text: 'FlappingCount', type: 'string' },
+        { selector: 'Severity', text: 'Severity', type: 'string' },
+        { selector: 'Suppressed', text: 'Suppressed', type: 'string' },
+        { selector: 'LastTransitionTime', text: 'LastTransitionTime', type: 'timestamp' },
+        // Extract Chassis name from RegisteredDevice.DeviceHostname
+        { selector: 'RegisteredDevice.DeviceHostname', text: 'Chassis', type: 'string' },
+      ],
+      computed_columns: [
+        { selector: "Acknowledge + ' (' + AcknowledgeBy + ')'", text: 'Acknowledged', type: 'string' },
+        { selector: "Flap + ' (' + FlappingCount + ')'", text: 'Flapping', type: 'string' },
+        // Add numeric severity order for sorting (Critical=1, Warning=2, Info=3, Cleared=4)
+        { selector: `${severityOrder}`, text: 'SeverityOrder', type: 'number' },
+        // Add timestamp as number for reliable sorting
+        { selector: 'LastTransitionTime', text: 'TimestampSort', type: 'number' },
+      ],
+      url_options: {
+        method: 'GET',
+        data: '',
+      },
     });
   });
 
-  // Create separate queries for stats - one per severity combining all chassis
+  // Create separate queries for stats - one per severity using Moid filter
   const statQueries: any[] = [];
   severities.forEach((severity, index) => {
-    const chassisFilters = chassisNames.map(name => `startswith(AffectedMoDisplayName, '${name}')`).join(' or ');
     let severityFilterClause;
 
     if (severity === 'Cleared') {
@@ -278,7 +328,8 @@ function getAllChassisAlarmsPanel(chassisNames: string[]) {
       severityFilterClause = `Severity eq '${severity}'`;
     }
 
-    const filterClause = `(${chassisFilters}) and (${severityFilterClause})`;
+    const filterClause = `(${deviceFilter}) and (${severityFilterClause})`;
+    const statUrl = `/api/v1/cond/Alarms?$top=0&$count=true&$filter=${filterClause}`;
 
     statQueries.push({
       refId: String.fromCharCode(65 + index), // A, B, C, D
@@ -287,7 +338,7 @@ function getAllChassisAlarmsPanel(chassisNames: string[]) {
       source: 'url',
       parser: 'backend',
       format: 'table',
-      url: `/api/v1/cond/Alarms?$top=0&$count=true&$filter=${filterClause}`,
+      url: statUrl,
       root_selector: '$.Count',
       columns: [],
       url_options: {
@@ -297,10 +348,8 @@ function getAllChassisAlarmsPanel(chassisNames: string[]) {
     });
   });
 
-  // Add queries for Suppressed and Acknowledged stat counts
-  const chassisFilters = chassisNames.map(name => `startswith(AffectedMoDisplayName, '${name}')`).join(' or ');
-
   // Query E: Suppressed alarms count (using $count with $top=0 - optimized)
+  const suppressedUrl = `/api/v1/cond/Alarms?$top=0&$count=true&$filter=(${deviceFilter}) and (Suppressed eq 'true') and (Severity ne 'Cleared')`;
   statQueries.push({
     refId: 'E',
     queryType: 'infinity',
@@ -308,7 +357,7 @@ function getAllChassisAlarmsPanel(chassisNames: string[]) {
     source: 'url',
     parser: 'backend',
     format: 'table',
-    url: `/api/v1/cond/Alarms?$top=0&$count=true&$filter=(${chassisFilters}) and (Suppressed eq 'true') and (Severity ne 'Cleared')`,
+    url: suppressedUrl,
     root_selector: '$.Count',
     columns: [],
     url_options: {
@@ -318,6 +367,7 @@ function getAllChassisAlarmsPanel(chassisNames: string[]) {
   });
 
   // Query F: Acknowledged alarms count (using $count with $top=0 - optimized)
+  const acknowledgedUrl = `/api/v1/cond/Alarms?$top=0&$count=true&$filter=(${deviceFilter}) and (Acknowledge eq 'Acknowledge') and (Severity ne 'Cleared')`;
   statQueries.push({
     refId: 'F',
     queryType: 'infinity',
@@ -325,7 +375,7 @@ function getAllChassisAlarmsPanel(chassisNames: string[]) {
     source: 'url',
     parser: 'backend',
     format: 'table',
-    url: `/api/v1/cond/Alarms?$top=0&$count=true&$filter=(${chassisFilters}) and (Acknowledge eq 'Acknowledge') and (Severity ne 'Cleared')`,
+    url: acknowledgedUrl,
     root_selector: '$.Count',
     columns: [],
     url_options: {
@@ -372,7 +422,7 @@ function getAllChassisAlarmsPanel(chassisNames: string[]) {
   });
 
   // Apply transformations: merge queries, organize columns and format time
-  // Note: Sorting is handled by the table panel's sortBy option, not by a transformation
+  // Note: Sorting by SeverityOrder + TimestampSort is handled by FilterColumnsDataProvider
   const baseTransformedData = new LoggingDataTransformer({
     $data: baseQueryRunner,
     transformations: [
@@ -401,8 +451,7 @@ function getAllChassisAlarmsPanel(chassisNames: string[]) {
             Owners: true,
             RegisteredDevice: true,
             Chassis: !showChassisColumn, // Hide Chassis column if only one chassis selected
-            TimestampSort: true, // Hide the timestamp sorting helper field
-            // Note: SeverityOrder is kept visible for table sorting, but will be hidden via field override
+            // Note: SeverityOrder and TimestampSort are kept for sorting, but hidden via field overrides
           },
           includeByName: {},
           indexByName: {
@@ -681,10 +730,7 @@ function getAllChassisAlarmsPanel(chassisNames: string[]) {
     .setOption('cellHeight', 'sm' as any)
     .setOption('enablePagination', true)
     .setNoValue('No Alarms in the selected time period')
-    .setOption('sortBy', [
-      { displayName: 'SeverityOrder', desc: false },      // Sort by severity: Critical (1) -> Warning (2) -> Info (3) -> Cleared (4)
-      { displayName: 'Last Transition', desc: true },     // Then by time: newest first
-    ])
+    // Note: Data is pre-sorted by FilterColumnsDataProvider (SeverityOrder asc, TimestampSort desc)
     .setCustomFieldConfig('align', 'auto')
     .setCustomFieldConfig('cellOptions', { type: 'auto' as any })
     .setCustomFieldConfig('filterable', true)
@@ -692,6 +738,12 @@ function getAllChassisAlarmsPanel(chassisNames: string[]) {
     .setOverrides((builder) => {
       // SeverityOrder column - hidden but used for sorting
       builder.matchFieldsWithName('SeverityOrder')
+        .overrideCustomFieldConfig('width', 0)  // Hide by setting width to 0
+        // @ts-ignore
+        .overrideCustomFieldConfig('hidden', true);
+
+      // TimestampSort column - hidden but used for sorting
+      builder.matchFieldsWithName('TimestampSort')
         .overrideCustomFieldConfig('width', 0)  // Hide by setting width to 0
         // @ts-ignore
         .overrideCustomFieldConfig('hidden', true);
@@ -788,10 +840,25 @@ function getAllChassisAlarmsPanel(chassisNames: string[]) {
       builder.matchFieldsWithName('Code')
         .overrideCustomFieldConfig('width', 260);
 
-      // Chassis column
+      // Chassis column - format array values and handle nulls
       if (showChassisColumn) {
         builder.matchFieldsWithName('Chassis')
-          .overrideCustomFieldConfig('width', 150);
+          .overrideCustomFieldConfig('width', 150)
+          .overrideMappings([
+            {
+              type: 'value' as any,
+              options: {
+                'null': { index: 0, text: '-' },
+              },
+            },
+            {
+              type: 'regex' as any,
+              options: {
+                pattern: '^\\["(.+)"\\]$',
+                result: { index: 1, text: '$1' },
+              },
+            },
+          ]);
       }
 
       return builder.build();
