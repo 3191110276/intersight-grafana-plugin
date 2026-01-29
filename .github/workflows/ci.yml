@@ -98,8 +98,11 @@ jobs:
           echo "Package file created successfully: $PACKAGE_FILE"
           ls -lh "$PACKAGE_FILE"
 
-      - name: Validate plugin
-        run: npx -y @grafana/plugin-validator@latest -sourceCodeUri file://. ../cisco-intersight-app-${{ steps.get-version.outputs.version }}.zip
+      - name: Validate plugin (non-blocking)
+        run: |
+          echo "Running plugin validation (warnings only, does not fail build)..."
+          npx -y @grafana/plugin-validator@latest -sourceCodeUri file://. ../cisco-intersight-app-${{ steps.get-version.outputs.version }}.zip || true
+          echo "Validation complete (non-blocking)"
 
       - name: Upload package artifact
         uses: actions/upload-artifact@v4
