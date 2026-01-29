@@ -1,6 +1,6 @@
 {
   "name": "cisco-intersight-app",
-  "version": "1.0.0",
+  "version": "0.8.0",
   "description": "Cisco Intersight Dashboard App",
   "scripts": {
     "build": "webpack --mode production && node scripts/filter-sourcemap.js",

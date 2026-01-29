@@ -132,7 +132,8 @@ function ClickableTableWrapperRenderer({ model }: SceneComponentProps<ClickableT
       return;
     }
 
-    const firstCell = row.querySelector('[role="gridcell"][aria-colindex="1"]');
+    const allCells = row.querySelectorAll('[role="cell"]');
+    const firstCell = allCells[0];
 
     if (firstCell) {
       const name = firstCell.textContent?.trim();
@@ -986,8 +987,12 @@ function createPanel189_Table(parent: TrafficBalanceDetailsContainer) {
         options: {
           excludeByName: {},
           includeByName: {},
-          indexByName: {},
+          indexByName: {
+            'Domain Name': 0,
+            'Utilization': 1,
+          },
           renameByName: {
+            'Domain Name': 'Chassis Name',
             'Trend #A': 'Utilization',
           },
         },
@@ -999,6 +1004,7 @@ function createPanel189_Table(parent: TrafficBalanceDetailsContainer) {
     .setTitle('A: Eth uplink transmit utilization per chassis - Click row to drill down')
     .setData(transformer)
     .setUnit('decbytes')
+    .setOption('sortBy', [{ displayName: 'Utilization', desc: true }])
     .setOption('footer' as any, {
       enablePagination: true,
       show: false,
@@ -1008,7 +1014,7 @@ function createPanel189_Table(parent: TrafficBalanceDetailsContainer) {
         .matchFieldsWithName('Utilization')
         .overrideColor({ mode: 'fixed', fixedColor: 'semi-dark-blue' });
 
-      builder.matchFieldsWithName('Domain Name').overrideCustomFieldConfig('width', 240);
+      builder.matchFieldsWithName('Chassis Name').overrideCustomFieldConfig('width', 240);
     })
     .build();
 
@@ -1125,8 +1131,12 @@ function createPanel190_Table(parent: TrafficBalanceDetailsContainer) {
         options: {
           excludeByName: {},
           includeByName: {},
-          indexByName: {},
+          indexByName: {
+            'Domain Name': 0,
+            'Utilization': 1,
+          },
           renameByName: {
+            'Domain Name': 'Chassis Name',
             'Trend #A': 'Utilization',
           },
         },
@@ -1138,6 +1148,7 @@ function createPanel190_Table(parent: TrafficBalanceDetailsContainer) {
     .setTitle('B: Eth uplink transmit utilization per chassis - Click row to drill down')
     .setData(transformer)
     .setUnit('decbytes')
+    .setOption('sortBy', [{ displayName: 'Utilization', desc: true }])
     .setOption('footer' as any, {
       enablePagination: true,
       show: false,
@@ -1147,7 +1158,7 @@ function createPanel190_Table(parent: TrafficBalanceDetailsContainer) {
         .matchFieldsWithName('Utilization')
         .overrideColor({ mode: 'fixed', fixedColor: 'semi-dark-blue' });
 
-      builder.matchFieldsWithName('Domain Name').overrideCustomFieldConfig('width', 240);
+      builder.matchFieldsWithName('Chassis Name').overrideCustomFieldConfig('width', 240);
     })
     .build();
 
@@ -1264,8 +1275,12 @@ function createPanel191_Table(parent: TrafficBalanceDetailsContainer) {
         options: {
           excludeByName: {},
           includeByName: {},
-          indexByName: {},
+          indexByName: {
+            'Domain Name': 0,
+            'Utilization': 1,
+          },
           renameByName: {
+            'Domain Name': 'Chassis Name',
             'Trend #A': 'Utilization',
           },
         },
@@ -1277,6 +1292,7 @@ function createPanel191_Table(parent: TrafficBalanceDetailsContainer) {
     .setTitle('A: Eth uplink receive utilization per chassis - Click row to drill down')
     .setData(transformer)
     .setUnit('decbytes')
+    .setOption('sortBy', [{ displayName: 'Utilization', desc: true }])
     .setOption('footer' as any, {
       enablePagination: true,
       show: false,
@@ -1286,7 +1302,7 @@ function createPanel191_Table(parent: TrafficBalanceDetailsContainer) {
         .matchFieldsWithName('Utilization')
         .overrideColor({ mode: 'fixed', fixedColor: 'semi-dark-blue' });
 
-      builder.matchFieldsWithName('Domain Name').overrideCustomFieldConfig('width', 240);
+      builder.matchFieldsWithName('Chassis Name').overrideCustomFieldConfig('width', 240);
     })
     .build();
 
@@ -1403,8 +1419,12 @@ function createPanel192_Table(parent: TrafficBalanceDetailsContainer) {
         options: {
           excludeByName: {},
           includeByName: {},
-          indexByName: {},
+          indexByName: {
+            'Domain Name': 0,
+            'Utilization': 1,
+          },
           renameByName: {
+            'Domain Name': 'Chassis Name',
             'Trend #A': 'Utilization',
           },
         },
@@ -1416,6 +1436,7 @@ function createPanel192_Table(parent: TrafficBalanceDetailsContainer) {
     .setTitle('B: Eth uplink receive utilization per chassis - Click row to drill down')
     .setData(transformer)
     .setUnit('decbytes')
+    .setOption('sortBy', [{ displayName: 'Utilization', desc: true }])
     .setOption('footer' as any, {
       enablePagination: true,
       show: false,
@@ -1425,7 +1446,7 @@ function createPanel192_Table(parent: TrafficBalanceDetailsContainer) {
         .matchFieldsWithName('Utilization')
         .overrideColor({ mode: 'fixed', fixedColor: 'semi-dark-blue' });
 
-      builder.matchFieldsWithName('Domain Name').overrideCustomFieldConfig('width', 240);
+      builder.matchFieldsWithName('Chassis Name').overrideCustomFieldConfig('width', 240);
     })
     .build();
 

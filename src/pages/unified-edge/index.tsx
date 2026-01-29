@@ -178,7 +178,7 @@ const unifiedEdgeTabs = [
   { id: 'alarms', label: 'Alarms', getBody: getAlarmsTab },
   { id: 'actions', label: 'Actions', getBody: getActionsTab },
   { id: 'ports', label: 'Ports', getBody: getPortsTab },
-  { id: 'network-utilization', label: 'Network Utilization**', getBody: getNetworkUtilizationTab },
+  { id: 'network-utilization', label: 'Network Utilization', getBody: getNetworkUtilizationTab },
   { id: 'traffic-balance', label: 'Traffic Balance', getBody: getTrafficBalanceTab },
   { id: 'network-errors', label: 'Network Errors**', getBody: getNetworkErrorsTab },
   { id: 'environmental', label: 'Environmental', getBody: getEnvironmentalTab },
@@ -258,40 +258,8 @@ export function getUnifiedEdgeSceneBody() {
     dependsOn: 'ChassisName',
   });
 
-  // DomainName variable - hidden, used internally
-  const domainNameVariable = new QueryVariable({
-    name: 'DomainName',
-    label: 'Domain',
-    datasource: { uid: '${Account}' },
-    query: {
-      refId: 'variable',
-      queryType: 'infinity',
-      infinityQuery: {
-        type: 'json',
-        source: 'url',
-        parser: 'backend',
-        format: 'table',
-        url: "/api/v1/equipment/Chasses?$filter=Model eq 'UCSXE-9305'",
-        root_selector: '$.Results',
-        columns: [
-          { selector: 'Name', text: 'Name', type: 'string' },
-        ],
-        url_options: { method: 'GET', data: '' },
-        filters: [],
-      },
-    },
-    isMulti: true,
-    includeAll: false,
-    hide: 2,
-  });
-
-  debugVariable('Initialized hidden variable: DomainName', {
-    section: 'unified-edge',
-    hide: 2,
-  });
-
   const variables = new SceneVariableSet({
-    variables: [chassisNameVariable, registeredDevicesVariable, domainNameVariable],
+    variables: [chassisNameVariable, registeredDevicesVariable],
   });
 
   // Create shared controls - these belong to TabbedScene

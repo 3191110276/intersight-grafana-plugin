@@ -21,7 +21,7 @@ import {
 import { LoggingQueryRunner } from '../../utils/LoggingQueryRunner';
 import { LoggingDataTransformer } from '../../utils/LoggingDataTransformer';
 import { PaginatedDataProvider } from '../../utils/PaginatedDataProvider';
-import { DataFrame, LoadingState, PanelData } from '@grafana/data';
+import { DataFrame, LoadingState, PanelData, getDefaultTimeRange } from '@grafana/data';
 import { Observable } from 'rxjs';
 import { EmptyStateScene } from '../../components/EmptyStateScene';
 import { getEmptyStateScenario, getSelectedValues } from '../../utils/emptyStateHelpers';
@@ -47,7 +47,7 @@ class FilterColumnsDataProvider extends SceneObjectBase<FilterColumnsDataProvide
       data: {
         state: LoadingState.NotStarted,
         series: [],
-        timeRange: source.state.data?.timeRange!,
+        timeRange: source.state.data?.timeRange ?? getDefaultTimeRange(),
       },
     });
 
@@ -121,7 +121,6 @@ interface DynamicActionsSceneState extends SceneObjectState {
  */
 class DynamicActionsScene extends SceneObjectBase<DynamicActionsSceneState> {
   public static Component = DynamicActionsSceneRenderer;
-  private _dataSubscription?: () => void;
 
   // @ts-ignore
   protected _variableDependency = new VariableDependencyConfig(this, {
@@ -147,11 +146,6 @@ class DynamicActionsScene extends SceneObjectBase<DynamicActionsSceneState> {
     this.rebuildBody();
 
     return () => {
-      // Unsubscribe from data changes
-      if (this._dataSubscription) {
-        this._dataSubscription();
-        this._dataSubscription = undefined;
-      }
       deactivate();
     };
   }
@@ -160,12 +154,6 @@ class DynamicActionsScene extends SceneObjectBase<DynamicActionsSceneState> {
     // Skip if scene is not active (prevents race conditions during deactivation)
     if (!this.isActive) {
       return;
-    }
-
-    // Unsubscribe from previous data subscription
-    if (this._dataSubscription) {
-      this._dataSubscription();
-      this._dataSubscription = undefined;
     }
 
     // Get the ChassisName variable from the scene's variable set
@@ -190,7 +178,7 @@ class DynamicActionsScene extends SceneObjectBase<DynamicActionsSceneState> {
     const shouldShowChassisColumn = chassisNames.length > 1;
 
     // Create the actions table with all chassis
-    const { body: newBody } = createAllChassisActionsBody(chassisNames, shouldShowChassisColumn);
+    const { body: newBody } = getAllChassisActionsPanel(chassisNames, shouldShowChassisColumn);
 
     this.setState({ body: newBody });
   }
@@ -200,13 +188,6 @@ class DynamicActionsScene extends SceneObjectBase<DynamicActionsSceneState> {
     // @ts-ignore
     return sceneGraph.lookupVariable(name, this);
   }
-}
-
-/**
- * Creates the actions layout showing all chassis in a single table
- */
-function createAllChassisActionsBody(chassisNames: string[], showChassisColumn: boolean) {
-  return getAllChassisActionsPanel(chassisNames, showChassisColumn);
 }
 
 /**
@@ -468,12 +449,13 @@ function buildActionsBodyWithQueryRunner(
  * Helper function to create Actions panel for all selected chassis
  * Returns both the layout body and the query runner for data subscription
  */
-function getAllChassisActionsPanel(chassisNames: string[], showChassisColumn: boolean): { body: SceneFlexLayout; queryRunner: LoggingQueryRunner } {
+function getAllChassisActionsPanel(chassisNames: string[], showChassisColumn: boolean): { body: SceneFlexLayout; queryRunner: SceneDataProvider } {
   // Create a query for each chassis
   const queries = chassisNames.map((chassisName, index) => {
     const refId = String.fromCharCode(65 + index); // A, B, C, etc.
 
-    const filterClause = `((startswith(WorkflowCtx.TargetCtxList.TargetName, '${chassisName}'))) and ((StartTime ge \${__from:date}) and (StartTime le \${__to:date}) or (EndTime ge \${__from:date}) and (EndTime le \${__to:date}))`;
+    const escapedChassisName = chassisName.replace(/'/g, "''"); // OData escaping: single quote -> double single quote
+    const filterClause = `((startswith(WorkflowCtx.TargetCtxList.TargetName, '${escapedChassisName}'))) and ((StartTime ge \${__from:date}) and (StartTime le \${__to:date}) or (EndTime ge \${__from:date}) and (EndTime le \${__to:date}))`;
 
     const query: any = {
       refId: refId,
@@ -532,7 +514,7 @@ function getAllChassisActionsPanel(chassisNames: string[], showChassisColumn: bo
   // Build the body using the helper function
   const body = buildActionsBodyWithQueryRunner(chassisNames, showChassisColumn, paginatedQueryRunner as any);
 
-  return { body, queryRunner: baseQueryRunner };
+  return { body, queryRunner: paginatedQueryRunner };
 }
 
 /**

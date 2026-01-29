@@ -116,9 +116,10 @@ function DynamicInventorySceneRenderer({ model }: SceneComponentProps<DynamicInv
  */
 function createInventoryBody(chassisNames: string[], showChassisColumn: boolean): SceneFlexLayout {
   // Build dynamic OR-joined filter for host query (since hosts use startswith pattern matching)
-  const hostFilters = chassisNames.map(name =>
-    `startswith(Name, '${name}')`
-  ).join(' or ');
+  const hostFilters = chassisNames.map(name => {
+    const escapedName = name.replace(/'/g, "''"); // OData escaping: single quote -> double single quote
+    return `startswith(Name, '${escapedName}')`;
+  }).join(' or ');
   // Result: "startswith(Name, 'chassis1') or startswith(Name, 'chassis2')"
 
   // ========================================================================

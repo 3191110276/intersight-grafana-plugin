@@ -27,6 +27,7 @@ import { Observable } from 'rxjs';
 import { map } from 'rxjs/operators';
 import { EmptyStateScene } from '../../components/EmptyStateScene';
 import { getEmptyStateScenario } from '../../utils/emptyStateHelpers';
+import { createAlarmStatPanel, ALARM_TYPES } from '../../utils/createAlarmStatPanel';
 
 // ============================================================================
 // CUSTOM DATA PROVIDER - Filters columns based on values
@@ -509,209 +510,42 @@ function getAllServersAlarmsPanel(serverNames: string[]) {
   const transformedData = new FilterColumnsDataProvider(baseTransformedData);
 
   // Build stat panels for alarm counts (using aggregate count queries directly)
-  // Critical stat (Query A)
-  const criticalStat = PanelBuilders.stat()
-    .setTitle('Critical')
-    .setMenu(undefined)
-    .setData(criticalQueryRunner)
-    .setOption('graphMode', 'none' as any)
-    .setOption('textMode', 'value' as any)
-    .setOption('colorMode', 'background' as any)
-    .setOption('orientation', 'vertical' as any)
-    .setOption('textSize' as any, {
-      title: 14,
-      value: 32,
-    })
-    .setOption('showThresholdLabels' as any, false as any)
-    .setOption('showThresholdMarkers' as any, false as any)
-    .setOverrides((builder) => {
-      builder.matchFieldsWithNameByRegex('.*')
-        // @ts-ignore
-        .overrideCustomFieldConfig('noValue', '0')
-        .overrideColor({
-          mode: 'thresholds',
-        })
-        .overrideThresholds({
-          mode: 'absolute' as any as any,
-          steps: [
-            { value: null as any, color: '#181b1f' },
-            { value: 0, color: '#181b1f' },
-            { value: 1, color: '#8f0000' },
-          ],
-        });
-      return builder.build();
-    })
-    .build();
+  // Using the shared utility function to avoid code duplication
+  const criticalStat = createAlarmStatPanel({
+    title: ALARM_TYPES.CRITICAL.title,
+    queryRunner: criticalQueryRunner,
+    thresholdColor: ALARM_TYPES.CRITICAL.color,
+  });
 
-  // Warning stat (Query B)
-  const warningStat = PanelBuilders.stat()
-    .setTitle('Warning')
-    .setMenu(undefined)
-    .setData(warningQueryRunner)
-    .setOption('graphMode', 'none' as any)
-    .setOption('textMode', 'value' as any)
-    .setOption('colorMode', 'background' as any)
-    .setOption('orientation', 'vertical' as any)
-    .setOption('textSize' as any, {
-      title: 14,
-      value: 32,
-    })
-    .setOption('showThresholdLabels' as any, false as any)
-    .setOption('showThresholdMarkers' as any, false as any)
-    .setOverrides((builder) => {
-      builder.matchFieldsWithNameByRegex('.*')
-        // @ts-ignore
-        .overrideCustomFieldConfig('noValue', '0')
-        .overrideColor({
-          mode: 'thresholds',
-        })
-        .overrideThresholds({
-          mode: 'absolute' as any as any,
-          steps: [
-            { value: null as any, color: '#181b1f' },
-            { value: 0, color: '#181b1f' },
-            { value: 1, color: '#d6ba02' },
-          ],
-        });
-      return builder.build();
-    })
-    .build();
+  const warningStat = createAlarmStatPanel({
+    title: ALARM_TYPES.WARNING.title,
+    queryRunner: warningQueryRunner,
+    thresholdColor: ALARM_TYPES.WARNING.color,
+  });
 
-  // Info stat (Query C)
-  const infoStat = PanelBuilders.stat()
-    .setTitle('Info')
-    .setMenu(undefined)
-    .setData(infoQueryRunner)
-    .setOption('graphMode', 'none' as any)
-    .setOption('textMode', 'value' as any)
-    .setOption('colorMode', 'background' as any)
-    .setOption('orientation', 'vertical' as any)
-    .setOption('textSize' as any, {
-      title: 14,
-      value: 32,
-    })
-    .setOption('showThresholdLabels' as any, false as any)
-    .setOption('showThresholdMarkers' as any, false as any)
-    .setOverrides((builder) => {
-      builder.matchFieldsWithNameByRegex('.*')
-        // @ts-ignore
-        .overrideCustomFieldConfig('noValue', '0')
-        .overrideColor({
-          mode: 'thresholds',
-        })
-        .overrideThresholds({
-          mode: 'absolute' as any as any,
-          steps: [
-            { value: null as any, color: '#181b1f' },
-            { value: 0, color: '#181b1f' },
-            { value: 1, color: '#0262c2' },
-          ],
-        });
-      return builder.build();
-    })
-    .build();
+  const infoStat = createAlarmStatPanel({
+    title: ALARM_TYPES.INFO.title,
+    queryRunner: infoQueryRunner,
+    thresholdColor: ALARM_TYPES.INFO.color,
+  });
 
-  // Cleared stat (Query D)
-  const clearedStat = PanelBuilders.stat()
-    .setTitle('Cleared')
-    .setMenu(undefined)
-    .setData(clearedQueryRunner)
-    .setOption('graphMode', 'none' as any)
-    .setOption('textMode', 'value' as any)
-    .setOption('colorMode', 'background' as any)
-    .setOption('orientation', 'vertical' as any)
-    .setOption('textSize' as any, {
-      title: 14,
-      value: 32,
-    })
-    .setOption('showThresholdLabels' as any, false as any)
-    .setOption('showThresholdMarkers' as any, false as any)
-    .setOverrides((builder) => {
-      builder.matchFieldsWithNameByRegex('.*')
-        // @ts-ignore
-        .overrideCustomFieldConfig('noValue', '0')
-        .overrideColor({
-          mode: 'thresholds',
-        })
-        .overrideThresholds({
-          mode: 'absolute' as any as any,
-          steps: [
-            { value: null as any, color: '#181b1f' },
-            { value: 0, color: '#181b1f' },
-            { value: 1, color: '#018524' },
-          ],
-        });
-      return builder.build();
-    })
-    .build();
+  const clearedStat = createAlarmStatPanel({
+    title: ALARM_TYPES.CLEARED.title,
+    queryRunner: clearedQueryRunner,
+    thresholdColor: ALARM_TYPES.CLEARED.color,
+  });
 
-  // Suppressed stat (Query E) - uses aggregate count query directly
-  const suppressedStat = PanelBuilders.stat()
-    .setTitle('Suppressed')
-    .setMenu(undefined)
-    .setData(suppressedQueryRunner)
-    .setOption('graphMode', 'none' as any)
-    .setOption('textMode', 'value' as any)
-    .setOption('colorMode', 'background' as any)
-    .setOption('orientation', 'vertical' as any)
-    .setOption('textSize' as any, {
-      title: 14,
-      value: 32,
-    })
-    .setOption('showThresholdLabels' as any, false as any)
-    .setOption('showThresholdMarkers' as any, false as any)
-    .setOverrides((builder) => {
-      builder.matchFieldsWithNameByRegex('.*')
-        // @ts-ignore
-        .overrideCustomFieldConfig('noValue', '0')
-        .overrideColor({
-          mode: 'thresholds',
-        })
-        .overrideThresholds({
-          mode: 'absolute' as any as any,
-          steps: [
-            { value: null as any, color: '#181b1f' },
-            { value: 0, color: '#181b1f' },
-            { value: 1, color: '#b0b0b0' },
-          ],
-        });
-      return builder.build();
-    })
-    .build();
+  const suppressedStat = createAlarmStatPanel({
+    title: ALARM_TYPES.SUPPRESSED.title,
+    queryRunner: suppressedQueryRunner,
+    thresholdColor: ALARM_TYPES.SUPPRESSED.color,
+  });
 
-  // Acknowledged stat (Query F) - uses aggregate count query directly
-  const acknowledgedStat = PanelBuilders.stat()
-    .setTitle('Acknowledged')
-    .setMenu(undefined)
-    .setData(acknowledgedQueryRunner)
-    .setOption('graphMode', 'none' as any)
-    .setOption('textMode', 'value' as any)
-    .setOption('colorMode', 'background' as any)
-    .setOption('orientation', 'vertical' as any)
-    .setOption('textSize' as any, {
-      title: 14,
-      value: 32,
-    })
-    .setOption('showThresholdLabels' as any, false as any)
-    .setOption('showThresholdMarkers' as any, false as any)
-    .setOverrides((builder) => {
-      builder.matchFieldsWithNameByRegex('.*')
-        // @ts-ignore
-        .overrideCustomFieldConfig('noValue', '0')
-        .overrideColor({
-          mode: 'thresholds',
-        })
-        .overrideThresholds({
-          mode: 'absolute' as any as any,
-          steps: [
-            { value: null as any, color: '#181b1f' },
-            { value: 0, color: '#181b1f' },
-            { value: 1, color: '#b0b0b0' },
-          ],
-        });
-      return builder.build();
-    })
-    .build();
+  const acknowledgedStat = createAlarmStatPanel({
+    title: ALARM_TYPES.ACKNOWLEDGED.title,
+    queryRunner: acknowledgedQueryRunner,
+    thresholdColor: ALARM_TYPES.ACKNOWLEDGED.color,
+  });
 
   // Build the alarms table panel
   const tableTitle = showServerColumn
