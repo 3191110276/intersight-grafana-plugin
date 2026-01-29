@@ -42,7 +42,7 @@ jobs:
 
       - name: Verify version in plugin.json
         run: |
-          PLUGIN_VERSION=$(node -p "require('./src/plugin.json').version")
+          PLUGIN_VERSION=$(jq -r '.info.version' src/plugin.json)
           INPUT_VERSION="${{ steps.validate.outputs.version }}"
 
           if [ "$PLUGIN_VERSION" != "$INPUT_VERSION" ]; then
@@ -58,7 +58,7 @@ jobs:
 
       - name: Verify version in package.json
         run: |
-          PACKAGE_VERSION=$(node -p "require('./package.json').version")
+          PACKAGE_VERSION=$(jq -r '.version' package.json)
           INPUT_VERSION="${{ steps.validate.outputs.version }}"
 
           if [ "$PACKAGE_VERSION" != "$INPUT_VERSION" ]; then

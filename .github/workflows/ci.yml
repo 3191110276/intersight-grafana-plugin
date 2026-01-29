@@ -78,7 +78,7 @@ jobs:
       - name: Get version from plugin.json
         id: get-version
         run: |
-          VERSION=$(jq -r '.version' src/plugin.json)
+          VERSION=$(jq -r '.info.version' src/plugin.json)
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "Plugin version: $VERSION"
 
