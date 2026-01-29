@@ -41,7 +41,7 @@
     "webpack-cli": "^5.1.4"
   },
   "dependencies": {
-    "@grafana/scenes": "^6.0.0"
+    "@grafana/scenes": "^6.52.11"
   },
   "engines": {
     "node": ">=20"
