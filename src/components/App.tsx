@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import React, { useMemo } from 'react';
-import { BrowserRouter } from 'react-router-dom';
+import React, { useMemo, useEffect } from 'react';
+import { BrowserRouter, useSearchParams } from 'react-router-dom';
 import { AppRootProps } from '@grafana/data';
 import {
   EmbeddedScene,
@@ -17,7 +17,7 @@ import { getHomeSceneBody } from '../pages/home';
 import { getDomainSceneBody } from '../pages/domain';
 import { getStandaloneSceneBody } from '../pages/standalone';
 import { getUnifiedEdgeSceneBody } from '../pages/unified-edge';
-import { debugScene, debugVariable } from '../utils/debug';
+import { debugScene, debugVariable, debugUrl } from '../utils/debug';
 
 const tabs = [
   { id: 'home', label: 'Home', getBody: getHomeSceneBody },
@@ -26,13 +26,74 @@ const tabs = [
   { id: 'unified-edge', label: 'Unified Edge', getBody: getUnifiedEdgeSceneBody },
 ];
 
+/**
+ * Inner component that handles time range URL synchronization
+ * Only syncs time range parameters (from, to) - not variables or other state
+ */
+function AppContent({ scene }: { scene: EmbeddedScene }) {
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  useEffect(() => {
+    const timeRange = scene.state.$timeRange;
+    if (!timeRange) return;
+
+    // Subscribe to time range changes and update URL
+    const subscription = timeRange.subscribeToState((newState) => {
+      debugUrl('Time range state changed, updating URL', {
+        from: newState.from,
+        to: newState.to,
+        timeZone: newState.timeZone,
+      });
+
+      setSearchParams((prev) => {
+        const newParams = new URLSearchParams(prev);
+        newParams.set('from', newState.from);
+        newParams.set('to', newState.to);
+        return newParams;
+      }, { replace: true }); // Use replace to avoid cluttering browser history
+    });
+
+    // Set initial URL params if not present
+    if (!searchParams.has('from') || !searchParams.has('to')) {
+      const state = timeRange.state;
+      debugUrl('Setting initial URL params', {
+        from: state.from,
+        to: state.to,
+      });
+
+      setSearchParams((prev) => {
+        const newParams = new URLSearchParams(prev);
+        newParams.set('from', state.from);
+        newParams.set('to', state.to);
+        return newParams;
+      }, { replace: true });
+    }
+
+    return () => subscription.unsubscribe();
+  }, [scene, searchParams, setSearchParams]);
+
+  return (
+    <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column' }}>
+      <scene.Component model={scene} />
+    </div>
+  );
+}
+
 export function App(props: AppRootProps) {
   const scene = useMemo(() => {
-    debugScene('Creating EmbeddedScene', { timeRange: { from: 'now-6h', to: 'now' } });
+    // Read time range from URL parameters if present
+    const urlParams = new URLSearchParams(window.location.search);
+    const fromParam = urlParams.get('from') || 'now-6h';
+    const toParam = urlParams.get('to') || 'now';
+
+    debugScene('Creating EmbeddedScene', {
+      timeRange: { from: fromParam, to: toParam },
+      urlHasParams: urlParams.has('from') || urlParams.has('to')
+    });
 
     const timeRange = new SceneTimeRange({
-      from: 'now-6h',
-      to: 'now',
+      from: fromParam,
+      to: toParam,
     });
 
     const accountVariable = new DataSourceVariable({
@@ -86,9 +147,7 @@ export function App(props: AppRootProps) {
         v7_relativeSplatPath: true,
       }}
     >
-      <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column' }}>
-        <scene.Component model={scene} />
-      </div>
+      <AppContent scene={scene} />
     </BrowserRouter>
   );
 }

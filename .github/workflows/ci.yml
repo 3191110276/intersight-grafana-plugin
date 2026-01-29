@@ -1,0 +1,104 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+  pull_request:
+    branches:
+      - main
+      - develop
+
+jobs:
+  build-and-test:
+    name: Build and Test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run TypeScript type checking
+        run: npm run typecheck
+
+      - name: Build plugin
+        run: npm run build
+
+      - name: Verify build artifacts
+        run: |
+          echo "Checking for required build artifacts..."
+          if [ ! -f "dist/plugin.json" ]; then
+            echo "Error: dist/plugin.json not found"
+            exit 1
+          fi
+          if [ ! -f "dist/module.js" ]; then
+            echo "Error: dist/module.js not found"
+            exit 1
+          fi
+          echo "All required build artifacts exist"
+
+      - name: Upload build artifacts on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-artifacts-debug
+          path: dist/
+          retention-days: 7
+
+  package-and-validate:
+    name: Package and Validate
+    runs-on: ubuntu-latest
+    needs: build-and-test
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build and package plugin
+        run: npm run package
+
+      - name: Get version from plugin.json
+        id: get-version
+        run: |
+          VERSION=$(node -p "require('./src/plugin.json').version")
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Plugin version: $VERSION"
+
+      - name: Verify package was created
+        run: |
+          PACKAGE_FILE="../cisco-intersight-app-${{ steps.get-version.outputs.version }}.zip"
+          if [ ! -f "$PACKAGE_FILE" ]; then
+            echo "Error: Package file not found at $PACKAGE_FILE"
+            exit 1
+          fi
+          echo "Package file created successfully: $PACKAGE_FILE"
+          ls -lh "$PACKAGE_FILE"
+
+      - name: Validate plugin
+        run: npm run validate:docker
+
+      - name: Upload package artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: cisco-intersight-app-${{ steps.get-version.outputs.version }}
+          path: ../cisco-intersight-app-${{ steps.get-version.outputs.version }}.zip
+          retention-days: 30
