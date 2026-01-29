@@ -99,7 +99,7 @@ jobs:
           ls -lh "$PACKAGE_FILE"
 
       - name: Validate plugin
-        run: npm run validate:docker
+        run: npx -y @grafana/plugin-validator@latest -sourceCodeUri file://. ../cisco-intersight-app-${{ steps.get-version.outputs.version }}.zip
 
       - name: Upload package artifact
         uses: actions/upload-artifact@v4

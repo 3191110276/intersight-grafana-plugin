@@ -105,8 +105,14 @@ jobs:
       - name: Run type checking
         run: npm run typecheck
 
-      - name: Build, package, and validate
-        run: npm run package-and-validate
+      - name: Build plugin
+        run: npm run build
+
+      - name: Package plugin
+        run: npm run package
+
+      - name: Validate plugin
+        run: npx -y @grafana/plugin-validator@latest -sourceCodeUri file://. ../cisco-intersight-app-${{ needs.validate-version.outputs.version }}.zip
 
       - name: Verify package file exists
         run: |
