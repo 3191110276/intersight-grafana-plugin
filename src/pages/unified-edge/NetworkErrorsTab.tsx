@@ -200,8 +200,16 @@ function createUplinkPortsQuery() {
     root_selector: '',
     columns: [
       { selector: 'timestamp', text: 'Time', type: 'timestamp' },
-      { selector: 'event.Identifier', text: 'Name', type: 'string' },
+      { selector: 'event.name', text: 'PortName', type: 'string' },
       { selector: 'event.host_name', text: 'Hostname', type: 'string' },
+      // Individual RX error columns
+      { selector: 'event.too_short', text: 'too_short', type: 'number' },
+      { selector: 'event.crc', text: 'crc', type: 'number' },
+      { selector: 'event.too_long', text: 'too_long', type: 'number' },
+      // Individual TX error columns
+      { selector: 'event.jabber', text: 'jabber', type: 'number' },
+      { selector: 'event.late_collisions', text: 'late_collisions', type: 'number' },
+      // Aggregate sums (for summary table)
       { selector: 'event.tx_sum', text: 'TX', type: 'number' },
       { selector: 'event.rx_sum', text: 'RX', type: 'number' },
     ],
@@ -219,23 +227,10 @@ function createUplinkPortsQuery() {
   },
   "intervals": ["\${__from:date}/\${__to:date}"],
   "dimensions": [
-    "Identifier",
+    "name",
     "host_name"
   ],
   "virtualColumns": [
-    {
-      "type": "nested-field",
-      "columnName": "intersight.domain.name",
-      "outputName": "domain_name",
-      "expectedType": "STRING",
-      "path": "$"
-    },
-    {
-      "type": "expression",
-      "name": "Identifier",
-      "expression": "concat(domain_name + ' (' + name + ')')",
-      "outputType": "STRING"
-    },
     {
       "type": "nested-field",
       "columnName": "host.name",
@@ -364,8 +359,22 @@ function createUplinkPortChannelsQuery() {
     root_selector: '',
     columns: [
       { selector: 'timestamp', text: 'Time', type: 'timestamp' },
-      { selector: 'event.Identifier', text: 'Name', type: 'string' },
+      { selector: 'event.name', text: 'PortName', type: 'string' },
       { selector: 'event.host_name', text: 'Hostname', type: 'string' },
+      // Individual RX error columns (port channels have more RX errors than ports)
+      { selector: 'event.runt', text: 'runt', type: 'number' },
+      { selector: 'event.too_long', text: 'too_long', type: 'number' },
+      { selector: 'event.crc', text: 'crc', type: 'number' },
+      { selector: 'event.no_buffer', text: 'no_buffer', type: 'number' },
+      { selector: 'event.too_short', text: 'too_short', type: 'number' },
+      { selector: 'event.rx_discard', text: 'rx_discard', type: 'number' },
+      // Individual TX error columns (port channels have more TX errors than ports)
+      { selector: 'event.deferred', text: 'deferred', type: 'number' },
+      { selector: 'event.late_collisions', text: 'late_collisions', type: 'number' },
+      { selector: 'event.carrier_sense', text: 'carrier_sense', type: 'number' },
+      { selector: 'event.tx_discard', text: 'tx_discard', type: 'number' },
+      { selector: 'event.jabber', text: 'jabber', type: 'number' },
+      // Aggregate sums (for summary table)
       { selector: 'event.tx_sum', text: 'TX', type: 'number' },
       { selector: 'event.rx_sum', text: 'RX', type: 'number' },
     ],
@@ -383,23 +392,10 @@ function createUplinkPortChannelsQuery() {
   },
   "intervals": ["\${__from:date}/\${__to:date}"],
   "dimensions": [
-    "Identifier",
+    "name",
     "host_name"
   ],
   "virtualColumns": [
-    {
-      "type": "nested-field",
-      "columnName": "intersight.domain.name",
-      "outputName": "domain_name",
-      "expectedType": "STRING",
-      "path": "$"
-    },
-    {
-      "type": "expression",
-      "name": "Identifier",
-      "expression": "concat(domain_name + ' (' + name + ')')",
-      "outputType": "STRING"
-    },
     {
       "type": "nested-field",
       "columnName": "host.name",
@@ -1050,20 +1046,44 @@ function createLineChartView(tabType: 'ports' | 'port-channels'): SceneFlexLayou
   const hostA = tabType === 'ports' ? 'eCMC-A' : 'FI-A';
   const hostB = tabType === 'ports' ? 'eCMC-B' : 'FI-B';
 
-  // Rename regex to strip port type prefix
-  const renameRegex = tabType === 'ports' ? '(.*)Ethernet(.*)' : '(.*)port-channel(.*)';
-
   // Panel titles
   const titlePrefix = tabType === 'ports' ? 'uplink port' : 'uplink port channel';
 
-  // A: Transmit errors
-  const aTxQueryRunner = new LoggingQueryRunner({
+  // Single query runner for all panels
+  const queryRunner = new LoggingQueryRunner({
     datasource: { uid: '${Account}' },
     queries: [baseQuery],
   });
 
+  // Determine which error fields to show based on tab type
+  const rxErrorFields = tabType === 'ports'
+    ? ['too_short', 'crc', 'too_long']
+    : ['runt', 'too_long', 'crc', 'no_buffer', 'too_short', 'rx_discard'];
+
+  const txErrorFields = tabType === 'ports'
+    ? ['jabber', 'late_collisions']
+    : ['deferred', 'late_collisions', 'carrier_sense', 'tx_discard', 'jabber'];
+
+  // Human-readable names for error types
+  const errorTypeLabels: Record<string, string> = {
+    // RX errors
+    'too_short': 'Too Short',
+    'crc': 'CRC',
+    'too_long': 'Too Long',
+    'runt': 'Runt',
+    'no_buffer': 'No Buffer',
+    'rx_discard': 'RX Discard',
+    // TX errors
+    'jabber': 'Jabber',
+    'late_collisions': 'Late Collisions',
+    'deferred': 'Deferred',
+    'carrier_sense': 'Carrier Sense',
+    'tx_discard': 'TX Discard',
+  };
+
+  // A: Transmit errors transformer
   const aTxTransformer = new LoggingDataTransformer({
-    $data: aTxQueryRunner,
+    $data: queryRunner,
     transformations: [
       {
         id: 'filterByValue',
@@ -1082,18 +1102,77 @@ function createLineChartView(tabType: 'ports' | 'port-channels'): SceneFlexLayou
         },
       },
       {
-        id: 'groupingToMatrix',
+        id: 'organize',
         options: {
-          columnField: 'Name',
-          rowField: 'Time',
-          valueField: 'TX',
+          excludeByName: {
+            Hostname: true,
+            TX: true,
+            RX: true,
+            ...Object.fromEntries(rxErrorFields.map(f => [f, true])),
+          },
+          includeByName: {},
+          indexByName: {},
+          renameByName: Object.fromEntries(
+            txErrorFields.map(field => [field, errorTypeLabels[field] || field])
+          ),
+        },
+      },
+      {
+        id: 'prepareTimeSeries',
+        options: {
+          format: 'multi',
+        },
+      },
+      // Reorder from "error_type PortName" to "PortName - error_type"
+      {
+        id: 'renameByRegex',
+        options: {
+          regex: '^(.+?)\\s+(.+)$',
+          renamePattern: '$2 - $1',
+        },
+      },
+      // Replace underscores with spaces
+      {
+        id: 'renameByRegex',
+        options: {
+          regex: '^(.*)_(.*)$',
+          renamePattern: '$1 $2',
+        },
+      },
+      // Capitalize error types - TX errors
+      {
+        id: 'renameByRegex',
+        options: {
+          regex: '^(.* - )(jabber)$',
+          renamePattern: '$1Jabber',
         },
       },
       {
         id: 'renameByRegex',
         options: {
-          regex: renameRegex,
-          renamePattern: '$1$2',
+          regex: '^(.* - )(late collisions)$',
+          renamePattern: '$1Late Collisions',
+        },
+      },
+      {
+        id: 'renameByRegex',
+        options: {
+          regex: '^(.* - )(deferred)$',
+          renamePattern: '$1Deferred',
+        },
+      },
+      {
+        id: 'renameByRegex',
+        options: {
+          regex: '^(.* - )(carrier sense)$',
+          renamePattern: '$1Carrier Sense',
+        },
+      },
+      {
+        id: 'renameByRegex',
+        options: {
+          regex: '^(.* - )(tx discard)$',
+          renamePattern: '$1TX Discard',
         },
       },
     ],
@@ -1107,14 +1186,9 @@ function createLineChartView(tabType: 'ports' | 'port-channels'): SceneFlexLayou
     .setOption('tooltip', { mode: 'multi' as any, sort: 'desc' as any })
     .build();
 
-  // A: Receive errors
-  const aRxQueryRunner = new LoggingQueryRunner({
-    datasource: { uid: '${Account}' },
-    queries: [baseQuery],
-  });
-
+  // A: Receive errors transformer
   const aRxTransformer = new LoggingDataTransformer({
-    $data: aRxQueryRunner,
+    $data: queryRunner,
     transformations: [
       {
         id: 'filterByValue',
@@ -1133,18 +1207,84 @@ function createLineChartView(tabType: 'ports' | 'port-channels'): SceneFlexLayou
         },
       },
       {
-        id: 'groupingToMatrix',
+        id: 'organize',
         options: {
-          columnField: 'Name',
-          rowField: 'Time',
-          valueField: 'RX',
+          excludeByName: {
+            Hostname: true,
+            TX: true,
+            RX: true,
+            ...Object.fromEntries(txErrorFields.map(f => [f, true])),
+          },
+          includeByName: {},
+          indexByName: {},
+          renameByName: Object.fromEntries(
+            rxErrorFields.map(field => [field, errorTypeLabels[field] || field])
+          ),
+        },
+      },
+      {
+        id: 'prepareTimeSeries',
+        options: {
+          format: 'multi',
+        },
+      },
+      // Reorder from "error_type PortName" to "PortName - error_type"
+      {
+        id: 'renameByRegex',
+        options: {
+          regex: '^(.+?)\\s+(.+)$',
+          renamePattern: '$2 - $1',
+        },
+      },
+      // Replace underscores with spaces
+      {
+        id: 'renameByRegex',
+        options: {
+          regex: '^(.*)_(.*)$',
+          renamePattern: '$1 $2',
+        },
+      },
+      // Capitalize error types - RX errors
+      {
+        id: 'renameByRegex',
+        options: {
+          regex: '^(.* - )(too short)$',
+          renamePattern: '$1Too Short',
         },
       },
       {
         id: 'renameByRegex',
         options: {
-          regex: renameRegex,
-          renamePattern: '$1$2',
+          regex: '^(.* - )(crc)$',
+          renamePattern: '$1CRC',
+        },
+      },
+      {
+        id: 'renameByRegex',
+        options: {
+          regex: '^(.* - )(too long)$',
+          renamePattern: '$1Too Long',
+        },
+      },
+      {
+        id: 'renameByRegex',
+        options: {
+          regex: '^(.* - )(runt)$',
+          renamePattern: '$1Runt',
+        },
+      },
+      {
+        id: 'renameByRegex',
+        options: {
+          regex: '^(.* - )(no buffer)$',
+          renamePattern: '$1No Buffer',
+        },
+      },
+      {
+        id: 'renameByRegex',
+        options: {
+          regex: '^(.* - )(rx discard)$',
+          renamePattern: '$1RX Discard',
         },
       },
     ],
@@ -1158,14 +1298,9 @@ function createLineChartView(tabType: 'ports' | 'port-channels'): SceneFlexLayou
     .setOption('tooltip', { mode: 'multi' as any, sort: 'desc' as any })
     .build();
 
-  // B: Transmit errors
-  const bTxQueryRunner = new LoggingQueryRunner({
-    datasource: { uid: '${Account}' },
-    queries: [baseQuery],
-  });
-
+  // B: Transmit errors transformer
   const bTxTransformer = new LoggingDataTransformer({
-    $data: bTxQueryRunner,
+    $data: queryRunner,
     transformations: [
       {
         id: 'filterByValue',
@@ -1184,18 +1319,77 @@ function createLineChartView(tabType: 'ports' | 'port-channels'): SceneFlexLayou
         },
       },
       {
-        id: 'groupingToMatrix',
+        id: 'organize',
         options: {
-          columnField: 'Name',
-          rowField: 'Time',
-          valueField: 'TX',
+          excludeByName: {
+            Hostname: true,
+            TX: true,
+            RX: true,
+            ...Object.fromEntries(rxErrorFields.map(f => [f, true])),
+          },
+          includeByName: {},
+          indexByName: {},
+          renameByName: Object.fromEntries(
+            txErrorFields.map(field => [field, errorTypeLabels[field] || field])
+          ),
+        },
+      },
+      {
+        id: 'prepareTimeSeries',
+        options: {
+          format: 'multi',
+        },
+      },
+      // Reorder from "error_type PortName" to "PortName - error_type"
+      {
+        id: 'renameByRegex',
+        options: {
+          regex: '^(.+?)\\s+(.+)$',
+          renamePattern: '$2 - $1',
+        },
+      },
+      // Replace underscores with spaces
+      {
+        id: 'renameByRegex',
+        options: {
+          regex: '^(.*)_(.*)$',
+          renamePattern: '$1 $2',
+        },
+      },
+      // Capitalize error types - TX errors
+      {
+        id: 'renameByRegex',
+        options: {
+          regex: '^(.* - )(jabber)$',
+          renamePattern: '$1Jabber',
         },
       },
       {
         id: 'renameByRegex',
         options: {
-          regex: renameRegex,
-          renamePattern: '$1$2',
+          regex: '^(.* - )(late collisions)$',
+          renamePattern: '$1Late Collisions',
+        },
+      },
+      {
+        id: 'renameByRegex',
+        options: {
+          regex: '^(.* - )(deferred)$',
+          renamePattern: '$1Deferred',
+        },
+      },
+      {
+        id: 'renameByRegex',
+        options: {
+          regex: '^(.* - )(carrier sense)$',
+          renamePattern: '$1Carrier Sense',
+        },
+      },
+      {
+        id: 'renameByRegex',
+        options: {
+          regex: '^(.* - )(tx discard)$',
+          renamePattern: '$1TX Discard',
         },
       },
     ],
@@ -1209,14 +1403,9 @@ function createLineChartView(tabType: 'ports' | 'port-channels'): SceneFlexLayou
     .setOption('tooltip', { mode: 'multi' as any, sort: 'desc' as any })
     .build();
 
-  // B: Receive errors
-  const bRxQueryRunner = new LoggingQueryRunner({
-    datasource: { uid: '${Account}' },
-    queries: [baseQuery],
-  });
-
+  // B: Receive errors transformer
   const bRxTransformer = new LoggingDataTransformer({
-    $data: bRxQueryRunner,
+    $data: queryRunner,
     transformations: [
       {
         id: 'filterByValue',
@@ -1235,18 +1424,84 @@ function createLineChartView(tabType: 'ports' | 'port-channels'): SceneFlexLayou
         },
       },
       {
-        id: 'groupingToMatrix',
+        id: 'organize',
         options: {
-          columnField: 'Name',
-          rowField: 'Time',
-          valueField: 'RX',
+          excludeByName: {
+            Hostname: true,
+            TX: true,
+            RX: true,
+            ...Object.fromEntries(txErrorFields.map(f => [f, true])),
+          },
+          includeByName: {},
+          indexByName: {},
+          renameByName: Object.fromEntries(
+            rxErrorFields.map(field => [field, errorTypeLabels[field] || field])
+          ),
+        },
+      },
+      {
+        id: 'prepareTimeSeries',
+        options: {
+          format: 'multi',
+        },
+      },
+      // Reorder from "error_type PortName" to "PortName - error_type"
+      {
+        id: 'renameByRegex',
+        options: {
+          regex: '^(.+?)\\s+(.+)$',
+          renamePattern: '$2 - $1',
+        },
+      },
+      // Replace underscores with spaces
+      {
+        id: 'renameByRegex',
+        options: {
+          regex: '^(.*)_(.*)$',
+          renamePattern: '$1 $2',
+        },
+      },
+      // Capitalize error types - RX errors
+      {
+        id: 'renameByRegex',
+        options: {
+          regex: '^(.* - )(too short)$',
+          renamePattern: '$1Too Short',
         },
       },
       {
         id: 'renameByRegex',
         options: {
-          regex: renameRegex,
-          renamePattern: '$1$2',
+          regex: '^(.* - )(crc)$',
+          renamePattern: '$1CRC',
+        },
+      },
+      {
+        id: 'renameByRegex',
+        options: {
+          regex: '^(.* - )(too long)$',
+          renamePattern: '$1Too Long',
+        },
+      },
+      {
+        id: 'renameByRegex',
+        options: {
+          regex: '^(.* - )(runt)$',
+          renamePattern: '$1Runt',
+        },
+      },
+      {
+        id: 'renameByRegex',
+        options: {
+          regex: '^(.* - )(no buffer)$',
+          renamePattern: '$1No Buffer',
+        },
+      },
+      {
+        id: 'renameByRegex',
+        options: {
+          regex: '^(.* - )(rx discard)$',
+          renamePattern: '$1RX Discard',
         },
       },
     ],
@@ -1270,7 +1525,7 @@ function createLineChartView(tabType: 'ports' | 'port-channels'): SceneFlexLayou
           direction: 'row',
           children: [
             new SceneFlexItem({ ySizing: 'fill', body: aTxPanel }),
-            new SceneFlexItem({ ySizing: 'fill', body: aRxPanel }),
+            new SceneFlexItem({ ySizing: 'fill', body: bTxPanel }),
           ],
         }),
       }),
@@ -1279,7 +1534,7 @@ function createLineChartView(tabType: 'ports' | 'port-channels'): SceneFlexLayou
         body: new SceneFlexLayout({
           direction: 'row',
           children: [
-            new SceneFlexItem({ ySizing: 'fill', body: bTxPanel }),
+            new SceneFlexItem({ ySizing: 'fill', body: aRxPanel }),
             new SceneFlexItem({ ySizing: 'fill', body: bRxPanel }),
           ],
         }),
@@ -1500,20 +1755,44 @@ function createDrilldownView(
   const hostA = tabType === 'ports' ? 'eCMC-A' : 'FI-A';
   const hostB = tabType === 'ports' ? 'eCMC-B' : 'FI-B';
 
-  // Rename regex to strip port type prefix
-  const renameRegex = tabType === 'ports' ? '(.*)Ethernet(.*)' : '(.*)port-channel(.*)';
-
   // Panel titles
   const titlePrefix = tabType === 'ports' ? 'uplink port' : 'uplink port channel';
 
-  // A: Transmit errors
-  const aTxQueryRunner = new LoggingQueryRunner({
+  // Single query runner for all panels
+  const queryRunner = new LoggingQueryRunner({
     datasource: { uid: '${Account}' },
     queries: [drilldownQuery],
   });
 
+  // Determine which error fields to show based on tab type
+  const rxErrorFields = tabType === 'ports'
+    ? ['too_short', 'crc', 'too_long']
+    : ['runt', 'too_long', 'crc', 'no_buffer', 'too_short', 'rx_discard'];
+
+  const txErrorFields = tabType === 'ports'
+    ? ['jabber', 'late_collisions']
+    : ['deferred', 'late_collisions', 'carrier_sense', 'tx_discard', 'jabber'];
+
+  // Human-readable names for error types
+  const errorTypeLabels: Record<string, string> = {
+    // RX errors
+    'too_short': 'Too Short',
+    'crc': 'CRC',
+    'too_long': 'Too Long',
+    'runt': 'Runt',
+    'no_buffer': 'No Buffer',
+    'rx_discard': 'RX Discard',
+    // TX errors
+    'jabber': 'Jabber',
+    'late_collisions': 'Late Collisions',
+    'deferred': 'Deferred',
+    'carrier_sense': 'Carrier Sense',
+    'tx_discard': 'TX Discard',
+  };
+
+  // A: Transmit errors transformer
   const aTxTransformer = new LoggingDataTransformer({
-    $data: aTxQueryRunner,
+    $data: queryRunner,
     transformations: [
       {
         id: 'filterByValue',
@@ -1532,18 +1811,77 @@ function createDrilldownView(
         },
       },
       {
-        id: 'groupingToMatrix',
+        id: 'organize',
         options: {
-          columnField: 'Name',
-          rowField: 'Time',
-          valueField: 'TX',
+          excludeByName: {
+            Hostname: true,
+            TX: true,
+            RX: true,
+            ...Object.fromEntries(rxErrorFields.map(f => [f, true])),
+          },
+          includeByName: {},
+          indexByName: {},
+          renameByName: Object.fromEntries(
+            txErrorFields.map(field => [field, errorTypeLabels[field] || field])
+          ),
+        },
+      },
+      {
+        id: 'prepareTimeSeries',
+        options: {
+          format: 'multi',
+        },
+      },
+      // Reorder from "error_type PortName" to "PortName - error_type"
+      {
+        id: 'renameByRegex',
+        options: {
+          regex: '^(.+?)\\s+(.+)$',
+          renamePattern: '$2 - $1',
+        },
+      },
+      // Replace underscores with spaces
+      {
+        id: 'renameByRegex',
+        options: {
+          regex: '^(.*)_(.*)$',
+          renamePattern: '$1 $2',
+        },
+      },
+      // Capitalize error types - TX errors
+      {
+        id: 'renameByRegex',
+        options: {
+          regex: '^(.* - )(jabber)$',
+          renamePattern: '$1Jabber',
         },
       },
       {
         id: 'renameByRegex',
         options: {
-          regex: renameRegex,
-          renamePattern: '$1$2',
+          regex: '^(.* - )(late collisions)$',
+          renamePattern: '$1Late Collisions',
+        },
+      },
+      {
+        id: 'renameByRegex',
+        options: {
+          regex: '^(.* - )(deferred)$',
+          renamePattern: '$1Deferred',
+        },
+      },
+      {
+        id: 'renameByRegex',
+        options: {
+          regex: '^(.* - )(carrier sense)$',
+          renamePattern: '$1Carrier Sense',
+        },
+      },
+      {
+        id: 'renameByRegex',
+        options: {
+          regex: '^(.* - )(tx discard)$',
+          renamePattern: '$1TX Discard',
         },
       },
     ],
@@ -1557,14 +1895,9 @@ function createDrilldownView(
     .setOption('tooltip', { mode: 'multi' as any, sort: 'desc' as any })
     .build();
 
-  // A: Receive errors
-  const aRxQueryRunner = new LoggingQueryRunner({
-    datasource: { uid: '${Account}' },
-    queries: [drilldownQuery],
-  });
-
+  // A: Receive errors transformer
   const aRxTransformer = new LoggingDataTransformer({
-    $data: aRxQueryRunner,
+    $data: queryRunner,
     transformations: [
       {
         id: 'filterByValue',
@@ -1583,18 +1916,84 @@ function createDrilldownView(
         },
       },
       {
-        id: 'groupingToMatrix',
+        id: 'organize',
         options: {
-          columnField: 'Name',
-          rowField: 'Time',
-          valueField: 'RX',
+          excludeByName: {
+            Hostname: true,
+            TX: true,
+            RX: true,
+            ...Object.fromEntries(txErrorFields.map(f => [f, true])),
+          },
+          includeByName: {},
+          indexByName: {},
+          renameByName: Object.fromEntries(
+            rxErrorFields.map(field => [field, errorTypeLabels[field] || field])
+          ),
+        },
+      },
+      {
+        id: 'prepareTimeSeries',
+        options: {
+          format: 'multi',
+        },
+      },
+      // Reorder from "error_type PortName" to "PortName - error_type"
+      {
+        id: 'renameByRegex',
+        options: {
+          regex: '^(.+?)\\s+(.+)$',
+          renamePattern: '$2 - $1',
+        },
+      },
+      // Replace underscores with spaces
+      {
+        id: 'renameByRegex',
+        options: {
+          regex: '^(.*)_(.*)$',
+          renamePattern: '$1 $2',
+        },
+      },
+      // Capitalize error types - RX errors
+      {
+        id: 'renameByRegex',
+        options: {
+          regex: '^(.* - )(too short)$',
+          renamePattern: '$1Too Short',
         },
       },
       {
         id: 'renameByRegex',
         options: {
-          regex: renameRegex,
-          renamePattern: '$1$2',
+          regex: '^(.* - )(crc)$',
+          renamePattern: '$1CRC',
+        },
+      },
+      {
+        id: 'renameByRegex',
+        options: {
+          regex: '^(.* - )(too long)$',
+          renamePattern: '$1Too Long',
+        },
+      },
+      {
+        id: 'renameByRegex',
+        options: {
+          regex: '^(.* - )(runt)$',
+          renamePattern: '$1Runt',
+        },
+      },
+      {
+        id: 'renameByRegex',
+        options: {
+          regex: '^(.* - )(no buffer)$',
+          renamePattern: '$1No Buffer',
+        },
+      },
+      {
+        id: 'renameByRegex',
+        options: {
+          regex: '^(.* - )(rx discard)$',
+          renamePattern: '$1RX Discard',
         },
       },
     ],
@@ -1608,14 +2007,9 @@ function createDrilldownView(
     .setOption('tooltip', { mode: 'multi' as any, sort: 'desc' as any })
     .build();
 
-  // B: Transmit errors
-  const bTxQueryRunner = new LoggingQueryRunner({
-    datasource: { uid: '${Account}' },
-    queries: [drilldownQuery],
-  });
-
+  // B: Transmit errors transformer
   const bTxTransformer = new LoggingDataTransformer({
-    $data: bTxQueryRunner,
+    $data: queryRunner,
     transformations: [
       {
         id: 'filterByValue',
@@ -1634,18 +2028,77 @@ function createDrilldownView(
         },
       },
       {
-        id: 'groupingToMatrix',
+        id: 'organize',
         options: {
-          columnField: 'Name',
-          rowField: 'Time',
-          valueField: 'TX',
+          excludeByName: {
+            Hostname: true,
+            TX: true,
+            RX: true,
+            ...Object.fromEntries(rxErrorFields.map(f => [f, true])),
+          },
+          includeByName: {},
+          indexByName: {},
+          renameByName: Object.fromEntries(
+            txErrorFields.map(field => [field, errorTypeLabels[field] || field])
+          ),
+        },
+      },
+      {
+        id: 'prepareTimeSeries',
+        options: {
+          format: 'multi',
+        },
+      },
+      // Reorder from "error_type PortName" to "PortName - error_type"
+      {
+        id: 'renameByRegex',
+        options: {
+          regex: '^(.+?)\\s+(.+)$',
+          renamePattern: '$2 - $1',
+        },
+      },
+      // Replace underscores with spaces
+      {
+        id: 'renameByRegex',
+        options: {
+          regex: '^(.*)_(.*)$',
+          renamePattern: '$1 $2',
+        },
+      },
+      // Capitalize error types - TX errors
+      {
+        id: 'renameByRegex',
+        options: {
+          regex: '^(.* - )(jabber)$',
+          renamePattern: '$1Jabber',
         },
       },
       {
         id: 'renameByRegex',
         options: {
-          regex: renameRegex,
-          renamePattern: '$1$2',
+          regex: '^(.* - )(late collisions)$',
+          renamePattern: '$1Late Collisions',
+        },
+      },
+      {
+        id: 'renameByRegex',
+        options: {
+          regex: '^(.* - )(deferred)$',
+          renamePattern: '$1Deferred',
+        },
+      },
+      {
+        id: 'renameByRegex',
+        options: {
+          regex: '^(.* - )(carrier sense)$',
+          renamePattern: '$1Carrier Sense',
+        },
+      },
+      {
+        id: 'renameByRegex',
+        options: {
+          regex: '^(.* - )(tx discard)$',
+          renamePattern: '$1TX Discard',
         },
       },
     ],
@@ -1659,14 +2112,9 @@ function createDrilldownView(
     .setOption('tooltip', { mode: 'multi' as any, sort: 'desc' as any })
     .build();
 
-  // B: Receive errors
-  const bRxQueryRunner = new LoggingQueryRunner({
-    datasource: { uid: '${Account}' },
-    queries: [drilldownQuery],
-  });
-
+  // B: Receive errors transformer
   const bRxTransformer = new LoggingDataTransformer({
-    $data: bRxQueryRunner,
+    $data: queryRunner,
     transformations: [
       {
         id: 'filterByValue',
@@ -1685,18 +2133,84 @@ function createDrilldownView(
         },
       },
       {
-        id: 'groupingToMatrix',
+        id: 'organize',
         options: {
-          columnField: 'Name',
-          rowField: 'Time',
-          valueField: 'RX',
+          excludeByName: {
+            Hostname: true,
+            TX: true,
+            RX: true,
+            ...Object.fromEntries(txErrorFields.map(f => [f, true])),
+          },
+          includeByName: {},
+          indexByName: {},
+          renameByName: Object.fromEntries(
+            rxErrorFields.map(field => [field, errorTypeLabels[field] || field])
+          ),
+        },
+      },
+      {
+        id: 'prepareTimeSeries',
+        options: {
+          format: 'multi',
+        },
+      },
+      // Reorder from "error_type PortName" to "PortName - error_type"
+      {
+        id: 'renameByRegex',
+        options: {
+          regex: '^(.+?)\\s+(.+)$',
+          renamePattern: '$2 - $1',
+        },
+      },
+      // Replace underscores with spaces
+      {
+        id: 'renameByRegex',
+        options: {
+          regex: '^(.*)_(.*)$',
+          renamePattern: '$1 $2',
+        },
+      },
+      // Capitalize error types - RX errors
+      {
+        id: 'renameByRegex',
+        options: {
+          regex: '^(.* - )(too short)$',
+          renamePattern: '$1Too Short',
         },
       },
       {
         id: 'renameByRegex',
         options: {
-          regex: renameRegex,
-          renamePattern: '$1$2',
+          regex: '^(.* - )(crc)$',
+          renamePattern: '$1CRC',
+        },
+      },
+      {
+        id: 'renameByRegex',
+        options: {
+          regex: '^(.* - )(too long)$',
+          renamePattern: '$1Too Long',
+        },
+      },
+      {
+        id: 'renameByRegex',
+        options: {
+          regex: '^(.* - )(runt)$',
+          renamePattern: '$1Runt',
+        },
+      },
+      {
+        id: 'renameByRegex',
+        options: {
+          regex: '^(.* - )(no buffer)$',
+          renamePattern: '$1No Buffer',
+        },
+      },
+      {
+        id: 'renameByRegex',
+        options: {
+          regex: '^(.* - )(rx discard)$',
+          renamePattern: '$1RX Discard',
         },
       },
     ],
@@ -1725,7 +2239,7 @@ function createDrilldownView(
                 direction: 'row',
                 children: [
                   new SceneFlexItem({ ySizing: 'fill', body: aTxPanel }),
-                  new SceneFlexItem({ ySizing: 'fill', body: aRxPanel }),
+                  new SceneFlexItem({ ySizing: 'fill', body: bTxPanel }),
                 ],
               }),
             }),
@@ -1734,7 +2248,7 @@ function createDrilldownView(
               body: new SceneFlexLayout({
                 direction: 'row',
                 children: [
-                  new SceneFlexItem({ ySizing: 'fill', body: bTxPanel }),
+                  new SceneFlexItem({ ySizing: 'fill', body: aRxPanel }),
                   new SceneFlexItem({ ySizing: 'fill', body: bRxPanel }),
                 ],
               }),

@@ -425,24 +425,24 @@ function createLineChartView(portRole: string, tabType: string, parent: NetworkU
   return new SceneFlexLayout({
     direction: 'column',
     children: [
-      // Row 1: eCMC-A panels
+      // Row 1: Transmit panels
       new SceneFlexItem({
         ySizing: 'fill',
         body: new SceneFlexLayout({
           direction: 'row',
           children: [
             new SceneFlexItem({ ySizing: 'fill', body: panelA_TX }),
-            new SceneFlexItem({ ySizing: 'fill', body: panelA_RX }),
+            new SceneFlexItem({ ySizing: 'fill', body: panelB_TX }),
           ],
         }),
       }),
-      // Row 2: eCMC-B panels
+      // Row 2: Receive panels
       new SceneFlexItem({
         ySizing: 'fill',
         body: new SceneFlexLayout({
           direction: 'row',
           children: [
-            new SceneFlexItem({ ySizing: 'fill', body: panelB_TX }),
+            new SceneFlexItem({ ySizing: 'fill', body: panelA_RX }),
             new SceneFlexItem({ ySizing: 'fill', body: panelB_RX }),
           ],
         }),
@@ -1315,24 +1315,24 @@ function createDrilldownView(chassisName: string, portRole: string, tabType: str
     direction: 'column',
     children: [
       new SceneFlexItem({ height: 50, body: drilldownHeader }),
-      // Row 1: eCMC-A panels
+      // Row 1: Transmit panels
       new SceneFlexItem({
         ySizing: 'fill',
         body: new SceneFlexLayout({
           direction: 'row',
           children: [
             new SceneFlexItem({ ySizing: 'fill', body: panelA_TX }),
-            new SceneFlexItem({ ySizing: 'fill', body: panelA_RX }),
+            new SceneFlexItem({ ySizing: 'fill', body: panelB_TX }),
           ],
         }),
       }),
-      // Row 2: eCMC-B panels
+      // Row 2: Receive panels
       new SceneFlexItem({
         ySizing: 'fill',
         body: new SceneFlexLayout({
           direction: 'row',
           children: [
-            new SceneFlexItem({ ySizing: 'fill', body: panelB_TX }),
+            new SceneFlexItem({ ySizing: 'fill', body: panelA_RX }),
             new SceneFlexItem({ ySizing: 'fill', body: panelB_RX }),
           ],
         }),
