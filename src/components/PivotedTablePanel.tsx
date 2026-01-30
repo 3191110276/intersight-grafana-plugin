@@ -4,6 +4,7 @@ import { useObservable } from 'react-use';
 import { PanelData, LoadingState, FieldType } from '@grafana/data';
 import { useTheme2 } from '@grafana/ui';
 import { Observable } from 'rxjs';
+import { map } from 'rxjs/operators';
 
 interface PivotedTablePanelState extends SceneObjectState {
   title: string;
@@ -36,7 +37,7 @@ export class PivotedTablePanel extends SceneObjectBase<PivotedTablePanelState> {
       });
     }
 
-    return queryRunner.getData();
+    return queryRunner.getResultsStream().pipe(map(result => result.data));
   }
 }
 
@@ -46,7 +47,7 @@ function PivotedTablePanelRenderer({ model }: SceneComponentProps<PivotedTablePa
 
   // Subscribe to query runner data
   const data = useObservable<PanelData>(
-    queryRunner.getData(),
+    queryRunner.getResultsStream().pipe(map(result => result.data)),
     {
       series: [],
       state: LoadingState.Loading,
@@ -101,7 +102,7 @@ function PivotedTablePanelRenderer({ model }: SceneComponentProps<PivotedTablePa
       console.log('PivotedTablePanel: Transformed data', dataByChassisAndMetric);
 
       // Convert to rows
-      const rows = Object.keys(dataByChassisAndMetric)
+      const rows: Array<{ chassis: string; [key: string]: string | number | null }> = Object.keys(dataByChassisAndMetric)
         .sort()
         .map((chassis) => ({
           chassis,
@@ -198,28 +199,28 @@ function PivotedTablePanelRenderer({ model }: SceneComponentProps<PivotedTablePa
                 <td style={{ padding: '8px' }}>
                   {row['eCMC-A TX'] != null
                     ? unit === 'percent'
-                      ? `${(row['eCMC-A TX'] * 100).toFixed(4)}%`
+                      ? `${((row['eCMC-A TX'] as number) * 100).toFixed(4)}%`
                       : row['eCMC-A TX']
                     : 'N/A'}
                 </td>
                 <td style={{ padding: '8px' }}>
                   {row['eCMC-A RX'] != null
                     ? unit === 'percent'
-                      ? `${(row['eCMC-A RX'] * 100).toFixed(4)}%`
+                      ? `${((row['eCMC-A RX'] as number) * 100).toFixed(4)}%`
                       : row['eCMC-A RX']
                     : 'N/A'}
                 </td>
                 <td style={{ padding: '8px' }}>
                   {row['eCMC-B TX'] != null
                     ? unit === 'percent'
-                      ? `${(row['eCMC-B TX'] * 100).toFixed(4)}%`
+                      ? `${((row['eCMC-B TX'] as number) * 100).toFixed(4)}%`
                       : row['eCMC-B TX']
                     : 'N/A'}
                 </td>
                 <td style={{ padding: '8px' }}>
                   {row['eCMC-B RX'] != null
                     ? unit === 'percent'
-                      ? `${(row['eCMC-B RX'] * 100).toFixed(4)}%`
+                      ? `${((row['eCMC-B RX'] as number) * 100).toFixed(4)}%`
                       : row['eCMC-B RX']
                     : 'N/A'}
                 </td>

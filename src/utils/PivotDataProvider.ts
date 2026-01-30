@@ -22,7 +22,7 @@ export class PivotDataProvider extends SceneObjectBase<PivotDataProviderState> {
    * Implement activate to start data flow
    */
   public activate() {
-    super.activate();
+    const cleanup = super.activate();
     console.log('PivotDataProvider: Activated');
 
     // Subscribe to query runner to trigger data loading
@@ -33,6 +33,8 @@ export class PivotDataProvider extends SceneObjectBase<PivotDataProviderState> {
 
       this._subs.add(sub);
     }
+
+    return cleanup;
   }
 
   /**
@@ -56,8 +58,9 @@ export class PivotDataProvider extends SceneObjectBase<PivotDataProviderState> {
 
     console.log('PivotDataProvider: Getting data from query runner');
 
-    return queryRunner.getData().pipe(
-      map((data: PanelData) => {
+    return queryRunner.getResultsStream().pipe(
+      map((result) => {
+        const data = result.data;
         console.log('PivotDataProvider: Received data', {
           state: data.state,
           seriesCount: data.series?.length,

@@ -24,12 +24,12 @@ function PivotTableWrapperRenderer({ model }: SceneComponentProps<PivotTableWrap
     series: [],
     state: LoadingState.Loading,
     timeRange: {} as any,
-  });
+  } as PanelData);
 
   console.log('PivotTableWrapper: Received data', data);
 
   // Transform the data if it's ready
-  let transformedData = data;
+  let transformedData: PanelData = data;
   if (data.state === LoadingState.Done && data.series && data.series.length > 0) {
     try {
       console.log('PivotTableWrapper: Starting pivot transformation');

@@ -181,6 +181,77 @@ function ClickableTableWrapperRenderer({ model }: SceneComponentProps<ClickableT
 }
 
 // ============================================================================
+// SHARED DRILLDOWN STATE
+// ============================================================================
+
+interface SharedDrilldownStateState extends SceneObjectState {
+  mode: 'overview' | 'drilldown';
+  chassisName?: string;
+  lastChassisValue?: any;  // Track previous ChassisName value to detect changes
+}
+
+/**
+ * Shared drilldown state manager that synchronizes drilldown across all Network Errors containers
+ */
+class SharedDrilldownState extends SceneObjectBase<SharedDrilldownStateState> {
+  public static Component = () => null; // Non-visual component
+  // @ts-ignore
+  protected _variableDependency = new VariableDependencyConfig(this, {
+    variableNames: ['ChassisName'],
+    onReferencedVariableValueChanged: () => {
+      const currentChassisValue = this.getChassisVariableValue();
+      const lastChassisValue = this.state.lastChassisValue;
+
+      // Only exit drilldown if ChassisName actually changed
+      if (this.hasChassisVariableChanged(lastChassisValue, currentChassisValue)) {
+        if (this.state.mode !== 'overview') {
+          this.exitDrilldown();
+        }
+      }
+
+      // Update tracked value
+      this.setState({ lastChassisValue: currentChassisValue });
+    },
+  });
+
+  public drillToChassis(chassisName: string) {
+    this.setState({
+      mode: 'drilldown',
+      chassisName,
+    });
+  }
+
+  public exitDrilldown() {
+    this.setState({
+      mode: 'overview',
+      chassisName: undefined,
+    });
+  }
+
+  private getChassisVariableValue(): any {
+    const variable = sceneGraph.lookupVariable('ChassisName', this);
+    if (!variable || !('state' in variable)) {
+      return undefined;
+    }
+    return (variable.state as any).value;
+  }
+
+  private hasChassisVariableChanged(oldValue: any, newValue: any): boolean {
+    // Handle arrays (multi-select)
+    if (Array.isArray(oldValue) && Array.isArray(newValue)) {
+      if (oldValue.length !== newValue.length) return true;
+      // Sort and compare
+      const sorted1 = [...oldValue].sort();
+      const sorted2 = [...newValue].sort();
+      return !sorted1.every((val, idx) => val === sorted2[idx]);
+    }
+
+    // Handle simple values
+    return oldValue !== newValue;
+  }
+}
+
+// ============================================================================
 // BASE QUERIES - eCMC DOWNLINKS
 // ============================================================================
 
@@ -1113,280 +1184,121 @@ function createUplinkPortChannelsTableQuery() {
 }
 
 // ============================================================================
-// DYNAMIC UPLINKS PORTS SCENE
+// NETWORK ERRORS DETAILS CONTAINER
 // ============================================================================
 
-interface DynamicUplinksPortsSceneState extends SceneObjectState {
+interface NetworkErrorsDetailsContainerState extends SceneObjectState {
+  sectionType: 'ports' | 'port-channels' | 'downlinks';
   body: any;
-  drilldownChassis?: string;
-  isDrilldown?: boolean;
 }
 
-class DynamicUplinksPortsScene extends SceneObjectBase<DynamicUplinksPortsSceneState> {
-  public static Component = DynamicUplinksPortsSceneRenderer;
+/**
+ * Container scene that manages conditional rendering and drilldown for network errors details
+ */
+class NetworkErrorsDetailsContainer extends SceneObjectBase<NetworkErrorsDetailsContainerState> {
+  public static Component = NetworkErrorsDetailsContainerRenderer;
 
-  // @ts-ignore
-  protected _variableDependency = new VariableDependencyConfig(this, {
-    variableNames: ['ChassisName'],
-    onReferencedVariableValueChanged: () => {
-      if (this.isActive) {
-        // Reset drilldown when variable changes
-        if (this.state.isDrilldown) {
-          this.exitDrilldown();
-        }
-        this.rebuildBody();
-      }
-    },
-  });
-
-  public constructor(state: Partial<DynamicUplinksPortsSceneState>) {
-    super({
-      body: new SceneFlexLayout({ children: [] }),
-      ...state,
-    });
+  public constructor(state: NetworkErrorsDetailsContainerState) {
+    super(state);
   }
 
   // @ts-ignore
   public activate() {
-    const deactivate = super.activate();
-    this.rebuildBody();
-    return deactivate;
-  }
+    const result = super.activate();
 
-  public drillToChassis(chassisName: string) {
-    this.setState({
-      drilldownChassis: chassisName,
-      isDrilldown: true,
-    });
-    this.rebuildBody();
-  }
-
-  public exitDrilldown() {
-    this.setState({
-      drilldownChassis: undefined,
-      isDrilldown: false,
-    });
-    this.rebuildBody();
-  }
-
-  private rebuildBody() {
-    if (!this.isActive) {
-      return;
-    }
-
-    // Priority 1: Drilldown mode
-    if (this.state.isDrilldown && this.state.drilldownChassis) {
-      const drilldownBody = createDrilldownView(this.state.drilldownChassis, this, 'ports');
-      this.setState({ body: drilldownBody });
-      return;
-    }
-
-    // Priority 2: Get chassis count for conditional rendering
-    const chassisCount = getChassisCount(this);
-
-    // Single chassis - show line charts directly (2x2 grid)
-    if (chassisCount === 1) {
-      const lineChartBody = createLineChartView('ports');
-      this.setState({ body: lineChartBody });
-      return;
-    }
-
-    // Multiple chassis - show summary table with conditional aggregate charts
-    const summaryBody = createSummaryView(this, chassisCount, 'ports');
-    this.setState({ body: summaryBody });
-  }
-}
-
-function DynamicUplinksPortsSceneRenderer({ model }: SceneComponentProps<DynamicUplinksPortsScene>) {
-  const { body } = model.useState();
-  return (
-    <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column' }}>
-      {body && body.Component && <body.Component model={body} />}
-    </div>
-  );
-}
-
-// ============================================================================
-// DYNAMIC UPLINKS PORT CHANNELS SCENE
-// ============================================================================
-
-interface DynamicUplinksPortChannelsSceneState extends SceneObjectState {
-  body: any;
-  drilldownChassis?: string;
-  isDrilldown?: boolean;
-}
-
-class DynamicUplinksPortChannelsScene extends SceneObjectBase<DynamicUplinksPortChannelsSceneState> {
-  public static Component = DynamicUplinksPortChannelsSceneRenderer;
-
-  // @ts-ignore
-  protected _variableDependency = new VariableDependencyConfig(this, {
-    variableNames: ['ChassisName'],
-    onReferencedVariableValueChanged: () => {
-      if (this.isActive) {
-        // Reset drilldown when variable changes
-        if (this.state.isDrilldown) {
-          this.exitDrilldown();
-        }
+    // Find and subscribe to shared drilldown state changes
+    const sharedDrilldownState = this.getSharedDrilldownState();
+    if (sharedDrilldownState) {
+      const subscription = sharedDrilldownState.subscribeToState(() => {
         this.rebuildBody();
-      }
-    },
-  });
+      });
 
-  public constructor(state: Partial<DynamicUplinksPortChannelsSceneState>) {
-    super({
-      body: new SceneFlexLayout({ children: [] }),
-      ...state,
-    });
-  }
+      // Store subscription for cleanup
+      this._subs.add(subscription);
+    }
 
-  // @ts-ignore
-  public activate() {
-    const deactivate = super.activate();
+    // Build panels when scene becomes active (when it has access to variables)
     this.rebuildBody();
-    return deactivate;
+    return result;
   }
 
   public drillToChassis(chassisName: string) {
-    this.setState({
-      drilldownChassis: chassisName,
-      isDrilldown: true,
-    });
-    this.rebuildBody();
+    const sharedState = this.getSharedDrilldownState();
+    if (sharedState) {
+      sharedState.drillToChassis(chassisName);
+    }
   }
 
   public exitDrilldown() {
-    this.setState({
-      drilldownChassis: undefined,
-      isDrilldown: false,
-    });
-    this.rebuildBody();
+    const sharedState = this.getSharedDrilldownState();
+    if (sharedState) {
+      sharedState.exitDrilldown();
+    }
+  }
+
+  private getSharedDrilldownState(): SharedDrilldownState | null {
+    try {
+      return sceneGraph.findObject(this, (obj) => obj instanceof SharedDrilldownState) as SharedDrilldownState;
+    } catch {
+      return null;
+    }
   }
 
   private rebuildBody() {
+    // Only rebuild if scene is active (has access to variables)
     if (!this.isActive) {
       return;
     }
 
-    // Priority 1: Drilldown mode
-    if (this.state.isDrilldown && this.state.drilldownChassis) {
-      const drilldownBody = createDrilldownView(this.state.drilldownChassis, this, 'port-channels');
-      this.setState({ body: drilldownBody });
-      return;
-    }
+    const { sectionType } = this.state;
 
-    // Priority 2: Get chassis count for conditional rendering
-    const chassisCount = getChassisCount(this);
-
-    // Single chassis - show line charts directly (2x2 grid)
-    if (chassisCount === 1) {
-      const lineChartBody = createLineChartView('port-channels');
-      this.setState({ body: lineChartBody });
-      return;
-    }
-
-    // Multiple chassis - show summary table with conditional aggregate charts
-    const summaryBody = createSummaryView(this, chassisCount, 'port-channels');
-    this.setState({ body: summaryBody });
-  }
-}
-
-function DynamicUplinksPortChannelsSceneRenderer({ model }: SceneComponentProps<DynamicUplinksPortChannelsScene>) {
-  const { body } = model.useState();
-  return (
-    <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column' }}>
-      {body && body.Component && <body.Component model={body} />}
-    </div>
-  );
-}
-
-// ============================================================================
-// DYNAMIC DOWNLINKS SCENE
-// ============================================================================
-
-interface DynamicDownlinksSceneState extends SceneObjectState {
-  body: any;
-  drilldownChassis?: string;
-  isDrilldown?: boolean;
-}
-
-class DynamicDownlinksScene extends SceneObjectBase<DynamicDownlinksSceneState> {
-  public static Component = DynamicDownlinksSceneRenderer;
-
-  // @ts-ignore
-  protected _variableDependency = new VariableDependencyConfig(this, {
-    variableNames: ['ChassisName'],
-    onReferencedVariableValueChanged: () => {
-      if (this.isActive) {
-        // Reset drilldown when variable changes
-        if (this.state.isDrilldown) {
-          this.exitDrilldown();
-        }
-        this.rebuildBody();
-      }
-    },
-  });
-
-  public constructor(state: Partial<DynamicDownlinksSceneState>) {
-    super({
-      body: new SceneFlexLayout({ children: [] }),
-      ...state,
-    });
-  }
-
-  // @ts-ignore
-  public activate() {
-    const deactivate = super.activate();
-    this.rebuildBody();
-    return deactivate;
-  }
-
-  public drillToChassis(chassisName: string) {
-    this.setState({
-      drilldownChassis: chassisName,
-      isDrilldown: true,
-    });
-    this.rebuildBody();
-  }
-
-  public exitDrilldown() {
-    this.setState({
-      drilldownChassis: undefined,
-      isDrilldown: false,
-    });
-    this.rebuildBody();
-  }
-
-  private rebuildBody() {
-    if (!this.isActive) {
-      return;
-    }
+    // Get drilldown state from scene graph
+    const sharedDrilldownState = this.getSharedDrilldownState();
+    const mode = sharedDrilldownState?.state.mode || 'overview';
+    const chassisName = sharedDrilldownState?.state.chassisName;
 
     // Priority 1: Drilldown mode
-    if (this.state.isDrilldown && this.state.drilldownChassis) {
-      const drilldownBody = createDrilldownView(this.state.drilldownChassis, this, 'downlinks');
-      this.setState({ body: drilldownBody });
+    if (mode === 'drilldown' && chassisName) {
+      this.setState({ body: createDrilldownView(chassisName, this, sectionType) });
       return;
     }
 
-    // Priority 2: Get chassis count for conditional rendering
-    const chassisCount = getChassisCount(this);
+    // Priority 2: Get chassis count
+    const count = getChassisCount(this);
 
-    // Single chassis - show line charts directly (2x2 grid)
-    if (chassisCount === 1) {
-      const lineChartBody = createLineChartView('downlinks');
-      this.setState({ body: lineChartBody });
+    // Priority 3: Single chassis (1) - show line chart view
+    if (count === 1) {
+      this.setState({ body: createLineChartView(sectionType) });
       return;
     }
 
-    // Multiple chassis - show summary table with conditional aggregate charts
-    const summaryBody = createSummaryView(this, chassisCount, 'downlinks');
-    this.setState({ body: summaryBody });
+    // Priority 4: Multi-chassis (2+) - show table with drilldown
+    if (count > 1) {
+      this.setState({ body: createSummaryView(this, count, sectionType) });
+      return;
+    }
+
+    // Priority 5: No chassis selected - show empty state
+    const emptyStatePanel = PanelBuilders.text()
+      .setTitle('Network Errors')
+      .setOption('content', '### No Chassis Selected\n\nPlease select one or more chassis from the Chassis filter above.')
+      .setOption('mode', 'markdown' as any)
+      .setDisplayMode('transparent')
+      .build();
+
+    this.setState({
+      body: new SceneFlexLayout({
+        children: [
+          new SceneFlexItem({ ySizing: 'fill', body: emptyStatePanel })
+        ]
+      })
+    });
   }
 }
 
-function DynamicDownlinksSceneRenderer({ model }: SceneComponentProps<DynamicDownlinksScene>) {
+function NetworkErrorsDetailsContainerRenderer({ model }: SceneComponentProps<NetworkErrorsDetailsContainer>) {
   const { body } = model.useState();
+
   return (
     <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column' }}>
       {body && body.Component && <body.Component model={body} />}
@@ -1454,7 +1366,7 @@ function createLineChartView(tabType: 'ports' | 'port-channels' | 'downlinks'): 
 
   // A: Transmit errors transformer
   const aTxTransformer = new LoggingDataTransformer({
-    $data: queryRunner,
+    $data: queryRunner.clone(),
     transformations: [
       {
         id: 'filterByValue',
@@ -1559,7 +1471,7 @@ function createLineChartView(tabType: 'ports' | 'port-channels' | 'downlinks'): 
 
   // A: Receive errors transformer
   const aRxTransformer = new LoggingDataTransformer({
-    $data: queryRunner,
+    $data: queryRunner.clone(),
     transformations: [
       {
         id: 'filterByValue',
@@ -1671,7 +1583,7 @@ function createLineChartView(tabType: 'ports' | 'port-channels' | 'downlinks'): 
 
   // B: Transmit errors transformer
   const bTxTransformer = new LoggingDataTransformer({
-    $data: queryRunner,
+    $data: queryRunner.clone(),
     transformations: [
       {
         id: 'filterByValue',
@@ -1776,7 +1688,7 @@ function createLineChartView(tabType: 'ports' | 'port-channels' | 'downlinks'): 
 
   // B: Receive errors transformer
   const bRxTransformer = new LoggingDataTransformer({
-    $data: queryRunner,
+    $data: queryRunner.clone(),
     transformations: [
       {
         id: 'filterByValue',
@@ -1922,7 +1834,7 @@ function createLineChartView(tabType: 'ports' | 'port-channels' | 'downlinks'): 
  * Shows table + optional aggregate charts (if chassisCount <= 5)
  */
 function createSummaryView(
-  scene: DynamicUplinksPortsScene | DynamicUplinksPortChannelsScene | DynamicDownlinksScene,
+  scene: NetworkErrorsDetailsContainer,
   chassisCount: number,
   tabType: 'ports' | 'port-channels' | 'downlinks'
 ): SceneFlexLayout {
@@ -2119,7 +2031,7 @@ function createSummaryView(
  */
 function createDrilldownView(
   chassisName: string,
-  scene: DynamicUplinksPortsScene | DynamicUplinksPortChannelsScene | DynamicDownlinksScene,
+  scene: NetworkErrorsDetailsContainer,
   tabType: 'ports' | 'port-channels' | 'downlinks'
 ): SceneFlexLayout {
   const drilldownHeader = new DrilldownHeaderControl({
@@ -2179,7 +2091,7 @@ function createDrilldownView(
 
   // A: Transmit errors transformer
   const aTxTransformer = new LoggingDataTransformer({
-    $data: queryRunner,
+    $data: queryRunner.clone(),
     transformations: [
       {
         id: 'filterByValue',
@@ -2284,7 +2196,7 @@ function createDrilldownView(
 
   // A: Receive errors transformer
   const aRxTransformer = new LoggingDataTransformer({
-    $data: queryRunner,
+    $data: queryRunner.clone(),
     transformations: [
       {
         id: 'filterByValue',
@@ -2396,7 +2308,7 @@ function createDrilldownView(
 
   // B: Transmit errors transformer
   const bTxTransformer = new LoggingDataTransformer({
-    $data: queryRunner,
+    $data: queryRunner.clone(),
     transformations: [
       {
         id: 'filterByValue',
@@ -2501,7 +2413,7 @@ function createDrilldownView(
 
   // B: Receive errors transformer
   const bRxTransformer = new LoggingDataTransformer({
-    $data: queryRunner,
+    $data: queryRunner.clone(),
     transformations: [
       {
         id: 'filterByValue',
@@ -2655,12 +2567,20 @@ function createDrilldownView(
 // ============================================================================
 
 export function getNetworkErrorsTab() {
+  // Create shared drilldown state
+  const sharedDrilldownState = new SharedDrilldownState({
+    mode: 'overview',
+    chassisName: undefined,
+    lastChassisValue: undefined,
+  });
+
   const uplinksRow = createUplinksRow();
   const downlinksRow = createDownlinksRow();
   const errorDescriptionsRow = createErrorDescriptionsRow();
 
   return new SceneFlexLayout({
     direction: 'column',
+    $behaviors: [sharedDrilldownState],
     children: [
       new SceneFlexItem({
         minHeight: 700,
@@ -2673,16 +2593,16 @@ export function getNetworkErrorsTab() {
 }
 
 function createUplinksRow() {
-  const uplinksPortsScene = new DynamicUplinksPortsScene({});
-  const uplinksPortChannelsScene = new DynamicUplinksPortChannelsScene({});
+  const uplinksPortsContainer = new NetworkErrorsDetailsContainer({ sectionType: 'ports', body: new SceneFlexLayout({ children: [] }) });
+  const uplinksPortChannelsContainer = new NetworkErrorsDetailsContainer({ sectionType: 'port-channels', body: new SceneFlexLayout({ children: [] }) });
 
   const uplinksNestedTabs = new TabbedScene({
     tabs: [
-      { id: 'ports', label: 'Ports', getBody: () => uplinksPortsScene },
-      { id: 'port-channels', label: 'Port Channels', getBody: () => uplinksPortChannelsScene },
+      { id: 'ports', label: 'Ports', getBody: () => uplinksPortsContainer },
+      { id: 'port-channels', label: 'Port Channels', getBody: () => uplinksPortChannelsContainer },
     ],
     activeTab: 'ports',
-    body: uplinksPortsScene,
+    body: uplinksPortsContainer,
   });
 
   return new SceneGridRow({
@@ -2703,7 +2623,7 @@ function createUplinksRow() {
 }
 
 function createDownlinksRow() {
-  const downlinksScene = new DynamicDownlinksScene({});
+  const downlinksContainer = new NetworkErrorsDetailsContainer({ sectionType: 'downlinks', body: new SceneFlexLayout({ children: [] }) });
 
   return new SceneGridRow({
     title: 'eCMC Downlinks',
@@ -2716,7 +2636,7 @@ function createDownlinksRow() {
         y: 16,
         width: 24,
         height: 16,
-        body: downlinksScene,
+        body: downlinksContainer,
       }),
     ],
   });
