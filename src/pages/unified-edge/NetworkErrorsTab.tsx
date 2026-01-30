@@ -181,6 +181,276 @@ function ClickableTableWrapperRenderer({ model }: SceneComponentProps<ClickableT
 }
 
 // ============================================================================
+// BASE QUERIES - eCMC DOWNLINKS
+// ============================================================================
+
+/**
+ * Base query for downlink port network errors
+ * Filters: backplane_port + host_port
+ */
+function createDownlinkPortsQuery() {
+  return {
+    refId: 'A',
+    queryType: 'infinity',
+    type: 'json',
+    source: 'url',
+    parser: 'backend',
+    format: 'table',
+    url: '/api/v1/telemetry/TimeSeries',
+    root_selector: '',
+    columns: [
+      { selector: 'timestamp', text: 'Time', type: 'timestamp' },
+      { selector: 'event.name', text: 'PortName', type: 'string' },
+      { selector: 'event.host_name', text: 'Hostname', type: 'string' },
+      // Individual RX error columns
+      { selector: 'event.too_short', text: 'too_short', type: 'number' },
+      { selector: 'event.crc', text: 'crc', type: 'number' },
+      { selector: 'event.too_long', text: 'too_long', type: 'number' },
+      // Individual TX error columns
+      { selector: 'event.jabber', text: 'jabber', type: 'number' },
+      { selector: 'event.late_collisions', text: 'late_collisions', type: 'number' },
+      // Aggregate sums (for summary table)
+      { selector: 'event.tx_sum', text: 'TX', type: 'number' },
+      { selector: 'event.rx_sum', text: 'RX', type: 'number' },
+    ],
+    url_options: {
+      method: 'POST',
+      body_type: 'raw',
+      body_content_type: 'application/json',
+      data: `{
+  "queryType": "groupBy",
+  "dataSource": "NetworkInterfaces",
+  "granularity": {
+    "type": "duration",
+    "duration": $__interval_ms,
+    "timeZone": "$__timezone"
+  },
+  "intervals": ["\${__from:date}/\${__to:date}"],
+  "dimensions": [
+    "name",
+    "host_name"
+  ],
+  "virtualColumns": [
+    {
+      "type": "nested-field",
+      "columnName": "host.name",
+      "outputName": "host_name",
+      "expectedType": "STRING",
+      "path": "$"
+    }
+  ],
+  "filter": {
+    "type": "and",
+    "fields": [
+      {
+        "type": "in",
+        "dimension": "intersight.domain.name",
+        "values": [\${ChassisName:doublequote}]
+      },
+      {
+        "type": "selector",
+        "dimension": "hw.network.port.type",
+        "value": "backplane_port"
+      },
+      {
+        "type": "selector",
+        "dimension": "hw.network.port.role",
+        "value": "host_port"
+      },
+      {
+        "type": "selector",
+        "dimension": "instrument.name",
+        "value": "hw.network"
+      }
+    ]
+  },
+  "aggregations": [
+    {
+      "type": "longSum",
+      "name": "too_long",
+      "fieldName": "hw.errors_network_receive_too_long"
+    },
+    {
+      "type": "longSum",
+      "name": "crc",
+      "fieldName": "hw.errors_network_receive_crc"
+    },
+    {
+      "type": "longSum",
+      "name": "too_short",
+      "fieldName": "hw.errors_network_receive_too_short"
+    },
+    {
+      "type": "longSum",
+      "name": "late_collisions",
+      "fieldName": "hw.errors_network_late_collisions"
+    },
+    {
+      "type": "longSum",
+      "name": "jabber",
+      "fieldName": "hw.errors_network_transmit_jabber"
+    }
+  ],
+  "postAggregations": [
+    {
+      "type": "expression",
+      "name": "rx_sum",
+      "expression": "\\"too_short\\" + \\"crc\\" + \\"too_long\\""
+    },
+    {
+      "type": "expression",
+      "name": "tx_sum",
+      "expression": "\\"jabber\\" + \\"late_collisions\\""
+    },
+    {
+      "type": "expression",
+      "name": "total",
+      "expression": "\\"tx_sum\\" + \\"rx_sum\\""
+    }
+  ]
+}`,
+    },
+  } as any;
+}
+
+/**
+ * Table-specific query for downlink port network errors
+ * Uses "all" granularity for aggregate table view
+ */
+function createDownlinkPortsTableQuery() {
+  return {
+    refId: 'A',
+    queryType: 'infinity',
+    type: 'json',
+    source: 'url',
+    parser: 'backend',
+    format: 'table',
+    url: '/api/v1/telemetry/TimeSeries',
+    root_selector: '',
+    columns: [
+      { selector: 'timestamp', text: 'Time', type: 'timestamp' },
+      { selector: 'event.domain_name', text: 'Chassis', type: 'string' },
+      // Individual aggregations (RX errors)
+      { selector: 'event.too_long', text: 'Too Long', type: 'number' },
+      { selector: 'event.crc', text: 'CRC', type: 'number' },
+      { selector: 'event.too_short', text: 'Too Short', type: 'number' },
+      // Individual aggregations (TX errors)
+      { selector: 'event.late_collisions', text: 'Late Collisions', type: 'number' },
+      { selector: 'event.jabber', text: 'Jabber', type: 'number' },
+      // Post-aggregations (computed sums)
+      { selector: 'event.rx_sum', text: 'RX Sum', type: 'number' },
+      { selector: 'event.tx_sum', text: 'TX Sum', type: 'number' },
+      { selector: 'event.total', text: 'Total', type: 'number' },
+    ],
+    url_options: {
+      method: 'POST',
+      body_type: 'raw',
+      body_content_type: 'application/json',
+      data: `{
+  "queryType": "groupBy",
+  "dataSource": "NetworkInterfaces",
+  "granularity": "all",
+  "intervals": ["\${__from:date}/\${__to:date}"],
+  "dimensions": [
+    "domain_name"
+  ],
+  "virtualColumns": [
+    {
+      "type": "nested-field",
+      "columnName": "intersight.domain.name",
+      "outputName": "domain_name",
+      "expectedType": "STRING",
+      "path": "$"
+    },
+    {
+      "type": "expression",
+      "name": "Identifier",
+      "expression": "concat(domain_name + ' (' + name + ')')",
+      "outputType": "STRING"
+    },
+    {
+      "type": "nested-field",
+      "columnName": "host.name",
+      "outputName": "host_name",
+      "expectedType": "STRING",
+      "path": "$"
+    }
+  ],
+  "filter": {
+    "type": "and",
+    "fields": [
+      {
+        "type": "in",
+        "dimension": "intersight.domain.name",
+        "values": [\${ChassisName:doublequote}]
+      },
+      {
+        "type": "selector",
+        "dimension": "hw.network.port.type",
+        "value": "backplane_port"
+      },
+      {
+        "type": "selector",
+        "dimension": "hw.network.port.role",
+        "value": "host_port"
+      },
+      {
+        "type": "selector",
+        "dimension": "instrument.name",
+        "value": "hw.network"
+      }
+    ]
+  },
+  "aggregations": [
+    {
+      "type": "longSum",
+      "name": "too_long",
+      "fieldName": "hw.errors_network_receive_too_long"
+    },
+    {
+      "type": "longSum",
+      "name": "crc",
+      "fieldName": "hw.errors_network_receive_crc"
+    },
+    {
+      "type": "longSum",
+      "name": "too_short",
+      "fieldName": "hw.errors_network_receive_too_short"
+    },
+    {
+      "type": "longSum",
+      "name": "late_collisions",
+      "fieldName": "hw.errors_network_late_collisions"
+    },
+    {
+      "type": "longSum",
+      "name": "jabber",
+      "fieldName": "hw.errors_network_transmit_jabber"
+    }
+  ],
+  "postAggregations": [
+    {
+      "type": "expression",
+      "name": "rx_sum",
+      "expression": "\\"too_short\\" + \\"crc\\" + \\"too_long\\""
+    },
+    {
+      "type": "expression",
+      "name": "tx_sum",
+      "expression": "\\"jabber\\" + \\"late_collisions\\""
+    },
+    {
+      "type": "expression",
+      "name": "total",
+      "expression": "\\"tx_sum\\" + \\"rx_sum\\""
+    }
+  ]
+}`,
+    },
+  } as any;
+}
+
+// ============================================================================
 // BASE QUERIES - eCMC UPLINKS (PORTS)
 // ============================================================================
 
@@ -1031,23 +1301,124 @@ function DynamicUplinksPortChannelsSceneRenderer({ model }: SceneComponentProps<
 }
 
 // ============================================================================
+// DYNAMIC DOWNLINKS SCENE
+// ============================================================================
+
+interface DynamicDownlinksSceneState extends SceneObjectState {
+  body: any;
+  drilldownChassis?: string;
+  isDrilldown?: boolean;
+}
+
+class DynamicDownlinksScene extends SceneObjectBase<DynamicDownlinksSceneState> {
+  public static Component = DynamicDownlinksSceneRenderer;
+
+  // @ts-ignore
+  protected _variableDependency = new VariableDependencyConfig(this, {
+    variableNames: ['ChassisName'],
+    onReferencedVariableValueChanged: () => {
+      if (this.isActive) {
+        // Reset drilldown when variable changes
+        if (this.state.isDrilldown) {
+          this.exitDrilldown();
+        }
+        this.rebuildBody();
+      }
+    },
+  });
+
+  public constructor(state: Partial<DynamicDownlinksSceneState>) {
+    super({
+      body: new SceneFlexLayout({ children: [] }),
+      ...state,
+    });
+  }
+
+  // @ts-ignore
+  public activate() {
+    const deactivate = super.activate();
+    this.rebuildBody();
+    return deactivate;
+  }
+
+  public drillToChassis(chassisName: string) {
+    this.setState({
+      drilldownChassis: chassisName,
+      isDrilldown: true,
+    });
+    this.rebuildBody();
+  }
+
+  public exitDrilldown() {
+    this.setState({
+      drilldownChassis: undefined,
+      isDrilldown: false,
+    });
+    this.rebuildBody();
+  }
+
+  private rebuildBody() {
+    if (!this.isActive) {
+      return;
+    }
+
+    // Priority 1: Drilldown mode
+    if (this.state.isDrilldown && this.state.drilldownChassis) {
+      const drilldownBody = createDrilldownView(this.state.drilldownChassis, this, 'downlinks');
+      this.setState({ body: drilldownBody });
+      return;
+    }
+
+    // Priority 2: Get chassis count for conditional rendering
+    const chassisCount = getChassisCount(this);
+
+    // Single chassis - show line charts directly (2x2 grid)
+    if (chassisCount === 1) {
+      const lineChartBody = createLineChartView('downlinks');
+      this.setState({ body: lineChartBody });
+      return;
+    }
+
+    // Multiple chassis - show summary table with conditional aggregate charts
+    const summaryBody = createSummaryView(this, chassisCount, 'downlinks');
+    this.setState({ body: summaryBody });
+  }
+}
+
+function DynamicDownlinksSceneRenderer({ model }: SceneComponentProps<DynamicDownlinksScene>) {
+  const { body } = model.useState();
+  return (
+    <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column' }}>
+      {body && body.Component && <body.Component model={body} />}
+    </div>
+  );
+}
+
+// ============================================================================
 // VIEW CREATION FUNCTIONS
 // ============================================================================
 
 /**
  * Create line chart view for single chassis (2x2 grid)
- * Shows: eCMC-A TX, eCMC-A RX, eCMC-B TX, eCMC-B RX (for Ports)
- * Shows: FI-A TX, FI-A RX, FI-B TX, FI-B RX (for Port Channels)
+ * Shows: eCMC-A TX, eCMC-A RX, eCMC-B TX, eCMC-B RX (for Ports, Port Channels, and Downlinks)
  */
-function createLineChartView(tabType: 'ports' | 'port-channels'): SceneFlexLayout {
-  const baseQuery = tabType === 'ports' ? createUplinkPortsQuery() : createUplinkPortChannelsQuery();
+function createLineChartView(tabType: 'ports' | 'port-channels' | 'downlinks'): SceneFlexLayout {
+  const baseQuery = tabType === 'ports'
+    ? createUplinkPortsQuery()
+    : tabType === 'port-channels'
+    ? createUplinkPortChannelsQuery()
+    : createDownlinkPortsQuery();
 
-  // Hostname filter values differ by tab type
-  const hostA = tabType === 'ports' ? 'eCMC-A' : 'FI-A';
-  const hostB = tabType === 'ports' ? 'eCMC-B' : 'FI-B';
+  // Hostname filter values - use eCMC for ports, port channels, and downlinks
+  const hostA = 'eCMC-A';
+  const hostB = 'eCMC-B';
 
   // Panel titles
-  const titlePrefix = tabType === 'ports' ? 'uplink port' : 'uplink port channel';
+  const titlePrefix = tabType === 'ports'
+    ? 'uplink port'
+    : tabType === 'port-channels'
+    ? 'uplink port channel'
+    : 'downlink port';
 
   // Single query runner for all panels
   const queryRunner = new LoggingQueryRunner({
@@ -1551,15 +1922,23 @@ function createLineChartView(tabType: 'ports' | 'port-channels'): SceneFlexLayou
  * Shows table + optional aggregate charts (if chassisCount <= 5)
  */
 function createSummaryView(
-  scene: DynamicUplinksPortsScene | DynamicUplinksPortChannelsScene,
+  scene: DynamicUplinksPortsScene | DynamicUplinksPortChannelsScene | DynamicDownlinksScene,
   chassisCount: number,
-  tabType: 'ports' | 'port-channels'
+  tabType: 'ports' | 'port-channels' | 'downlinks'
 ): SceneFlexLayout {
   // Table query with "all" granularity
-  const tableQuery = tabType === 'ports' ? createUplinkPortsTableQuery() : createUplinkPortChannelsTableQuery();
+  const tableQuery = tabType === 'ports'
+    ? createUplinkPortsTableQuery()
+    : tabType === 'port-channels'
+    ? createUplinkPortChannelsTableQuery()
+    : createDownlinkPortsTableQuery();
 
   // Time-series query with duration-based granularity
-  const timeSeriesQuery = tabType === 'ports' ? createUplinkPortsQuery() : createUplinkPortChannelsQuery();
+  const timeSeriesQuery = tabType === 'ports'
+    ? createUplinkPortsQuery()
+    : tabType === 'port-channels'
+    ? createUplinkPortChannelsQuery()
+    : createDownlinkPortsQuery();
 
   // Summary table query
   const tableQueryRunner = new LoggingQueryRunner({
@@ -1740,23 +2119,31 @@ function createSummaryView(
  */
 function createDrilldownView(
   chassisName: string,
-  scene: DynamicUplinksPortsScene | DynamicUplinksPortChannelsScene,
-  tabType: 'ports' | 'port-channels'
+  scene: DynamicUplinksPortsScene | DynamicUplinksPortChannelsScene | DynamicDownlinksScene,
+  tabType: 'ports' | 'port-channels' | 'downlinks'
 ): SceneFlexLayout {
   const drilldownHeader = new DrilldownHeaderControl({
     chassisName: chassisName,
     onBack: () => scene.exitDrilldown(),
   });
 
-  const baseQuery = tabType === 'ports' ? createUplinkPortsQuery() : createUplinkPortChannelsQuery();
+  const baseQuery = tabType === 'ports'
+    ? createUplinkPortsQuery()
+    : tabType === 'port-channels'
+    ? createUplinkPortChannelsQuery()
+    : createDownlinkPortsQuery();
   const drilldownQuery = createDrilldownQuery(baseQuery, chassisName);
 
-  // Hostname filter values differ by tab type
-  const hostA = tabType === 'ports' ? 'eCMC-A' : 'FI-A';
-  const hostB = tabType === 'ports' ? 'eCMC-B' : 'FI-B';
+  // Hostname filter values - use eCMC for ports, port channels, and downlinks
+  const hostA = 'eCMC-A';
+  const hostB = 'eCMC-B';
 
   // Panel titles
-  const titlePrefix = tabType === 'ports' ? 'uplink port' : 'uplink port channel';
+  const titlePrefix = tabType === 'ports'
+    ? 'uplink port'
+    : tabType === 'port-channels'
+    ? 'uplink port channel'
+    : 'downlink port';
 
   // Single query runner for all panels
   const queryRunner = new LoggingQueryRunner({
@@ -2316,6 +2703,8 @@ function createUplinksRow() {
 }
 
 function createDownlinksRow() {
+  const downlinksScene = new DynamicDownlinksScene({});
+
   return new SceneGridRow({
     title: 'eCMC Downlinks',
     isCollapsible: true,
@@ -2326,8 +2715,8 @@ function createDownlinksRow() {
         x: 0,
         y: 16,
         width: 24,
-        height: 6,
-        body: createPlaceholderPanel('eCMC Downlinks'),
+        height: 16,
+        body: downlinksScene,
       }),
     ],
   });
@@ -2434,11 +2823,3 @@ function createErrorDescriptionsRow() {
   });
 }
 
-function createPlaceholderPanel(description: string) {
-  return PanelBuilders.text()
-    .setTitle('TODO')
-    .setOption('content', `### TODO\n\n${description}`)
-    .setOption('mode', 'markdown' as any)
-    .setDisplayMode('transparent')
-    .build();
-}
