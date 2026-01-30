@@ -139,17 +139,34 @@ function ClickableTableWrapperRenderer({ model }: SceneComponentProps<ClickableT
   const { tablePanel, onRowClick } = model.useState();
 
   const handleClick = (event: React.MouseEvent) => {
-    const row = (event.target as HTMLElement).closest('[role="row"]');
+    // Find the row element
+    let row = (event.target as HTMLElement).closest('[role="row"]');
+
+    // Fallback: try standard table selectors
+    if (!row) {
+      row = (event.target as HTMLElement).closest('tr');
+    }
 
     if (!row) {
       return;
     }
 
-    const firstCell = row.querySelector('[role="gridcell"][aria-colindex="1"]');
+    // Grafana's virtualized table uses <div role="cell"> without aria-colindex
+    // Try multiple selector strategies for first cell
+    let firstCell = row.querySelector('[role="gridcell"][aria-colindex="1"]'); // Old Grafana tables
+
+    if (!firstCell) {
+      // Grafana 12+ virtualized tables use role="cell"
+      firstCell = row.querySelector('[role="cell"]');
+    }
+
+    if (!firstCell) {
+      // Fallback: try first td (non-virtualized tables)
+      firstCell = row.querySelector('td:first-child');
+    }
 
     if (firstCell) {
       const name = firstCell.textContent?.trim();
-
       if (name) {
         onRowClick(name);
       }
@@ -184,9 +201,9 @@ function createUplinkPortsQuery() {
     columns: [
       { selector: 'timestamp', text: 'Time', type: 'timestamp' },
       { selector: 'event.Identifier', text: 'Name', type: 'string' },
+      { selector: 'event.host_name', text: 'Hostname', type: 'string' },
       { selector: 'event.tx_sum', text: 'TX', type: 'number' },
       { selector: 'event.rx_sum', text: 'RX', type: 'number' },
-      { selector: 'event.host_name', text: 'Hostname', type: 'string' },
     ],
     url_options: {
       method: 'POST',
@@ -348,9 +365,9 @@ function createUplinkPortChannelsQuery() {
     columns: [
       { selector: 'timestamp', text: 'Time', type: 'timestamp' },
       { selector: 'event.Identifier', text: 'Name', type: 'string' },
+      { selector: 'event.host_name', text: 'Hostname', type: 'string' },
       { selector: 'event.tx_sum', text: 'TX', type: 'number' },
       { selector: 'event.rx_sum', text: 'RX', type: 'number' },
-      { selector: 'event.host_name', text: 'Hostname', type: 'string' },
     ],
     url_options: {
       method: 'POST',
@@ -368,6 +385,340 @@ function createUplinkPortChannelsQuery() {
   "dimensions": [
     "Identifier",
     "host_name"
+  ],
+  "virtualColumns": [
+    {
+      "type": "nested-field",
+      "columnName": "intersight.domain.name",
+      "outputName": "domain_name",
+      "expectedType": "STRING",
+      "path": "$"
+    },
+    {
+      "type": "expression",
+      "name": "Identifier",
+      "expression": "concat(domain_name + ' (' + name + ')')",
+      "outputType": "STRING"
+    },
+    {
+      "type": "nested-field",
+      "columnName": "host.name",
+      "outputName": "host_name",
+      "expectedType": "STRING",
+      "path": "$"
+    }
+  ],
+  "filter": {
+    "type": "and",
+    "fields": [
+      {
+        "type": "in",
+        "dimension": "intersight.domain.name",
+        "values": [\${ChassisName:doublequote}]
+      },
+      {
+        "type": "selector",
+        "dimension": "hw.network.port.type",
+        "value": "ethernet_port_channel"
+      },
+      {
+        "type": "selector",
+        "dimension": "hw.network.port.role",
+        "value": "eth_uplink_pc"
+      },
+      {
+        "type": "selector",
+        "dimension": "instrument.name",
+        "value": "hw.network"
+      }
+    ]
+  },
+  "aggregations": [
+    {
+      "type": "longSum",
+      "name": "runt",
+      "fieldName": "hw.errors_network_receive_runt"
+    },
+    {
+      "type": "longSum",
+      "name": "too_long",
+      "fieldName": "hw.errors_network_receive_too_long"
+    },
+    {
+      "type": "longSum",
+      "name": "crc",
+      "fieldName": "hw.errors_network_receive_crc"
+    },
+    {
+      "type": "longSum",
+      "name": "no_buffer",
+      "fieldName": "hw.errors_network_receive_no_buffer"
+    },
+    {
+      "type": "longSum",
+      "name": "too_short",
+      "fieldName": "hw.errors_network_receive_too_short"
+    },
+    {
+      "type": "longSum",
+      "name": "rx_discard",
+      "fieldName": "hw.errors_network_receive_discard"
+    },
+    {
+      "type": "longSum",
+      "name": "deferred",
+      "fieldName": "hw.errors_network_transmit_deferred"
+    },
+    {
+      "type": "longSum",
+      "name": "late_collisions",
+      "fieldName": "hw.errors_network_late_collisions"
+    },
+    {
+      "type": "longSum",
+      "name": "carrier_sense",
+      "fieldName": "hw.errors_network_carrier_sense"
+    },
+    {
+      "type": "longSum",
+      "name": "tx_discard",
+      "fieldName": "hw.errors_network_transmit_discard"
+    },
+    {
+      "type": "longSum",
+      "name": "jabber",
+      "fieldName": "hw.errors_network_transmit_jabber"
+    }
+  ],
+  "postAggregations": [
+    {
+      "type": "expression",
+      "name": "rx_sum",
+      "expression": "\\"rx_discard\\" + \\"too_short\\" + \\"no_buffer\\" + \\"crc\\" + \\"too_long\\" + \\"runt\\""
+    },
+    {
+      "type": "expression",
+      "name": "tx_sum",
+      "expression": "\\"jabber\\" + \\"tx_discard\\" + \\"carrier_sense\\" + \\"late_collisions\\" + \\"deferred\\""
+    },
+    {
+      "type": "expression",
+      "name": "total",
+      "expression": "\\"tx_sum\\" + \\"rx_sum\\""
+    }
+  ]
+}`,
+    },
+  } as any;
+}
+
+/**
+ * Table-specific query for uplink port network errors
+ * Uses "all" granularity for aggregate table view
+ */
+function createUplinkPortsTableQuery() {
+  return {
+    refId: 'A',
+    queryType: 'infinity',
+    type: 'json',
+    source: 'url',
+    parser: 'backend',
+    format: 'table',
+    url: '/api/v1/telemetry/TimeSeries',
+    root_selector: '',
+    columns: [
+      { selector: 'timestamp', text: 'Time', type: 'timestamp' },
+      { selector: 'event.domain_name', text: 'Chassis', type: 'string' },
+      // Individual aggregations (RX errors)
+      { selector: 'event.too_long', text: 'Too Long', type: 'number' },
+      { selector: 'event.crc', text: 'CRC', type: 'number' },
+      { selector: 'event.too_short', text: 'Too Short', type: 'number' },
+      // Individual aggregations (TX errors)
+      { selector: 'event.late_collisions', text: 'Late Collisions', type: 'number' },
+      { selector: 'event.jabber', text: 'Jabber', type: 'number' },
+      // Post-aggregations (computed sums)
+      { selector: 'event.rx_sum', text: 'RX Sum', type: 'number' },
+      { selector: 'event.tx_sum', text: 'TX Sum', type: 'number' },
+      { selector: 'event.total', text: 'Total', type: 'number' },
+    ],
+    url_options: {
+      method: 'POST',
+      body_type: 'raw',
+      body_content_type: 'application/json',
+      data: `{
+  "queryType": "groupBy",
+  "dataSource": "NetworkInterfaces",
+  "granularity": "all",
+  "intervals": ["\${__from:date}/\${__to:date}"],
+  "dimensions": [
+    "domain_name"
+  ],
+  "virtualColumns": [
+    {
+      "type": "nested-field",
+      "columnName": "intersight.domain.name",
+      "outputName": "domain_name",
+      "expectedType": "STRING",
+      "path": "$"
+    },
+    {
+      "type": "expression",
+      "name": "Identifier",
+      "expression": "concat(domain_name + ' (' + name + ')')",
+      "outputType": "STRING"
+    },
+    {
+      "type": "nested-field",
+      "columnName": "host.name",
+      "outputName": "host_name",
+      "expectedType": "STRING",
+      "path": "$"
+    }
+  ],
+  "filter": {
+    "type": "and",
+    "fields": [
+      {
+        "type": "in",
+        "dimension": "intersight.domain.name",
+        "values": [\${ChassisName:doublequote}]
+      },
+      {
+        "type": "selector",
+        "dimension": "hw.network.port.type",
+        "value": "ethernet"
+      },
+      {
+        "type": "selector",
+        "dimension": "hw.network.port.role",
+        "value": "eth_uplink"
+      },
+      {
+        "type": "selector",
+        "dimension": "instrument.name",
+        "value": "hw.network"
+      }
+    ]
+  },
+  "aggregations": [
+    {
+      "type": "longSum",
+      "name": "runt",
+      "fieldName": "hw.errors_network_receive_runt"
+    },
+    {
+      "type": "longSum",
+      "name": "too_long",
+      "fieldName": "hw.errors_network_receive_too_long"
+    },
+    {
+      "type": "longSum",
+      "name": "crc",
+      "fieldName": "hw.errors_network_receive_crc"
+    },
+    {
+      "type": "longSum",
+      "name": "no_buffer",
+      "fieldName": "hw.errors_network_receive_no_buffer"
+    },
+    {
+      "type": "longSum",
+      "name": "too_short",
+      "fieldName": "hw.errors_network_receive_too_short"
+    },
+    {
+      "type": "longSum",
+      "name": "rx_discard",
+      "fieldName": "hw.errors_network_receive_discard"
+    },
+    {
+      "type": "longSum",
+      "name": "deferred",
+      "fieldName": "hw.errors_network_transmit_deferred"
+    },
+    {
+      "type": "longSum",
+      "name": "late_collisions",
+      "fieldName": "hw.errors_network_late_collisions"
+    },
+    {
+      "type": "longSum",
+      "name": "carrier_sense",
+      "fieldName": "hw.errors_network_carrier_sense"
+    },
+    {
+      "type": "longSum",
+      "name": "tx_discard",
+      "fieldName": "hw.errors_network_transmit_discard"
+    },
+    {
+      "type": "longSum",
+      "name": "jabber",
+      "fieldName": "hw.errors_network_transmit_jabber"
+    }
+  ],
+  "postAggregations": [
+    {
+      "type": "expression",
+      "name": "rx_sum",
+      "expression": "\\"too_short\\" + \\"crc\\" + \\"too_long\\""
+    },
+    {
+      "type": "expression",
+      "name": "tx_sum",
+      "expression": "\\"jabber\\" + \\"late_collisions\\""
+    },
+    {
+      "type": "expression",
+      "name": "total",
+      "expression": "\\"tx_sum\\" + \\"rx_sum\\""
+    }
+  ]
+}`,
+    },
+  } as any;
+}
+
+/**
+ * Table-specific query for uplink port channel network errors
+ * Uses "all" granularity for aggregate table view
+ */
+function createUplinkPortChannelsTableQuery() {
+  return {
+    refId: 'A',
+    queryType: 'infinity',
+    type: 'json',
+    source: 'url',
+    parser: 'backend',
+    format: 'table',
+    url: '/api/v1/telemetry/TimeSeries',
+    root_selector: '',
+    columns: [
+      { selector: 'timestamp', text: 'Time', type: 'timestamp' },
+      { selector: 'event.domain_name', text: 'Chassis', type: 'string' },
+      // Individual aggregations (RX errors)
+      { selector: 'event.too_long', text: 'Too Long', type: 'number' },
+      { selector: 'event.crc', text: 'CRC', type: 'number' },
+      { selector: 'event.too_short', text: 'Too Short', type: 'number' },
+      // Individual aggregations (TX errors)
+      { selector: 'event.late_collisions', text: 'Late Collisions', type: 'number' },
+      { selector: 'event.jabber', text: 'Jabber', type: 'number' },
+      // Post-aggregations (computed sums)
+      { selector: 'event.rx_sum', text: 'RX Sum', type: 'number' },
+      { selector: 'event.tx_sum', text: 'TX Sum', type: 'number' },
+      { selector: 'event.total', text: 'Total', type: 'number' },
+    ],
+    url_options: {
+      method: 'POST',
+      body_type: 'raw',
+      body_content_type: 'application/json',
+      data: `{
+  "queryType": "groupBy",
+  "dataSource": "NetworkInterfaces",
+  "granularity": "all",
+  "intervals": ["\${__from:date}/\${__to:date}"],
+  "dimensions": [
+    "domain_name"
   ],
   "virtualColumns": [
     {
@@ -949,59 +1300,43 @@ function createSummaryView(
   chassisCount: number,
   tabType: 'ports' | 'port-channels'
 ): SceneFlexLayout {
-  const baseQuery = tabType === 'ports' ? createUplinkPortsQuery() : createUplinkPortChannelsQuery();
+  // Table query with "all" granularity
+  const tableQuery = tabType === 'ports' ? createUplinkPortsTableQuery() : createUplinkPortChannelsTableQuery();
+
+  // Time-series query with duration-based granularity
+  const timeSeriesQuery = tabType === 'ports' ? createUplinkPortsQuery() : createUplinkPortChannelsQuery();
 
   // Summary table query
   const tableQueryRunner = new LoggingQueryRunner({
     datasource: { uid: '${Account}' },
-    queries: [baseQuery],
+    queries: [tableQuery],
   });
 
   const tableTransformer = new LoggingDataTransformer({
     $data: tableQueryRunner,
     transformations: [
       {
-        id: 'reduce',
-        options: {
-          reducers: ['sum'],
-        },
-      },
-      {
         id: 'organize',
         options: {
-          excludeByName: { Time: true },
-          includeByName: {},
-          indexByName: {},
-          renameByName: {
-            'Field': 'Chassis',
-            'TX (sum)': 'TX Errors',
-            'RX (sum)': 'RX Errors',
+          excludeByName: {
+            Time: true,
           },
-        },
-      },
-      {
-        id: 'calculateField',
-        options: {
-          alias: 'Total Errors',
-          mode: 'reduceRow',
-          reduce: {
-            reducer: 'sum',
-          },
-          replaceFields: false,
-        },
-      },
-      {
-        id: 'organize',
-        options: {
-          excludeByName: {},
           includeByName: {},
           indexByName: {
             'Chassis': 0,
-            'Total Errors': 1,
-            'TX Errors': 2,
-            'RX Errors': 3,
+            'Total': 1,
+            'RX Sum': 2,
+            'Too Long': 3,
+            'CRC': 4,
+            'Too Short': 5,
+            'TX Sum': 6,
+            'Late Collisions': 7,
+            'Jabber': 8,
           },
-          renameByName: {},
+          renameByName: {
+            'RX Sum': 'Total RX',
+            'TX Sum': 'Total TX',
+          },
         },
       },
     ],
@@ -1042,7 +1377,7 @@ function createSummaryView(
     // TX aggregate chart
     const txQueryRunner = new LoggingQueryRunner({
       datasource: { uid: '${Account}' },
-      queries: [baseQuery],
+      queries: [timeSeriesQuery],
     });
 
     const txTransformer = new LoggingDataTransformer({
@@ -1083,7 +1418,7 @@ function createSummaryView(
     // RX aggregate chart
     const rxQueryRunner = new LoggingQueryRunner({
       datasource: { uid: '${Account}' },
-      queries: [baseQuery],
+      queries: [timeSeriesQuery],
     });
 
     const rxTransformer = new LoggingDataTransformer({
