@@ -24,6 +24,7 @@ import { DrilldownHeaderControl } from '../../components/DrilldownHeaderControl'
 import { ClickableTableWrapper } from '../../components/ClickableTableWrapper';
 import { getChassisCount, createDrilldownQuery, createRegexDrilldownQuery } from '../../utils/drilldownHelpers';
 import { createInfinityPostQuery, createTimeseriesQuery } from '../../utils/infinityQueryHelpers';
+import { createDomainNameVirtualColumn, createHostNameVirtualColumn, createHostnameVirtualColumn } from '../../utils/virtualColumnHelpers';
 import { API_ENDPOINTS } from './constants';
 
 // ============================================================================
@@ -288,13 +289,9 @@ function createChassisLineGraph(scene: SceneObjectBase, isDrilldown: boolean, ch
             'host_name',
             'name'
           ],
-          virtualColumns: [{
-            type: 'nested-field',
-            columnName: 'host.name',
-            outputName: 'host_name',
-            expectedType: 'STRING',
-            path: '$',
-          }],
+          virtualColumns: [
+            createHostNameVirtualColumn(),
+          ],
           filter: {
             type: 'and',
             fields: [
@@ -400,13 +397,9 @@ function createChassisTable(scene: SceneObjectBase, parent: SynchronizedPowerCon
             'host_name',
             'name'
           ],
-          virtualColumns: [{
-            type: 'nested-field',
-            columnName: 'host.name',
-            outputName: 'host_name',
-            expectedType: 'STRING',
-            path: '$',
-          }],
+          virtualColumns: [
+            createHostNameVirtualColumn(),
+          ],
           filter: {
             type: 'and',
             fields: [
@@ -529,13 +522,7 @@ function createHostLineGraph(
     dataSource: 'PhysicalEntities',
     dimensions: ['hostname'],
     virtualColumns: [
-      {
-        type: 'nested-field',
-        columnName: 'host.name',
-        outputName: 'hostname',
-        expectedType: 'STRING',
-        path: '$',
-      },
+      createHostnameVirtualColumn(),
     ],
     filter: {
       type: 'and',
@@ -625,13 +612,7 @@ function createHostTable(scene: SceneObjectBase, parent: SynchronizedPowerConsum
     dataSource: 'PhysicalEntities',
     dimensions: ['hostname'],
     virtualColumns: [
-      {
-        type: 'nested-field',
-        columnName: 'host.name',
-        outputName: 'hostname',
-        expectedType: 'STRING',
-        path: '$',
-      },
+      createHostnameVirtualColumn(),
     ],
     filter: {
       type: 'and',
@@ -735,20 +716,8 @@ const chassisFanSpeedQuery = createTimeseriesQuery({
   dataSource: 'PhysicalEntities',
   dimensions: ['domain_name', 'host_name'],
   virtualColumns: [
-    {
-      type: 'nested-field',
-      columnName: 'intersight.domain.name',
-      outputName: 'domain_name',
-      expectedType: 'STRING',
-      path: '$',
-    },
-    {
-      type: 'nested-field',
-      columnName: 'host.name',
-      outputName: 'host_name',
-      expectedType: 'STRING',
-      path: '$',
-    },
+    createDomainNameVirtualColumn(),
+    createHostNameVirtualColumn(),
   ],
   filter: {
     type: 'and',
@@ -1040,13 +1009,7 @@ const chassisIntakeTemperatureQuery = createTimeseriesQuery({
   dataSource: 'PhysicalEntities',
   dimensions: ['domain_name', 'chassis_name'],
   virtualColumns: [
-    {
-      type: 'nested-field',
-      columnName: 'intersight.domain.name',
-      outputName: 'domain_name',
-      expectedType: 'STRING',
-      path: '$',
-    },
+    createDomainNameVirtualColumn(),
     {
       type: 'expression',
       name: 'chassis_name',
@@ -1112,13 +1075,7 @@ const chassisExhaustTemperatureQuery = createTimeseriesQuery({
   dataSource: 'PhysicalEntities',
   dimensions: ['domain_name', 'chassis_name'],
   virtualColumns: [
-    {
-      type: 'nested-field',
-      columnName: 'intersight.domain.name',
-      outputName: 'domain_name',
-      expectedType: 'STRING',
-      path: '$',
-    },
+    createDomainNameVirtualColumn(),
     {
       type: 'expression',
       name: 'chassis_name',
@@ -1549,13 +1506,7 @@ const intakeTemperatureQuery = createTimeseriesQuery({
   dataSource: 'PhysicalEntities',
   dimensions: ['hostname'],
   virtualColumns: [
-    {
-      type: 'nested-field',
-      columnName: 'host.name',
-      outputName: 'hostname',
-      expectedType: 'STRING',
-      path: '$',
-    },
+    createHostnameVirtualColumn(),
   ],
   filter: {
     type: 'and',
@@ -1603,13 +1554,7 @@ const cpuTemperatureQuery = createTimeseriesQuery({
   dataSource: 'PhysicalEntities',
   dimensions: ['hostname'],
   virtualColumns: [
-    {
-      type: 'nested-field',
-      columnName: 'host.name',
-      outputName: 'hostname',
-      expectedType: 'STRING',
-      path: '$',
-    },
+    createHostnameVirtualColumn(),
   ],
   filter: {
     type: 'and',
@@ -1657,13 +1602,7 @@ const exhaustTemperatureQuery = createTimeseriesQuery({
   dataSource: 'PhysicalEntities',
   dimensions: ['hostname'],
   virtualColumns: [
-    {
-      type: 'nested-field',
-      columnName: 'host.name',
-      outputName: 'hostname',
-      expectedType: 'STRING',
-      path: '$',
-    },
+    createHostnameVirtualColumn(),
   ],
   filter: {
     type: 'and',
@@ -2141,13 +2080,9 @@ function createEnvironmentalTabContent() {
                 'host_name',
                 'name'
               ],
-              virtualColumns: [{
-                type: 'nested-field',
-                columnName: 'host.name',
-                outputName: 'host_name',
-                expectedType: 'STRING',
-                path: '$',
-              }],
+              virtualColumns: [
+                createHostNameVirtualColumn(),
+              ],
               filter: {
                 type: 'and',
                 fields: [

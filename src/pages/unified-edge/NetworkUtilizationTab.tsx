@@ -28,6 +28,7 @@ import { SharedDrilldownState, findSharedDrilldownState } from '../../utils/dril
 import { getChassisCount, createDrilldownQuery } from '../../utils/drilldownHelpers';
 import { DrilldownDetailsContainer, DrilldownDetailsContainerState, DrilldownDetailsContainerRenderer } from '../../utils/DrilldownDetailsContainer';
 import { createTimeseriesQuery } from '../../utils/infinityQueryHelpers';
+import { createDomainNameVirtualColumn, createHostNameVirtualColumn, createPortRoleVirtualColumn, createPortNameVirtualColumn } from '../../utils/virtualColumnHelpers';
 import { API_ENDPOINTS, COLUMN_WIDTHS } from './constants';
 
 // ============================================================================
@@ -349,27 +350,9 @@ function createUnifiedTableQuery(tabType: string, aggregation: string) {
     dataSource: 'NetworkInterfaces',
     dimensions: ['domain_name', 'host_name', 'port_role'],
     virtualColumns: [
-      {
-        type: 'nested-field',
-        columnName: 'intersight.domain.name',
-        outputName: 'domain_name',
-        expectedType: 'STRING',
-        path: '$',
-      },
-      {
-        type: 'nested-field',
-        columnName: 'host.name',
-        outputName: 'host_name',
-        expectedType: 'STRING',
-        path: '$',
-      },
-      {
-        type: 'nested-field',
-        columnName: 'hw.network.port.role',
-        outputName: 'port_role',
-        expectedType: 'STRING',
-        path: '$',
-      },
+      createDomainNameVirtualColumn(),
+      createHostNameVirtualColumn(),
+      createPortRoleVirtualColumn(),
     ],
     filter: {
       type: 'and',
@@ -570,27 +553,9 @@ function createUnifiedDownlinksTableQuery(tabType: string, aggregation: string) 
     dataSource: 'NetworkInterfaces',
     dimensions: ['domain_name', 'port_name', 'port_role'],
     virtualColumns: [
-      {
-        type: 'nested-field',
-        columnName: 'intersight.domain.name',
-        outputName: 'domain_name',
-        expectedType: 'STRING',
-        path: '$',
-      },
-      {
-        type: 'nested-field',
-        columnName: 'name',
-        outputName: 'port_name',
-        expectedType: 'STRING',
-        path: '$',
-      },
-      {
-        type: 'nested-field',
-        columnName: 'hw.network.port.role',
-        outputName: 'port_role',
-        expectedType: 'STRING',
-        path: '$',
-      },
+      createDomainNameVirtualColumn(),
+      createPortNameVirtualColumn(),
+      createPortRoleVirtualColumn(),
     ],
     filter: {
       type: 'and',
@@ -1181,34 +1146,10 @@ function createPanel_eCMC(
     dataSource: 'NetworkInterfaces',
     dimensions: ['domain_name', 'host_name', 'port_name', 'port_role'],
     virtualColumns: [
-      {
-        type: 'nested-field',
-        columnName: 'intersight.domain.name',
-        outputName: 'domain_name',
-        expectedType: 'STRING',
-        path: '$',
-      },
-      {
-        type: 'nested-field',
-        columnName: 'host.name',
-        outputName: 'host_name',
-        expectedType: 'STRING',
-        path: '$',
-      },
-      {
-        type: 'nested-field',
-        columnName: 'name',
-        outputName: 'port_name',
-        expectedType: 'STRING',
-        path: '$',
-      },
-      {
-        type: 'nested-field',
-        columnName: 'hw.network.port.role',
-        outputName: 'port_role',
-        expectedType: 'STRING',
-        path: '$',
-      },
+      createDomainNameVirtualColumn(),
+      createHostNameVirtualColumn(),
+      createPortNameVirtualColumn(),
+      createPortRoleVirtualColumn(),
     ],
     filter: {
       type: 'and',

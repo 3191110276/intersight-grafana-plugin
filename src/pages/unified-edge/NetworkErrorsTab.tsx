@@ -30,6 +30,7 @@ import { SharedDrilldownState, findSharedDrilldownState } from '../../utils/dril
 import { getChassisCount, createDrilldownQuery } from '../../utils/drilldownHelpers';
 import { DrilldownDetailsContainer, DrilldownDetailsContainerState, DrilldownDetailsContainerRenderer } from '../../utils/DrilldownDetailsContainer';
 import { createTimeseriesQuery } from '../../utils/infinityQueryHelpers';
+import { createDomainNameVirtualColumn, createHostNameVirtualColumn } from '../../utils/virtualColumnHelpers';
 import { NETWORK_ERROR_LABELS } from '../../utils/constants';
 import { API_ENDPOINTS, COLUMN_WIDTHS } from './constants';
 
@@ -194,13 +195,7 @@ function createNetworkErrorTimeseriesQuery(config: NetworkErrorConfig) {
     dataSource: 'NetworkInterfaces',
     dimensions: ['name', 'host_name'],
     virtualColumns: [
-      {
-        type: 'nested-field',
-        columnName: 'host.name',
-        outputName: 'host_name',
-        expectedType: 'STRING',
-        path: '$',
-      },
+      createHostNameVirtualColumn(),
     ],
     filter: {
       type: 'and',
@@ -273,25 +268,13 @@ function createNetworkErrorTableQuery(config: NetworkErrorConfig) {
     dataSource: 'NetworkInterfaces',
     dimensions: ['domain_name'],
     virtualColumns: [
-      {
-        type: 'nested-field',
-        columnName: 'intersight.domain.name',
-        outputName: 'domain_name',
-        expectedType: 'STRING',
-        path: '$',
-      },
+      createDomainNameVirtualColumn(),
       {
         type: 'expression',
         name: 'Identifier',
         expression: "concat(domain_name + ' (' + name + ')')",
       },
-      {
-        type: 'nested-field',
-        columnName: 'host.name',
-        outputName: 'host_name',
-        expectedType: 'STRING',
-        path: '$',
-      },
+      createHostNameVirtualColumn(),
     ],
     filter: {
       type: 'and',

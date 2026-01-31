@@ -18,6 +18,7 @@ import { DrilldownHeaderControl } from '../../components/DrilldownHeaderControl'
 import { ClickableTableWrapper } from '../../components/ClickableTableWrapper';
 import { createRegexDrilldownQuery } from '../../utils/drilldownHelpers';
 import { createTimeseriesQuery } from '../../utils/infinityQueryHelpers';
+import { createHostNameVirtualColumn } from '../../utils/virtualColumnHelpers';
 import { API_ENDPOINTS } from './constants';
 
 // ============================================================================
@@ -30,13 +31,9 @@ const queryA = createTimeseriesQuery({
   format: 'timeseries',
   dataSource: 'PhysicalEntities',
   dimensions: ['host_name'],
-  virtualColumns: [{
-    type: 'nested-field',
-    columnName: 'host.name',
-    outputName: 'host_name',
-    expectedType: 'STRING',
-    path: '$',
-  }],
+  virtualColumns: [
+    createHostNameVirtualColumn(),
+  ],
   filter: {
     type: 'and',
     fields: [
@@ -72,13 +69,9 @@ const queryB = createTimeseriesQuery({
   format: 'timeseries',
   dataSource: 'PhysicalEntities',
   dimensions: ['host_name'],
-  virtualColumns: [{
-    type: 'nested-field',
-    columnName: 'host.name',
-    outputName: 'host_name',
-    expectedType: 'STRING',
-    path: '$',
-  }],
+  virtualColumns: [
+    createHostNameVirtualColumn(),
+  ],
   filter: {
     type: 'and',
     fields: [
@@ -122,13 +115,9 @@ const queryC = createTimeseriesQuery({
   format: 'timeseries',
   dataSource: 'PhysicalEntities',
   dimensions: ['host_name'],
-  virtualColumns: [{
-    type: 'nested-field',
-    columnName: 'host.name',
-    outputName: 'host_name',
-    expectedType: 'STRING',
-    path: '$',
-  }],
+  virtualColumns: [
+    createHostNameVirtualColumn(),
+  ],
   filter: {
     type: 'and',
     fields: [

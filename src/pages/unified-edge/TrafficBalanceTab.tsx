@@ -18,6 +18,7 @@ import { SharedDrilldownState } from '../../utils/drilldownState';
 import { getChassisCount, createDrilldownQuery } from '../../utils/drilldownHelpers';
 import { DrilldownDetailsContainer, DrilldownDetailsContainerState, DrilldownDetailsContainerRenderer } from '../../utils/DrilldownDetailsContainer';
 import { createInfinityPostQuery, createTimeseriesQuery } from '../../utils/infinityQueryHelpers';
+import { createDomainNameVirtualColumn } from '../../utils/virtualColumnHelpers';
 import { API_ENDPOINTS, COLUMN_WIDTHS } from './constants';
 
 // ============================================================================
@@ -238,13 +239,9 @@ function createTrafficBalanceLineChart(
     format: 'timeseries',
     dataSource: 'NetworkInterfaces',
     dimensions: ['domain_name'],
-    virtualColumns: [{
-      type: 'nested-field',
-      columnName: 'intersight.domain.name',
-      outputName: 'domain_name',
-      expectedType: 'STRING',
-      path: '$',
-    }],
+    virtualColumns: [
+      createDomainNameVirtualColumn(),
+    ],
     filter: {
       type: 'and',
       fields: [
@@ -369,13 +366,9 @@ function createTrafficBalanceTable(
     format: 'timeseries',
     dataSource: 'NetworkInterfaces',
     dimensions: ['domain_name'],
-    virtualColumns: [{
-      type: 'nested-field',
-      columnName: 'intersight.domain.name',
-      outputName: 'domain_name',
-      expectedType: 'STRING',
-      path: '$',
-    }],
+    virtualColumns: [
+      createDomainNameVirtualColumn(),
+    ],
     filter: {
       type: 'and',
       fields: [
