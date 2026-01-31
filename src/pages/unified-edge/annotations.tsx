@@ -30,6 +30,7 @@ import { InlineSwitch, InlineFieldRow, InlineField } from '@grafana/ui';
 import { Unsubscribable } from 'rxjs';
 import { LoggingQueryRunner } from '../../utils/LoggingQueryRunner';
 import { API_ENDPOINTS, ALARM_SEVERITIES, WORKFLOW_STATUSES, COLORS, FIELD_NAMES } from './constants';
+import { createInfinityGetQuery } from '../../utils/infinityQueryHelpers';
 
 // ============================================================================
 // COLOR CONSTANTS (Re-exported for backward compatibility)
@@ -213,36 +214,23 @@ export class InfinityAnnotationLayer extends SceneDataLayerBase<InfinityAnnotati
   private createAlarmsQuery(chassisName: string, fromDate: string, toDate: string): any {
     // Query for Critical and Warning alarms only
     // Filter by chassis name and time range
-    return {
+    return createInfinityGetQuery({
       refId: 'alarms-annotation',
-      queryType: 'infinity',
-      type: 'json',
-      source: 'url',
-      parser: 'backend',
-      format: 'table',
       url: `${API_ENDPOINTS.COND_ALARMS}?$select=Severity,Description,LastTransitionTime&$filter=(startswith(AffectedMoDisplayName, '${chassisName}')) and (Severity in ('${ALARM_SEVERITIES.CRITICAL}','${ALARM_SEVERITIES.WARNING}')) and ((LastTransitionTime ge ${fromDate}) and (LastTransitionTime le ${toDate}))&$orderby=LastTransitionTime desc&$top=100`, // '/api/v1/cond/Alarms'
-      root_selector: '$.Results',
       columns: [
         { selector: FIELD_NAMES.SEVERITY, text: FIELD_NAMES.SEVERITY, type: 'string' }, // 'Severity'
         { selector: FIELD_NAMES.DESCRIPTION, text: FIELD_NAMES.DESCRIPTION, type: 'string' }, // 'Description'
         { selector: FIELD_NAMES.LAST_TRANSITION_TIME, text: 'Time', type: 'timestamp' }, // 'LastTransitionTime'
       ],
-      url_options: { method: 'GET', data: '' },
-    };
+    });
   }
 
   private createActionsQuery(chassisName: string, fromDate: string, toDate: string): any {
     // Query for workflow actions/events
     // Filter by chassis name and time range for both start and end times
-    return {
+    return createInfinityGetQuery({
       refId: 'actions-annotation',
-      queryType: 'infinity',
-      type: 'json',
-      source: 'url',
-      parser: 'backend',
-      format: 'table',
       url: `${API_ENDPOINTS.WORKFLOW_WORKFLOW_INFO}s?$select=Name,Email,WorkflowStatus,StartTime,EndTime&$filter=(startswith(WorkflowCtx.TargetCtxList.TargetName, '${chassisName}')) and ((StartTime ge ${fromDate}) and (StartTime le ${toDate}) or (EndTime ge ${fromDate}) and (EndTime le ${toDate}))&$orderby=StartTime desc&$top=100`, // '/api/v1/workflow/WorkflowInfo'
-      root_selector: '$.Results',
       columns: [
         { selector: FIELD_NAMES.NAME, text: FIELD_NAMES.NAME, type: 'string' }, // 'Name'
         { selector: 'Email', text: 'Email', type: 'string' },
@@ -250,8 +238,7 @@ export class InfinityAnnotationLayer extends SceneDataLayerBase<InfinityAnnotati
         { selector: FIELD_NAMES.START_TIME, text: FIELD_NAMES.START_TIME, type: 'timestamp' }, // 'StartTime'
         { selector: FIELD_NAMES.END_TIME, text: FIELD_NAMES.END_TIME, type: 'timestamp' }, // 'EndTime'
       ],
-      url_options: { method: 'GET', data: '' },
-    };
+    });
   }
 
   private transformToAnnotations(data: PanelData): PanelData {

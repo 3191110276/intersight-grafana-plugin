@@ -18,6 +18,7 @@ import { PaginatedDataProvider } from '../../utils/PaginatedDataProvider';
 import { DynamicVariableScene } from '../../utils/DynamicVariableScene';
 import { getSelectedValues } from '../../utils/emptyStateHelpers';
 import { API_ENDPOINTS, COLUMN_WIDTHS } from './constants';
+import { createInfinityGetQuery } from '../../utils/infinityQueryHelpers';
 
 // ============================================================================
 // DYNAMIC INVENTORY SCENE - Shows chassis and host inventory tables
@@ -81,15 +82,8 @@ function createInventoryBody(chassisNames: string[], showChassisColumn: boolean)
   const chassisQueryRunner = new LoggingQueryRunner({
     datasource: { uid: '${Account}' },
     queries: [
-      {
-        refId: 'A',
-        queryType: 'infinity',
-        type: 'json',
-        source: 'url',
-        parser: 'backend',
-        format: 'table',
+      createInfinityGetQuery({
         url: `${API_ENDPOINTS.EQUIPMENT_CHASSES}?$filter=Name in (\${ChassisName:singlequote})&$top=1000&$expand=ExpanderModules,FanControl($select=Mode),LocatorLed($select=OperState),PowerControlState,PsuControl`, // '/api/v1/equipment/Chasses'
-        root_selector: '$.Results',
         columns: [
           { selector: 'ChassisId', text: 'ChassisId', type: 'string' },
           { selector: 'Name', text: 'Name', type: 'string' },
@@ -106,11 +100,7 @@ function createInventoryBody(chassisNames: string[], showChassisColumn: boolean)
           { selector: 'AlarmSummary.Critical', text: 'Critical', type: 'number' },
           { selector: 'AlarmSummary.Warning', text: 'Warning', type: 'number' },
         ],
-        url_options: {
-          method: 'GET',
-          data: '',
-        },
-      } as any,
+      }),
     ],
   });
 
@@ -275,15 +265,9 @@ function createInventoryBody(chassisNames: string[], showChassisColumn: boolean)
   const hostQueryRunner = new LoggingQueryRunner({
     datasource: { uid: '${Account}' },
     queries: [
-      {
+      createInfinityGetQuery({
         refId: 'B',
-        queryType: 'infinity',
-        type: 'json',
-        source: 'url',
-        parser: 'backend',
-        format: 'table',
         url: `${API_ENDPOINTS.COMPUTE_PHYSICAL_SUMMARIES}?$filter=(${hostFilters})&$top=1000&$expand=`, // '/api/v1/compute/PhysicalSummaries'
-        root_selector: '$.Results',
         columns: [
           { selector: 'Name', text: 'Name', type: 'string' },
           { selector: 'UserLabel', text: 'UserLabel', type: 'string' },
@@ -307,7 +291,7 @@ function createInventoryBody(chassisNames: string[], showChassisColumn: boolean)
           { selector: 'AlarmSummary.Critical', text: 'Critical', type: 'number' },
           { selector: 'AlarmSummary.Warning', text: 'Warning', type: 'number' },
         ],
-        computed_columns: [
+        computedColumns: [
           { selector: "ChassisId + '/' + SlotId + '#' + ServerId", text: 'ID', type: 'string' },
           { selector: "NumCpus + 'x ' + NumCpuCores + 'C'", text: 'CPU', type: 'string' },
           { selector: "NumEthHostInterfaces + ' Eth +' + NumFcHostinterfaces + ' FC'", text: 'Interfaces', type: 'string' },
@@ -315,11 +299,7 @@ function createInventoryBody(chassisNames: string[], showChassisColumn: boolean)
           { selector: "Presence + '#' + Lifecycle", text: 'State', type: 'string' },
           { selector: "Name", text: 'ChassisName', type: 'string' },
         ],
-        url_options: {
-          method: 'GET',
-          data: '',
-        },
-      } as any,
+      }),
     ],
   });
 

@@ -12,6 +12,7 @@ import { TabbedScene } from '../../components/TabbedScene';
 import { EmptyStateScene } from '../../components/EmptyStateScene';
 import { DynamicVariableScene } from '../../utils/DynamicVariableScene';
 import { API_ENDPOINTS, COLORS, COLUMN_WIDTHS } from './constants';
+import { createInfinityGetQuery } from '../../utils/infinityQueryHelpers';
 
 // DynamicStorageScene class to handle variable dependencies
 class DynamicStorageScene extends DynamicVariableScene {
@@ -136,15 +137,8 @@ export function getStorageControllersPanel(hideChassisColumn: boolean = false, c
   const queryRunner = new LoggingQueryRunner({
     datasource: { uid: '${Account}' },
     queries: [
-      {
-        refId: 'A',
-        queryType: 'infinity',
-        type: 'json',
-        source: 'url',
-        parser: 'backend',
-        format: 'table',
+      createInfinityGetQuery({
         url: url,
-        root_selector: '$.Results',
         columns: [
           { selector: 'BackupBatteryUnit.IsBatteryPresent', text: 'BackupBatteryUnitPresence', type: 'string' },
           { selector: 'ComputeBlade.Name', text: 'ComputeBlade', type: 'string' },
@@ -181,14 +175,10 @@ export function getStorageControllersPanel(hideChassisColumn: boolean = false, c
           { selector: 'ComputeBoard.ComputeBlade.Name', text: 'ComputeBoardBlade', type: 'string' },
           { selector: 'ComputeBoard.ComputeRackUnit.Name', text: 'ComputeBoardRackUnit', type: 'string' },
         ],
-        computed_columns: [
+        computedColumns: [
           { selector: 'ComputeBlade + ComputeRackUnit + ComputeBoardBlade + ComputeBoardRackUnit', text: 'Server', type: 'string' },
         ],
-        url_options: {
-          method: 'GET',
-          data: '',
-        },
-      } as any,
+      }),
     ],
   });
 
@@ -422,15 +412,8 @@ export function getSSDDisksPanel(hideChassisColumn: boolean = false, chassisName
   const queryRunner = new LoggingQueryRunner({
     datasource: { uid: '${Account}' },
     queries: [
-      {
-        refId: 'A',
-        queryType: 'infinity',
-        type: 'json',
-        source: 'url',
-        parser: 'backend',
-        format: 'table',
+      createInfinityGetQuery({
         url: url,
-        root_selector: '$.Results',
         columns: [
           { selector: 'Bootable', text: '', type: 'string' },
           { selector: 'Description', text: '', type: 'string' },
@@ -477,16 +460,12 @@ export function getSSDDisksPanel(hideChassisColumn: boolean = false, chassisName
           { selector: 'Parent.Parent.Name', text: 'Parent2', type: 'string' },
           { selector: 'Parent.Model', text: 'ParentModel', type: 'string' },
         ],
-        computed_columns: [
+        computedColumns: [
           { selector: 'Parent1 + Parent2', text: 'Parent', type: 'string' },
           { selector: 'DiskState + \'/\' + DriveState', text: 'State', type: 'string' },
           { selector: 'OperatingTemperature + \'/\' + MaximumOperatingTemperature', text: 'Temp', type: 'string' },
         ],
-        url_options: {
-          method: 'GET',
-          data: '',
-        },
-      } as any,
+      }),
     ],
   });
 
@@ -786,15 +765,8 @@ export function getVirtualDrivesPanel(hideChassisColumn: boolean = false, chassi
   const queryRunner = new LoggingQueryRunner({
     datasource: { uid: '${Account}' },
     queries: [
-      {
-        refId: 'A',
-        queryType: 'infinity',
-        type: 'json',
-        source: 'url',
-        parser: 'backend',
-        format: 'table',
+      createInfinityGetQuery({
         url: url,
-        root_selector: '$.Results',
         columns: [
           { selector: 'AccessPolicy', text: '', type: 'string' },
           { selector: 'Bootable', text: '', type: 'string' },
@@ -821,15 +793,11 @@ export function getVirtualDrivesPanel(hideChassisColumn: boolean = false, chassi
           { selector: 'Parent.Parent.ComputeRackUnit.Name', text: 'ParentRackUnit', type: 'string' },
           { selector: 'Parent.StorageController.Name', text: 'PhysicalDiskControllerName', type: 'string' },
         ],
-        computed_columns: [
+        computedColumns: [
           { selector: 'ParentBlade + ParentName + ParentRackUnit', text: 'Parent', type: 'string' },
           { selector: 'StorageControllerName + \' \' + StorageControllerModel', text: 'StorageController', type: 'string' },
         ],
-        url_options: {
-          method: 'GET',
-          data: '',
-        },
-      } as any,
+      }),
     ],
   });
 

@@ -26,6 +26,7 @@ import { Observable } from 'rxjs';
 import { EmptyStateScene } from '../../components/EmptyStateScene';
 import { getEmptyStateScenario, getSelectedValues } from '../../utils/emptyStateHelpers';
 import { API_ENDPOINTS, WORKFLOW_STATUSES, FIELD_NAMES } from './constants';
+import { createInfinityGetQuery } from '../../utils/infinityQueryHelpers';
 
 // ============================================================================
 // CUSTOM DATA PROVIDER - Filters columns based on data presence
@@ -458,15 +459,9 @@ function getAllChassisActionsPanel(chassisNames: string[], showChassisColumn: bo
     const escapedChassisName = chassisName.replace(/'/g, "''"); // OData escaping: single quote -> double single quote
     const filterClause = `((startswith(WorkflowCtx.TargetCtxList.TargetName, '${escapedChassisName}'))) and ((StartTime ge \${__from:date}) and (StartTime le \${__to:date}) or (EndTime ge \${__from:date}) and (EndTime le \${__to:date}))`;
 
-    const query: any = {
-      refId: refId,
-      queryType: 'infinity',
-      type: 'json',
-      source: 'url',
-      parser: 'backend',
-      format: 'table',
+    const query = createInfinityGetQuery({
+      refId,
       url: `${API_ENDPOINTS.WORKFLOW_WORKFLOW_INFO}s?$select=Name,Email,WorkflowStatus,Progress,CreateTime,StartTime,EndTime,Moid,TraceId,Src,Internal,WorkflowCtx/InitiatorCtx/InitiatorType&$skip=0&$top=1000&$filter=${filterClause}&$orderby=CreateTime desc`, // '/api/v1/workflow/WorkflowInfo'
-      root_selector: '$.Results',
       columns: [
         { selector: 'CreateTime', text: 'CreateTime', type: 'timestamp' },
         { selector: 'Email', text: 'Email', type: 'string' },
@@ -481,22 +476,14 @@ function getAllChassisActionsPanel(chassisNames: string[], showChassisColumn: bo
         { selector: 'WorkflowCtx.InitiatorCtx.InitiatorType', text: 'Initiator Type', type: 'string' },
         { selector: 'WorkflowStatus', text: 'WorkflowStatus', type: 'string' },
       ],
-      url_options: {
-        method: 'GET',
-        data: '',
-      },
-    };
-
-    // Add computed column for Chassis using the actual chassis name from the loop
-    if (showChassisColumn) {
-      query.computed_columns = [
+      computedColumns: showChassisColumn ? [
         {
           selector: `"${chassisName}"`,
           text: 'Chassis',
           type: 'string',
         },
-      ];
-    }
+      ] : undefined,
+    });
 
     return query;
   });

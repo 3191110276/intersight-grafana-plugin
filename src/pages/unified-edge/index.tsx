@@ -15,6 +15,7 @@ import { debugScene, debugVariable } from '../../utils/debug';
 import { getSingleSelectedValue } from '../../utils/emptyStateHelpers';
 import { createUnifiedEdgeAnnotations, AnnotationToggleControl } from './annotations';
 import { API_ENDPOINTS } from './constants';
+import { createInfinityGetQuery } from '../../utils/infinityQueryHelpers';
 
 // Import all 10 tab functions
 import { getInventoryTab } from './InventoryTab';

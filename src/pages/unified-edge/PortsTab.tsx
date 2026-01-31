@@ -29,6 +29,7 @@ import { getEmptyStateScenario } from '../../utils/emptyStateHelpers';
 import { DrilldownHeaderControl } from '../../components/DrilldownHeaderControl';
 import { ClickableTableWrapper } from '../../components/ClickableTableWrapper';
 import { API_ENDPOINTS, COLORS, COLUMN_WIDTHS } from './constants';
+import { createInfinityGetQuery } from '../../utils/infinityQueryHelpers';
 
 // ============================================================================
 // HELPER FUNCTIONS
@@ -190,15 +191,8 @@ function createEcmcExternalPortsQuery(moidFilter?: string, chassisFilter?: strin
 
   const baseUrl = `${API_ENDPOINTS.ETHER_PHYSICAL_PORTS}?$filter=${filterExpression}&$expand=Parent($expand=EquipmentSwitchCard($expand=NetworkElement($expand=EquipmentChassis)))`; // '/api/v1/ether/PhysicalPorts'
 
-  return {
-    refId: 'A',
-    queryType: 'infinity',
-    type: 'json',
-    source: 'url',
-    parser: 'backend',
-    format: 'table',
+  return createInfinityGetQuery({
     url: baseUrl,
-    root_selector: '$.Results',
     columns: [
       { selector: 'Parent.EquipmentSwitchCard.NetworkElement.EquipmentChassis.Name', text: 'Chassis', type: 'string' },
       { selector: 'SwitchId', text: 'eCMC', type: 'string' },
@@ -210,11 +204,7 @@ function createEcmcExternalPortsQuery(moidFilter?: string, chassisFilter?: strin
       { selector: 'PortChannelId', text: 'Port Channel ID', type: 'number' },
       { selector: 'MacAddress', text: 'MAC Address', type: 'string' },
     ],
-    url_options: {
-      method: 'GET',
-      data: '',
-    },
-  } as any;
+  });
 }
 
 /**
@@ -228,15 +218,9 @@ function createServerPortsQuery(moidFilter?: string, chassisFilter?: string) {
 
   const baseUrl = `${API_ENDPOINTS.ADAPTER_EXT_ETH_INTERFACES}?$filter=${filterExpression}&$expand=Parent($expand=ComputeBlade($expand=Ancestors))`; // '/api/v1/adapter/ExtEthInterfaces'
 
-  return {
+  return createInfinityGetQuery({
     refId: 'B',
-    queryType: 'infinity',
-    type: 'json',
-    source: 'url',
-    parser: 'backend',
-    format: 'table',
     url: baseUrl,
-    root_selector: '$.Results',
     columns: [
       { selector: 'Parent.ComputeBlade.Name', text: 'Server', type: 'string' },
       { selector: 'Parent.ComputeBlade.Ancestors.0.Name', text: 'Chassis', type: 'string' },
@@ -246,11 +230,7 @@ function createServerPortsQuery(moidFilter?: string, chassisFilter?: string) {
       { selector: 'MacAddress', text: 'MAC Address', type: 'string' },
       { selector: 'SwitchId', text: 'Switch ID', type: 'string' },
     ],
-    url_options: {
-      method: 'GET',
-      data: '',
-    },
-  } as any;
+  });
 }
 
 /**
@@ -261,24 +241,14 @@ function createMultiChassisPortsQuery() {
   // Use $expand without $select at NetworkElements level
   const baseUrl = `${API_ENDPOINTS.EQUIPMENT_CHASSES}?$filter=Name in (\${ChassisName:singlequote})&$expand=NetworkElements($expand=Cards($expand=HostPorts($select=PortName,OperState,SwitchId,AdminState),PortGroups($expand=EthernetPorts($select=SwitchId,PortId,OperState))))`; // '/api/v1/equipment/Chasses'
 
-  return {
+  return createInfinityGetQuery({
     refId: 'MultiChassis',
-    queryType: 'infinity',
-    type: 'json',
-    source: 'url',
-    parser: 'backend',
-    format: 'table',
     url: baseUrl,
-    root_selector: '$.Results',
     columns: [
       { selector: 'Name', text: 'ChassisName', type: 'string' },
       { selector: 'NetworkElements', text: 'NetworkElements', type: 'string' },
     ],
-    url_options: {
-      method: 'GET',
-      data: '',
-    },
-  } as any;
+  });
 }
 
 // ============================================================================

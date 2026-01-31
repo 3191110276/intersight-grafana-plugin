@@ -29,6 +29,7 @@ import { EmptyStateScene } from '../../components/EmptyStateScene';
 import { getEmptyStateScenario } from '../../utils/emptyStateHelpers';
 import { createAlarmStatPanel, ALARM_TYPES } from '../../utils/createAlarmStatPanel';
 import { API_ENDPOINTS, ALARM_SEVERITIES, FIELD_NAMES } from './constants';
+import { createInfinityGetQuery } from '../../utils/infinityQueryHelpers';
 
 // ============================================================================
 // CUSTOM DATA PROVIDER - Filters columns based on values
@@ -290,15 +291,9 @@ function getAllChassisAlarmsPanel(chassisNames: string[]) {
 
     const tableUrl = `${API_ENDPOINTS.COND_ALARMS}?$expand=RegisteredDevice($select=DeviceHostname)&$top=1000&$filter=${filterClause}&$orderby=LastTransitionTime desc`; // '/api/v1/cond/Alarms'
 
-    tableQueries.push({
+    tableQueries.push(createInfinityGetQuery({
       refId: `TBL_${severity}`, // Now just per-severity, not per-device
-      queryType: 'infinity',
-      type: 'json',
-      source: 'url',
-      parser: 'backend',
-      format: 'table',
       url: tableUrl,
-      root_selector: '$.Results',
       columns: [
         { selector: 'Acknowledge', text: 'Acknowledge', type: 'string' },
         { selector: 'AcknowledgeBy', text: 'AcknowledgeBy', type: 'string' },
@@ -313,7 +308,7 @@ function getAllChassisAlarmsPanel(chassisNames: string[]) {
         // Extract Chassis name from RegisteredDevice.DeviceHostname
         { selector: 'RegisteredDevice.DeviceHostname', text: 'Chassis', type: 'string' },
       ],
-      computed_columns: [
+      computedColumns: [
         { selector: "Acknowledge + ' (' + AcknowledgeBy + ')'", text: 'Acknowledged', type: 'string' },
         { selector: "Flap + ' (' + FlappingCount + ')'", text: 'Flapping', type: 'string' },
         // Add numeric severity order for sorting (Critical=1, Warning=2, Info=3, Cleared=4)
@@ -321,11 +316,7 @@ function getAllChassisAlarmsPanel(chassisNames: string[]) {
         // Add timestamp as number for reliable sorting
         { selector: 'LastTransitionTime', text: 'TimestampSort', type: 'number' },
       ],
-      url_options: {
-        method: 'GET',
-        data: '',
-      },
-    });
+    }));
   });
 
   // Create separate queries for stats - one per severity using Moid filter
@@ -342,58 +333,31 @@ function getAllChassisAlarmsPanel(chassisNames: string[]) {
     const filterClause = `(${deviceFilter}) and (${severityFilterClause})`;
     const statUrl = `${API_ENDPOINTS.COND_ALARMS}?$top=0&$count=true&$filter=${filterClause}`; // '/api/v1/cond/Alarms'
 
-    statQueries.push({
+    statQueries.push(createInfinityGetQuery({
       refId: String.fromCharCode(65 + index), // A, B, C, D
-      queryType: 'infinity',
-      type: 'json',
-      source: 'url',
-      parser: 'backend',
-      format: 'table',
       url: statUrl,
-      root_selector: '$.Count',
+      rootSelector: '$.Count',
       columns: [],
-      url_options: {
-        method: 'GET',
-        data: '',
-      },
-    });
+    }));
   });
 
   // Query E: Suppressed alarms count (using $count with $top=0 - optimized)
   const suppressedUrl = `${API_ENDPOINTS.COND_ALARMS}?$top=0&$count=true&$filter=(${deviceFilter}) and (Suppressed eq 'true') and (Severity ne '${ALARM_SEVERITIES.CLEARED}')`; // '/api/v1/cond/Alarms'
-  statQueries.push({
+  statQueries.push(createInfinityGetQuery({
     refId: 'E',
-    queryType: 'infinity',
-    type: 'json',
-    source: 'url',
-    parser: 'backend',
-    format: 'table',
     url: suppressedUrl,
-    root_selector: '$.Count',
+    rootSelector: '$.Count',
     columns: [],
-    url_options: {
-      method: 'GET',
-      data: '',
-    },
-  });
+  }));
 
   // Query F: Acknowledged alarms count (using $count with $top=0 - optimized)
   const acknowledgedUrl = `${API_ENDPOINTS.COND_ALARMS}?$top=0&$count=true&$filter=(${deviceFilter}) and (Acknowledge eq 'Acknowledge') and (Severity ne '${ALARM_SEVERITIES.CLEARED}')`; // '/api/v1/cond/Alarms'
-  statQueries.push({
+  statQueries.push(createInfinityGetQuery({
     refId: 'F',
-    queryType: 'infinity',
-    type: 'json',
-    source: 'url',
-    parser: 'backend',
-    format: 'table',
     url: acknowledgedUrl,
-    root_selector: '$.Count',
+    rootSelector: '$.Count',
     columns: [],
-    url_options: {
-      method: 'GET',
-      data: '',
-    },
-  });
+  }));
 
   // Create separate query runners for each stat widget (using statQueries)
   const criticalQueryRunner = new LoggingQueryRunner({
