@@ -26,6 +26,9 @@ import { DataFrame, FieldType, LoadingState, MutableDataFrame, PanelData } from 
 import { Observable } from 'rxjs';
 import { EmptyStateScene } from '../../components/EmptyStateScene';
 import { getEmptyStateScenario } from '../../utils/emptyStateHelpers';
+import { DrilldownHeaderControl } from '../../components/DrilldownHeaderControl';
+import { ClickableTableWrapper } from '../../components/ClickableTableWrapper';
+import { API_ENDPOINTS, COLORS, COLUMN_WIDTHS } from './constants';
 
 // ============================================================================
 // HELPER FUNCTIONS
@@ -50,105 +53,6 @@ function getChassisCount(scene: SceneObjectBase): number {
   }
 
   return 0;
-}
-
-
-// ============================================================================
-// DRILLDOWN HEADER COMPONENT
-// ============================================================================
-
-interface DrilldownHeaderControlState extends SceneObjectState {
-  chassisName: string;
-  onBack: () => void;
-}
-
-class DrilldownHeaderControl extends SceneObjectBase<DrilldownHeaderControlState> {
-  public static Component = DrilldownHeaderRenderer;
-}
-
-function DrilldownHeaderRenderer({ model }: SceneComponentProps<DrilldownHeaderControl>) {
-  const { chassisName, onBack } = model.useState();
-
-  return (
-    <div
-      style={{
-        padding: '12px 0',
-        display: 'flex',
-        alignItems: 'center',
-        gap: '20px',
-        borderBottom: '1px solid rgba(204, 204, 220, 0.15)',
-      }}
-    >
-      <button
-        onClick={onBack}
-        style={{
-          padding: '6px 12px',
-          cursor: 'pointer',
-          background: 'transparent',
-          border: '1px solid rgba(204, 204, 220, 0.25)',
-          borderRadius: '2px',
-          color: 'inherit',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '6px',
-          fontSize: '14px',
-        }}
-      >
-        <span>&larr;</span>
-        <span>Back to Overview</span>
-      </button>
-      <div
-        style={{
-          fontSize: '18px',
-          fontWeight: 500,
-        }}
-      >
-        Drilldown: Chassis: {chassisName}
-      </div>
-    </div>
-  );
-}
-
-// ============================================================================
-// CLICKABLE TABLE WRAPPER COMPONENT
-// ============================================================================
-
-interface ClickableTableWrapperState extends SceneObjectState {
-  tablePanel: any;
-  onRowClick: (name: string) => void;
-}
-
-class ClickableTableWrapper extends SceneObjectBase<ClickableTableWrapperState> {
-  public static Component = ClickableTableWrapperRenderer;
-}
-
-function ClickableTableWrapperRenderer({ model }: SceneComponentProps<ClickableTableWrapper>) {
-  const { tablePanel, onRowClick } = model.useState();
-
-  const handleClick = (event: React.MouseEvent) => {
-    const row = (event.target as HTMLElement).closest('[role="row"]');
-
-    if (!row) {
-      return;
-    }
-
-    // Try both role="cell" and role="gridcell" for compatibility
-    const firstCell = row.querySelector('[role="cell"]:first-child') || row.querySelector('[role="gridcell"][aria-colindex="1"]');
-
-    if (firstCell) {
-      const name = firstCell.textContent?.trim();
-
-      if (name) {
-        onRowClick(name);
-      }
-    }
-  };
-
-  return (
-    <div onClick={handleClick} style={{ cursor: 'pointer', width: '100%', height: '100%' }}>
-      <tablePanel.Component model={tablePanel} />
-    </div>
-  );
 }
 
 // ============================================================================
@@ -284,7 +188,7 @@ function createEcmcExternalPortsQuery(moidFilter?: string, chassisFilter?: strin
     ? `Ancestors.Moid in (${moidFilter})`
     : `Ancestors.Moid in (\${RegisteredDevices:singlequote})`;
 
-  const baseUrl = `/api/v1/ether/PhysicalPorts?$filter=${filterExpression}&$expand=Parent($expand=EquipmentSwitchCard($expand=NetworkElement($expand=EquipmentChassis)))`;
+  const baseUrl = `${API_ENDPOINTS.ETHER_PHYSICAL_PORTS}?$filter=${filterExpression}&$expand=Parent($expand=EquipmentSwitchCard($expand=NetworkElement($expand=EquipmentChassis)))`; // '/api/v1/ether/PhysicalPorts'
 
   return {
     refId: 'A',
@@ -322,7 +226,7 @@ function createServerPortsQuery(moidFilter?: string, chassisFilter?: string) {
     ? `Ancestors.Moid in (${moidFilter})`
     : `Ancestors.Moid in (\${RegisteredDevices:singlequote})`;
 
-  const baseUrl = `/api/v1/adapter/ExtEthInterfaces?$filter=${filterExpression}&$expand=Parent($expand=ComputeBlade($expand=Ancestors))`;
+  const baseUrl = `${API_ENDPOINTS.ADAPTER_EXT_ETH_INTERFACES}?$filter=${filterExpression}&$expand=Parent($expand=ComputeBlade($expand=Ancestors))`; // '/api/v1/adapter/ExtEthInterfaces'
 
   return {
     refId: 'B',
@@ -355,7 +259,7 @@ function createServerPortsQuery(moidFilter?: string, chassisFilter?: string) {
  */
 function createMultiChassisPortsQuery() {
   // Use $expand without $select at NetworkElements level
-  const baseUrl = `/api/v1/equipment/Chasses?$filter=Name in (\${ChassisName:singlequote})&$expand=NetworkElements($expand=Cards($expand=HostPorts($select=PortName,OperState,SwitchId,AdminState),PortGroups($expand=EthernetPorts($select=SwitchId,PortId,OperState))))`;
+  const baseUrl = `${API_ENDPOINTS.EQUIPMENT_CHASSES}?$filter=Name in (\${ChassisName:singlequote})&$expand=NetworkElements($expand=Cards($expand=HostPorts($select=PortName,OperState,SwitchId,AdminState),PortGroups($expand=EthernetPorts($select=SwitchId,PortId,OperState))))`; // '/api/v1/equipment/Chasses'
 
   return {
     refId: 'MultiChassis',
@@ -469,8 +373,8 @@ function createPortsDetailView(moidFilter?: string, chassisName?: string): Scene
     .setNoValue('-')
     .setCustomFieldConfig('filterable', true)
     .setOverrides((builder) => {
-      builder.matchFieldsWithName('eCMC').overrideCustomFieldConfig('width', 100);
-      builder.matchFieldsWithName('Port').overrideCustomFieldConfig('width', 90);
+      builder.matchFieldsWithName('eCMC').overrideCustomFieldConfig('width', COLUMN_WIDTHS.SMALL_4); // 100
+      builder.matchFieldsWithName('Port').overrideCustomFieldConfig('width', COLUMN_WIDTHS.SMALL_1); // 90
       builder.matchFieldsWithName('Operational State').overrideCustomFieldConfig('cellOptions', {
         type: 'color-text' as any,
       });
@@ -707,12 +611,12 @@ function createPortsSummaryView(scene: DynamicPortsScene, moidFilter?: string): 
     .setCustomFieldConfig('filterable', true)
     .setOverrides((builder) => {
       // Chassis column
-      builder.matchFieldsWithName('Chassis').overrideCustomFieldConfig('width', 200);
+      builder.matchFieldsWithName('Chassis').overrideCustomFieldConfig('width', COLUMN_WIDTHS.XLARGE); // 200
 
       // eCMC port columns - color coding for up/down with capitalization
       ['eCMC-A 1', 'eCMC-A 2', 'eCMC-B 1', 'eCMC-B 2'].forEach(portName => {
         builder.matchFieldsWithName(portName)
-          .overrideCustomFieldConfig('width', 110)
+          .overrideCustomFieldConfig('width', COLUMN_WIDTHS.MEDIUM_2) // 110
           .overrideCustomFieldConfig('cellOptions', { type: 'color-text' as any })
           .overrideMappings([
             {
@@ -720,15 +624,15 @@ function createPortsSummaryView(scene: DynamicPortsScene, moidFilter?: string): 
               options: {
                 'up': { color: 'green', index: 0, text: 'Up' },
                 'down': { color: 'red', index: 1, text: 'Down' },
-                'null': { color: '#525252', index: 2, text: 'NA' },
-                '': { color: '#525252', index: 3, text: 'NA' },
+                'null': { color: COLORS.GRAY_MEDIUM, index: 2, text: 'NA' }, // '#525252'
+                '': { color: COLORS.GRAY_MEDIUM, index: 3, text: 'NA' }, // '#525252'
               },
             },
             {
               type: 'special' as any,
               options: {
                 match: 'null' as any,
-                result: { color: '#525252', index: 0, text: 'NA' },
+                result: { color: COLORS.GRAY_MEDIUM, index: 0, text: 'NA' }, // '#525252'
               },
             },
           ]);
@@ -738,7 +642,7 @@ function createPortsSummaryView(scene: DynamicPortsScene, moidFilter?: string): 
       // allValues gives us comma-separated strings like "up,up" or "down,up"
       ['Slot 1', 'Slot 2', 'Slot 3', 'Slot 4', 'Slot 5'].forEach(slotName => {
         builder.matchFieldsWithName(slotName)
-          .overrideCustomFieldConfig('width', 100)
+          .overrideCustomFieldConfig('width', COLUMN_WIDTHS.SMALL_4) // 100
           .overrideCustomFieldConfig('cellOptions', { type: 'color-text' as any })
           .overrideMappings([
             {
@@ -754,21 +658,21 @@ function createPortsSummaryView(scene: DynamicPortsScene, moidFilter?: string): 
                 'down, up': { color: 'yellow', index: 7, text: 'Partial' },
                 'up': { color: 'yellow', index: 8, text: 'Partial' },
                 'down': { color: 'red', index: 9, text: 'Down' },
-                'NA,NA': { color: '#525252', index: 10, text: 'NA' },
-                'NA': { color: '#525252', index: 11, text: 'NA' },
+                'NA,NA': { color: COLORS.GRAY_MEDIUM, index: 10, text: 'NA' }, // '#525252'
+                'NA': { color: COLORS.GRAY_MEDIUM, index: 11, text: 'NA' }, // '#525252'
                 'up,NA': { color: 'yellow', index: 12, text: 'Partial' },
                 'NA,up': { color: 'yellow', index: 13, text: 'Partial' },
                 'down,NA': { color: 'red', index: 14, text: 'Down' },
                 'NA,down': { color: 'red', index: 15, text: 'Down' },
-                'null': { color: '#525252', index: 16, text: 'NA' },
-                '': { color: '#525252', index: 17, text: 'NA' },
+                'null': { color: COLORS.GRAY_MEDIUM, index: 16, text: 'NA' }, // '#525252'
+                '': { color: COLORS.GRAY_MEDIUM, index: 17, text: 'NA' }, // '#525252'
               },
             },
             {
               type: 'special' as any,
               options: {
                 match: 'null' as any,
-                result: { color: '#525252', index: 0, text: 'NA' },
+                result: { color: COLORS.GRAY_MEDIUM, index: 0, text: 'NA' }, // '#525252'
               },
             },
             {
@@ -828,7 +732,9 @@ function createDrilldownView(chassisName: string, scene: DynamicPortsScene): Sce
   }
 
   const drilldownHeader = new DrilldownHeaderControl({
-    chassisName: chassisName,
+    itemName: chassisName,
+    itemLabel: 'Chassis',
+    backButtonText: 'Back to Overview',
     onBack: () => scene.exitDrilldown(),
   });
 

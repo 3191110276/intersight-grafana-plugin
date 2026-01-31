@@ -14,6 +14,7 @@ import { TabbedScene } from '../../components/TabbedScene';
 import { debugScene, debugVariable } from '../../utils/debug';
 import { getSingleSelectedValue } from '../../utils/emptyStateHelpers';
 import { createUnifiedEdgeAnnotations, AnnotationToggleControl } from './annotations';
+import { API_ENDPOINTS } from './constants';
 
 // Import all 10 tab functions
 import { getInventoryTab } from './InventoryTab';
@@ -202,7 +203,7 @@ export function getUnifiedEdgeSceneBody() {
         source: 'url',
         parser: 'backend',
         format: 'table',
-        url: "/api/v1/equipment/Chasses?$filter=Model eq 'UCSXE-9305'",
+        url: `${API_ENDPOINTS.EQUIPMENT_CHASSES}?$filter=Model eq 'UCSXE-9305'`, // '/api/v1/equipment/Chasses'
         root_selector: '$.Results',
         columns: [
           { selector: 'Name', text: 'Name', type: 'string' },
@@ -237,7 +238,7 @@ export function getUnifiedEdgeSceneBody() {
         source: 'url',
         parser: 'backend',
         format: 'table',
-        url: '/api/v1/equipment/Chasses?$filter=Name in (${ChassisName:singlequote})',
+        url: `${API_ENDPOINTS.EQUIPMENT_CHASSES}?$filter=Name in (\${ChassisName:singlequote})`, // '/api/v1/equipment/Chasses'
         root_selector: '$.Results',
         columns: [
           { selector: 'Moid', text: 'Moid', type: 'string' },

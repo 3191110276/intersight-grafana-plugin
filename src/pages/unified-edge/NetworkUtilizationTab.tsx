@@ -22,6 +22,12 @@ import { LoggingQueryRunner } from '../../utils/LoggingQueryRunner';
 import { LoggingDataTransformer } from '../../utils/LoggingDataTransformer';
 import { NetworkUtilPivotProvider } from '../../utils/NetworkUtilPivotProvider';
 import { NetworkUtilDownlinksPivotProvider } from '../../utils/NetworkUtilDownlinksPivotProvider';
+import { DrilldownHeaderControl } from '../../components/DrilldownHeaderControl';
+import { ClickableTableWrapper } from '../../components/ClickableTableWrapper';
+import { SharedDrilldownState, findSharedDrilldownState } from '../../utils/drilldownState';
+import { getChassisCount, createDrilldownQuery } from '../../utils/drilldownHelpers';
+import { DrilldownDetailsContainer, DrilldownDetailsContainerState, DrilldownDetailsContainerRenderer } from '../../utils/DrilldownDetailsContainer';
+import { API_ENDPOINTS, COLUMN_WIDTHS } from './constants';
 
 // ============================================================================
 // HELPER FUNCTIONS
@@ -52,238 +58,26 @@ function getAggregationValue(scene: SceneObjectBase): string {
   }
 }
 
-/**
- * Get chassis count from ChassisName variable
- */
-function getChassisCount(scene: SceneObjectBase): number {
-  const variable = sceneGraph.lookupVariable('ChassisName', scene);
-  if (!variable || !('state' in variable)) {
-    return 0;
-  }
-
-  const value = (variable.state as any).value;
-
-  if (Array.isArray(value)) {
-    return value.filter(v => v && v !== '$__all').length;
-  } else if (value && value !== '$__all') {
-    return 1;
-  }
-
-  return 0;
-}
-
-/**
- * Create drilldown query by replacing ChassisName variable with hardcoded value
- */
-function createDrilldownQuery(baseQuery: any, chassisName: string): any {
-  const drilldownQuery = JSON.parse(JSON.stringify(baseQuery));
-  const escapedChassisName = JSON.stringify(chassisName);
-
-  // Replace [${ChassisName:doublequote}] with ["chassisName"]
-  drilldownQuery.url_options.data = drilldownQuery.url_options.data.replace(
-    /\[\$\{ChassisName:doublequote\}\]/g,
-    `[${escapedChassisName}]`
-  );
-
-  return drilldownQuery;
-}
-
-// ============================================================================
-// DRILLDOWN HEADER COMPONENT
-// ============================================================================
-
-interface DrilldownHeaderControlState extends SceneObjectState {
-  chassisName: string;
-  onBack: () => void;
-}
-
-class DrilldownHeaderControl extends SceneObjectBase<DrilldownHeaderControlState> {
-  public static Component = DrilldownHeaderRenderer;
-}
-
-function DrilldownHeaderRenderer({ model }: SceneComponentProps<DrilldownHeaderControl>) {
-  const { chassisName, onBack } = model.useState();
-
-  return (
-    <div style={{
-      padding: '12px 0',
-      display: 'flex',
-      alignItems: 'center',
-      gap: '20px',
-      borderBottom: '1px solid rgba(204, 204, 220, 0.15)',
-    }}>
-      <button
-        onClick={onBack}
-        style={{
-          padding: '6px 12px',
-          cursor: 'pointer',
-          background: 'transparent',
-          border: '1px solid rgba(204, 204, 220, 0.25)',
-          borderRadius: '2px',
-          color: 'inherit',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '6px',
-          fontSize: '14px',
-        }}
-      >
-        <span>&larr;</span>
-        <span>Back to Overview</span>
-      </button>
-      <div style={{
-        fontSize: '18px',
-        fontWeight: 500,
-      }}>
-        Drilldown: Chassis {chassisName}
-      </div>
-    </div>
-  );
-}
-
-// ============================================================================
-// CLICKABLE TABLE WRAPPER COMPONENT
-// ============================================================================
-
-interface ClickableTableWrapperState extends SceneObjectState {
-  tablePanel: any;
-  onRowClick: (name: string) => void;
-}
-
-class ClickableTableWrapper extends SceneObjectBase<ClickableTableWrapperState> {
-  public static Component = ClickableTableWrapperRenderer;
-}
-
-function ClickableTableWrapperRenderer({ model }: SceneComponentProps<ClickableTableWrapper>) {
-  const { tablePanel, onRowClick } = model.useState();
-
-  const handleClick = (event: React.MouseEvent) => {
-    // Find the row element
-    let row = (event.target as HTMLElement).closest('[role="row"]');
-
-    // Fallback: try standard table selectors
-    if (!row) {
-      row = (event.target as HTMLElement).closest('tr');
-    }
-
-    if (!row) {
-      return;
-    }
-
-    // Grafana's virtualized table uses <div role="cell"> without aria-colindex
-    // Try multiple selector strategies for first cell
-    let firstCell = row.querySelector('[role="gridcell"][aria-colindex="1"]'); // Old Grafana tables
-
-    if (!firstCell) {
-      // Grafana 12+ virtualized tables use role="cell"
-      firstCell = row.querySelector('[role="cell"]');
-    }
-
-    if (!firstCell) {
-      // Fallback: try first td (non-virtualized tables)
-      firstCell = row.querySelector('td:first-child');
-    }
-
-    if (firstCell) {
-      const name = firstCell.textContent?.trim();
-      if (name) {
-        onRowClick(name);
-      }
-    }
-  };
-
-  return (
-    <div onClick={handleClick} style={{ cursor: 'pointer', width: '100%', height: '100%' }}>
-      <tablePanel.Component model={tablePanel} />
-    </div>
-  );
-}
-
 // ============================================================================
 // SHARED DRILLDOWN STATE
 // ============================================================================
 
-interface SharedDrilldownStateState extends SceneObjectState {
-  mode: 'overview' | 'drilldown';
-  chassisName?: string;
-  lastChassisValue?: any;  // Track previous ChassisName value to detect changes
-}
-
-/**
- * Shared drilldown state manager that synchronizes drilldown across all Network Utilization containers
- */
-class SharedDrilldownState extends SceneObjectBase<SharedDrilldownStateState> {
-  public static Component = () => null; // Non-visual component
-  // @ts-ignore
-  protected _variableDependency = new VariableDependencyConfig(this, {
-    variableNames: ['ChassisName'],
-    onReferencedVariableValueChanged: () => {
-      const currentChassisValue = this.getChassisVariableValue();
-      const lastChassisValue = this.state.lastChassisValue;
-
-      // Only exit drilldown if ChassisName actually changed
-      if (this.hasChassisVariableChanged(lastChassisValue, currentChassisValue)) {
-        if (this.state.mode !== 'overview') {
-          this.exitDrilldown();
-        }
-      }
-
-      // Update tracked value
-      this.setState({ lastChassisValue: currentChassisValue });
-    },
-  });
-
-  public drillToChassis(chassisName: string) {
-    this.setState({
-      mode: 'drilldown',
-      chassisName,
-    });
-  }
-
-  public exitDrilldown() {
-    this.setState({
-      mode: 'overview',
-      chassisName: undefined,
-    });
-  }
-
-  private getChassisVariableValue(): any {
-    const variable = sceneGraph.lookupVariable('ChassisName', this);
-    if (!variable || !('state' in variable)) {
-      return undefined;
-    }
-    return (variable.state as any).value;
-  }
-
-  private hasChassisVariableChanged(oldValue: any, newValue: any): boolean {
-    // Handle arrays (multi-select)
-    if (Array.isArray(oldValue) && Array.isArray(newValue)) {
-      if (oldValue.length !== newValue.length) return true;
-      // Sort and compare
-      const sorted1 = [...oldValue].sort();
-      const sorted2 = [...newValue].sort();
-      return !sorted1.every((val, idx) => val === sorted2[idx]);
-    }
-
-    // Handle simple values
-    return oldValue !== newValue;
-  }
-}
+// Using shared drilldown state from utils/drilldownState.ts
 
 // ============================================================================
 // NETWORK UTILIZATION DETAILS CONTAINER
 // ============================================================================
 
-interface NetworkUtilizationDetailsContainerState extends SceneObjectState {
+interface NetworkUtilizationDetailsContainerState extends DrilldownDetailsContainerState {
   portRole: string;  // 'eth_uplink' or 'eth_uplink_pc' or 'host_port'
   tabType: string;   // 'percentage' or 'absolute'
-  body: any;
 }
 
 /**
  * Container scene that manages conditional rendering and drilldown for network utilization details
  */
-class NetworkUtilizationDetailsContainer extends SceneObjectBase<NetworkUtilizationDetailsContainerState> {
-  public static Component = NetworkUtilizationDetailsContainerRenderer;
+class NetworkUtilizationDetailsContainer extends DrilldownDetailsContainer<NetworkUtilizationDetailsContainerState> {
+  public static Component = DrilldownDetailsContainerRenderer;
 
   // @ts-ignore
   protected _variableDependency = new VariableDependencyConfig(this, {
@@ -295,91 +89,38 @@ class NetworkUtilizationDetailsContainer extends SceneObjectBase<NetworkUtilizat
   });
 
   public constructor(state: NetworkUtilizationDetailsContainerState) {
-    super(state);
+    super(state, {
+      multiViewThreshold: 1,
+      emptyStateTitle: 'Network Utilization',
+      emptyStateMessage: '### No Chassis Selected\n\nPlease select one or more chassis from the Chassis filter above.',
+    });
   }
 
-  // @ts-ignore
-  public activate() {
-    const result = super.activate();
+  // ============================================================================
+  // ABSTRACT METHOD IMPLEMENTATIONS
+  // ============================================================================
 
-    // Find and subscribe to shared drilldown state changes
-    const sharedDrilldownState = this.getSharedDrilldownState();
-    if (sharedDrilldownState) {
-      const subscription = sharedDrilldownState.subscribeToState(() => {
-        this.rebuildBody();
-      });
-
-      // Store subscription for cleanup
-      this._subs.add(subscription);
-    }
-
-    // Build panels when scene becomes active (when it has access to variables)
-    this.rebuildBody();
-    return result;
-  }
-
-  public drillToChassis(chassisName: string) {
-    const sharedState = this.getSharedDrilldownState();
-    if (sharedState) {
-      sharedState.drillToChassis(chassisName);
-    }
-  }
-
-  public exitDrilldown() {
-    const sharedState = this.getSharedDrilldownState();
-    if (sharedState) {
-      sharedState.exitDrilldown();
-    }
-  }
-
-  private getSharedDrilldownState(): SharedDrilldownState | null {
-    try {
-      return sceneGraph.findObject(this, (obj) => obj instanceof SharedDrilldownState) as SharedDrilldownState;
-    } catch {
-      return null;
-    }
-  }
-
-  private rebuildBody() {
-    // Only rebuild if scene is active (has access to variables)
-    if (!this.isActive) {
-      return;
-    }
-
+  protected createDrilldownView(target: string): any {
     const { portRole, tabType } = this.state;
+    return createDrilldownView(target, portRole, tabType, this);
+  }
 
-    // Get drilldown state from scene graph
-    const sharedDrilldownState = this.getSharedDrilldownState();
-    const mode = sharedDrilldownState?.state.mode || 'overview';
-    const chassisName = sharedDrilldownState?.state.chassisName;
+  protected createSingleView(count: number): any {
+    const { portRole, tabType } = this.state;
+    return createLineChartView(portRole, tabType, this);
+  }
 
-    // Priority 1: Drilldown mode
-    if (mode === 'drilldown' && chassisName) {
-      this.setState({ body: createDrilldownView(chassisName, portRole, tabType, this) });
-      return;
+  protected createMultiView(count: number): any {
+    const { portRole, tabType } = this.state;
+    // Use downlinks table view for host_port, uplinks table view for others
+    if (portRole === 'host_port') {
+      return createTableView_Downlinks(portRole, tabType, this);
+    } else {
+      return createTableView(portRole, tabType, this);
     }
+  }
 
-    // Priority 2: Get chassis count
-    const count = getChassisCount(this);
-
-    // Priority 3: Single chassis (1) - show 4-panel line chart view
-    if (count === 1) {
-      this.setState({ body: createLineChartView(portRole, tabType, this) });
-      return;
-    }
-
-    // Priority 4: Multi-chassis (2+) - show table with drilldown
-    if (count > 1) {
-      // Use downlinks table view for host_port, uplinks table view for others
-      if (portRole === 'host_port') {
-        this.setState({ body: createTableView_Downlinks(portRole, tabType, this) });
-      } else {
-        this.setState({ body: createTableView(portRole, tabType, this) });
-      }
-      return;
-    }
-
-    // Priority 5: No chassis selected - show empty state
+  protected createEmptyState(): any {
     const emptyStatePanel = PanelBuilders.text()
       .setTitle('Network Utilization')
       .setOption('content', '### No Chassis Selected\n\nPlease select one or more chassis from the Chassis filter above.')
@@ -387,24 +128,12 @@ class NetworkUtilizationDetailsContainer extends SceneObjectBase<NetworkUtilizat
       .setDisplayMode('transparent')
       .build();
 
-    this.setState({
-      body: new SceneFlexLayout({
-        children: [
-          new SceneFlexItem({ ySizing: 'fill', body: emptyStatePanel })
-        ]
-      })
+    return new SceneFlexLayout({
+      children: [
+        new SceneFlexItem({ ySizing: 'fill', body: emptyStatePanel })
+      ]
     });
   }
-}
-
-function NetworkUtilizationDetailsContainerRenderer({ model }: SceneComponentProps<NetworkUtilizationDetailsContainer>) {
-  const { body } = model.useState();
-
-  return (
-    <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column' }}>
-      {body && body.Component && <body.Component model={body} />}
-    </div>
-  );
 }
 
 // ============================================================================
@@ -1302,7 +1031,9 @@ function createTableView_Downlinks(portRole: string, tabType: string, parent: Ne
 function createDrilldownView(chassisName: string, portRole: string, tabType: string, parent: NetworkUtilizationDetailsContainer) {
   const aggregation = getAggregationValue(parent);
   const drilldownHeader = new DrilldownHeaderControl({
-    chassisName: chassisName,
+    itemName: chassisName,
+    itemLabel: 'Chassis',
+    backButtonText: 'Back to Overview',
     onBack: () => parent.exitDrilldown(),
   });
 
@@ -1351,183 +1082,19 @@ function createDrilldownView(chassisName: string, portRole: string, tabType: str
 /**
  * Create query WITH port dimension (for single chassis/drilldown views)
  */
-function createQuery(portRole: string, eCMC: string, direction: string, tabType: string, refId: string, aggregation: string, useTableFormat: boolean = false) {
-  const metricSuffix = tabType === 'percentage' ? '_pct' : '';
-  const metricName = `${direction}_${aggregation}${metricSuffix}`;
-
-  return {
-    refId: refId,
-    queryType: 'infinity',
-    type: 'json',
-    source: 'url',
-    parser: 'backend',
-    format: useTableFormat ? 'table' : 'timeseries',
-    url: '/api/v1/telemetry/TimeSeries',
-    root_selector: '',
-    columns: [
-      { selector: 'timestamp', text: 'Time', type: 'timestamp' },
-      { selector: 'event.domain_name', text: 'Chassis', type: 'string' },
-      { selector: 'event.port_name', text: 'Port', type: 'string' },
-      { selector: `event.${metricName}`, text: 'Utilization', type: 'number' },
-    ],
-    url_options: {
-      method: 'POST',
-      body_type: 'raw',
-      body_content_type: 'application/json',
-      data: `  {
-    "queryType": "groupBy",
-    "dataSource": "NetworkInterfaces",
-    "granularity": {
-       "type": "duration",
-       "duration": $__interval_ms,
-       "timeZone": "$__timezone"
-    },
-    "intervals": ["\${__from:date}/\${__to:date}"],
-    "dimensions": ["domain_name", "host_name", "port_name", "port_role"],
-    "virtualColumns": [
-      {
-        "type": "nested-field",
-        "columnName": "intersight.domain.name",
-        "outputName": "domain_name",
-        "expectedType": "STRING",
-        "path": "$"
-      },
-      {
-        "type": "nested-field",
-        "columnName": "host.name",
-        "outputName": "host_name",
-        "expectedType": "STRING",
-        "path": "$"
-      },
-      {
-        "type": "nested-field",
-        "columnName": "name",
-        "outputName": "port_name",
-        "expectedType": "STRING",
-        "path": "$"
-      },
-      {
-        "type": "nested-field",
-        "columnName": "hw.network.port.role",
-        "outputName": "port_role",
-        "expectedType": "STRING",
-        "path": "$"
-      }
-    ],
-    "filter": {
-      "type": "and",
-      "fields": [
-        {
-          "type": "in",
-          "dimension": "intersight.domain.name",
-          "values": [\${ChassisName:doublequote}]
-        },
-        {
-          "type": "search",
-          "dimension": "host.name",
-          "query": {
-            "type": "insensitive_contains",
-            "value": " ${eCMC}"
-          }
-        },
-        {
-          "type": "selector",
-          "dimension": "hw.network.port.role",
-          "value": "${portRole}"
-        },
-        {
-          "type": "selector",
-          "dimension": "instrument.name",
-          "value": "hw.network"
-        }
-      ]
-    },
-    "aggregations": [
-      {
-        "type": "doubleMax",
-        "name": "receive_max",
-        "fieldName": "hw.network.bandwidth.utilization_receive_max"
-      },
-      {
-        "type": "doubleMax",
-        "name": "transmit_max",
-        "fieldName": "hw.network.bandwidth.utilization_transmit_max"
-      },
-      {
-        "type": "doubleMin",
-        "name": "receive_min",
-        "fieldName": "hw.network.bandwidth.utilization_receive_min"
-      },
-      {
-        "type": "doubleMin",
-        "name": "transmit_min",
-        "fieldName": "hw.network.bandwidth.utilization_transmit_min"
-      }
-    ],
-    "postAggregations": [
-      {
-        "type": "expression",
-        "name": "receive_avg",
-        "expression": "\\"receive_max\\""
-      },
-      {
-        "type": "expression",
-        "name": "transmit_avg",
-        "expression": "\\"transmit_max\\""
-      }${tabType === 'percentage' ? `,
-      {
-        "type": "expression",
-        "name": "receive_max_pct",
-        "expression": "\\"receive_max\\" * 100"
-      },
-      {
-        "type": "expression",
-        "name": "transmit_max_pct",
-        "expression": "\\"transmit_max\\" * 100"
-      },
-      {
-        "type": "expression",
-        "name": "receive_min_pct",
-        "expression": "\\"receive_min\\" * 100"
-      },
-      {
-        "type": "expression",
-        "name": "transmit_min_pct",
-        "expression": "\\"transmit_min\\" * 100"
-      },
-      {
-        "type": "expression",
-        "name": "receive_avg_pct",
-        "expression": "\\"receive_avg\\" * 100"
-      },
-      {
-        "type": "expression",
-        "name": "transmit_avg_pct",
-        "expression": "\\"transmit_avg\\" * 100"
-      }` : ''}
-    ]
-  }`,
-    },
-  } as any;
-}
-
 // ============================================================================
 // INDIVIDUAL PANEL CREATION FUNCTIONS
 // ============================================================================
 
 function createPanel_eCMC_A_TX(portRole: string, tabType: string, isDrilldown: boolean, chassisName?: string, aggregation?: string) {
-  // If aggregation is not provided, this function won't work correctly
-  // It should always be provided when creating panels
   const agg = aggregation || 'avg';
   const metricSuffix = tabType === 'percentage' ? '_pct' : '';
   const metricName = `transmit_${agg}${metricSuffix}`;
 
-  // Build aggregations and postAggregations based on mode
   let aggregationsJson;
   let postAggregationsJson;
 
   if (tabType === 'percentage') {
-    // PERCENTAGE MODE - hw.network.bandwidth.utilization_* fields
     aggregationsJson = `[
       {
         "type": "doubleMax",
@@ -1594,7 +1161,6 @@ function createPanel_eCMC_A_TX(portRole: string, tabType: string, isDrilldown: b
       }
     ]`;
   } else {
-    // ABSOLUTE MODE - hw.network.io_* fields (transmit only for TX panel)
     aggregationsJson = `[
       {
         "type": "doubleMax",
@@ -1811,18 +1377,14 @@ function createPanel_eCMC_A_TX(portRole: string, tabType: string, isDrilldown: b
 }
 
 function createPanel_eCMC_A_RX(portRole: string, tabType: string, isDrilldown: boolean, chassisName?: string, aggregation?: string) {
-  // If aggregation is not provided, this function won't work correctly
-  // It should always be provided when creating panels
   const agg = aggregation || 'avg';
   const metricSuffix = tabType === 'percentage' ? '_pct' : '';
   const metricName = `receive_${agg}${metricSuffix}`;
 
-  // Build aggregations and postAggregations based on mode
   let aggregationsJson;
   let postAggregationsJson;
 
   if (tabType === 'percentage') {
-    // PERCENTAGE MODE - hw.network.bandwidth.utilization_* fields
     aggregationsJson = `[
       {
         "type": "doubleMax",
@@ -1889,7 +1451,6 @@ function createPanel_eCMC_A_RX(portRole: string, tabType: string, isDrilldown: b
       }
     ]`;
   } else {
-    // ABSOLUTE MODE - hw.network.io_* fields (receive only for RX panel)
     aggregationsJson = `[
       {
         "type": "doubleMax",
@@ -2106,18 +1667,14 @@ function createPanel_eCMC_A_RX(portRole: string, tabType: string, isDrilldown: b
 }
 
 function createPanel_eCMC_B_TX(portRole: string, tabType: string, isDrilldown: boolean, chassisName?: string, aggregation?: string) {
-  // If aggregation is not provided, this function won't work correctly
-  // It should always be provided when creating panels
   const agg = aggregation || 'avg';
   const metricSuffix = tabType === 'percentage' ? '_pct' : '';
   const metricName = `transmit_${agg}${metricSuffix}`;
 
-  // Build aggregations and postAggregations based on mode
   let aggregationsJson;
   let postAggregationsJson;
 
   if (tabType === 'percentage') {
-    // PERCENTAGE MODE - hw.network.bandwidth.utilization_* fields
     aggregationsJson = `[
       {
         "type": "doubleMax",
@@ -2184,7 +1741,6 @@ function createPanel_eCMC_B_TX(portRole: string, tabType: string, isDrilldown: b
       }
     ]`;
   } else {
-    // ABSOLUTE MODE - hw.network.io_* fields (transmit only for TX panel)
     aggregationsJson = `[
       {
         "type": "doubleMax",
@@ -2401,18 +1957,14 @@ function createPanel_eCMC_B_TX(portRole: string, tabType: string, isDrilldown: b
 }
 
 function createPanel_eCMC_B_RX(portRole: string, tabType: string, isDrilldown: boolean, chassisName?: string, aggregation?: string) {
-  // If aggregation is not provided, this function won't work correctly
-  // It should always be provided when creating panels
   const agg = aggregation || 'avg';
   const metricSuffix = tabType === 'percentage' ? '_pct' : '';
   const metricName = `receive_${agg}${metricSuffix}`;
 
-  // Build aggregations and postAggregations based on mode
   let aggregationsJson;
   let postAggregationsJson;
 
   if (tabType === 'percentage') {
-    // PERCENTAGE MODE - hw.network.bandwidth.utilization_* fields
     aggregationsJson = `[
       {
         "type": "doubleMax",
@@ -2479,7 +2031,6 @@ function createPanel_eCMC_B_RX(portRole: string, tabType: string, isDrilldown: b
       }
     ]`;
   } else {
-    // ABSOLUTE MODE - hw.network.io_* fields (receive only for RX panel)
     aggregationsJson = `[
       {
         "type": "doubleMax",
@@ -2825,9 +2376,8 @@ export function getNetworkUtilizationTab() {
 
   // Create shared drilldown state
   const sharedDrilldownState = new SharedDrilldownState({
-    mode: 'overview',
-    chassisName: undefined,
-    lastChassisValue: undefined,
+    variableName: 'ChassisName',
+    initialMode: 'overview',
   });
 
   const networkUtilizationTabs = new TabbedScene({

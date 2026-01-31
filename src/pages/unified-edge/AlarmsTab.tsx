@@ -28,6 +28,7 @@ import { map } from 'rxjs/operators';
 import { EmptyStateScene } from '../../components/EmptyStateScene';
 import { getEmptyStateScenario } from '../../utils/emptyStateHelpers';
 import { createAlarmStatPanel, ALARM_TYPES } from '../../utils/createAlarmStatPanel';
+import { API_ENDPOINTS, ALARM_SEVERITIES, FIELD_NAMES } from './constants';
 
 // ============================================================================
 // CUSTOM DATA PROVIDER - Filters columns based on values
@@ -262,16 +263,21 @@ function getAllChassisAlarmsPanel(chassisNames: string[]) {
   const deviceFilter = `(${chassisNameFilters})`;
 
   // Create one query per severity for the table (not per chassis)
-  const severities = ['Critical', 'Warning', 'Info', 'Cleared'];
+  const severities = [
+    ALARM_SEVERITIES.CRITICAL, // 'Critical'
+    ALARM_SEVERITIES.WARNING,  // 'Warning'
+    ALARM_SEVERITIES.INFO,     // 'Info'
+    ALARM_SEVERITIES.CLEARED   // 'Cleared'
+  ];
   const tableQueries: any[] = [];
 
   // Generate queries for table - one per severity only
   severities.forEach((severity, severityIndex) => {
     let severityFilterClause;
 
-    if (severity === 'Cleared') {
+    if (severity === ALARM_SEVERITIES.CLEARED) { // 'Cleared'
       // For Cleared, filter by time range
-      severityFilterClause = `Severity eq 'Cleared' and ((CreateTime ge \${__from:date}) and (CreateTime le \${__to:date}) or (LastTransitionTime ge \${__from:date}) and (LastTransitionTime le \${__to:date}))`;
+      severityFilterClause = `Severity eq '${ALARM_SEVERITIES.CLEARED}' and ((CreateTime ge \${__from:date}) and (CreateTime le \${__to:date}) or (LastTransitionTime ge \${__from:date}) and (LastTransitionTime le \${__to:date}))`;
     } else {
       // For active alarms (Critical, Warning, Info)
       severityFilterClause = `Severity eq '${severity}'`;
@@ -282,7 +288,7 @@ function getAllChassisAlarmsPanel(chassisNames: string[]) {
     // Map severity to numeric order for sorting (Critical=1, Warning=2, Info=3, Cleared=4)
     const severityOrder = severityIndex + 1;
 
-    const tableUrl = `/api/v1/cond/Alarms?$expand=RegisteredDevice($select=DeviceHostname)&$top=1000&$filter=${filterClause}&$orderby=LastTransitionTime desc`;
+    const tableUrl = `${API_ENDPOINTS.COND_ALARMS}?$expand=RegisteredDevice($select=DeviceHostname)&$top=1000&$filter=${filterClause}&$orderby=LastTransitionTime desc`; // '/api/v1/cond/Alarms'
 
     tableQueries.push({
       refId: `TBL_${severity}`, // Now just per-severity, not per-device
@@ -327,14 +333,14 @@ function getAllChassisAlarmsPanel(chassisNames: string[]) {
   severities.forEach((severity, index) => {
     let severityFilterClause;
 
-    if (severity === 'Cleared') {
-      severityFilterClause = `Severity eq 'Cleared' and ((CreateTime ge \${__from:date}) and (CreateTime le \${__to:date}) or (LastTransitionTime ge \${__from:date}) and (LastTransitionTime le \${__to:date}))`;
+    if (severity === ALARM_SEVERITIES.CLEARED) { // 'Cleared'
+      severityFilterClause = `Severity eq '${ALARM_SEVERITIES.CLEARED}' and ((CreateTime ge \${__from:date}) and (CreateTime le \${__to:date}) or (LastTransitionTime ge \${__from:date}) and (LastTransitionTime le \${__to:date}))`;
     } else {
       severityFilterClause = `Severity eq '${severity}'`;
     }
 
     const filterClause = `(${deviceFilter}) and (${severityFilterClause})`;
-    const statUrl = `/api/v1/cond/Alarms?$top=0&$count=true&$filter=${filterClause}`;
+    const statUrl = `${API_ENDPOINTS.COND_ALARMS}?$top=0&$count=true&$filter=${filterClause}`; // '/api/v1/cond/Alarms'
 
     statQueries.push({
       refId: String.fromCharCode(65 + index), // A, B, C, D
@@ -354,7 +360,7 @@ function getAllChassisAlarmsPanel(chassisNames: string[]) {
   });
 
   // Query E: Suppressed alarms count (using $count with $top=0 - optimized)
-  const suppressedUrl = `/api/v1/cond/Alarms?$top=0&$count=true&$filter=(${deviceFilter}) and (Suppressed eq 'true') and (Severity ne 'Cleared')`;
+  const suppressedUrl = `${API_ENDPOINTS.COND_ALARMS}?$top=0&$count=true&$filter=(${deviceFilter}) and (Suppressed eq 'true') and (Severity ne '${ALARM_SEVERITIES.CLEARED}')`; // '/api/v1/cond/Alarms'
   statQueries.push({
     refId: 'E',
     queryType: 'infinity',
@@ -372,7 +378,7 @@ function getAllChassisAlarmsPanel(chassisNames: string[]) {
   });
 
   // Query F: Acknowledged alarms count (using $count with $top=0 - optimized)
-  const acknowledgedUrl = `/api/v1/cond/Alarms?$top=0&$count=true&$filter=(${deviceFilter}) and (Acknowledge eq 'Acknowledge') and (Severity ne 'Cleared')`;
+  const acknowledgedUrl = `${API_ENDPOINTS.COND_ALARMS}?$top=0&$count=true&$filter=(${deviceFilter}) and (Acknowledge eq 'Acknowledge') and (Severity ne '${ALARM_SEVERITIES.CLEARED}')`; // '/api/v1/cond/Alarms'
   statQueries.push({
     refId: 'F',
     queryType: 'infinity',
@@ -592,17 +598,17 @@ function getAllChassisAlarmsPanel(chassisNames: string[]) {
         .overrideCustomFieldConfig('hidden', true);
 
       // Severity column - color-coded text
-      builder.matchFieldsWithName('Severity')
+      builder.matchFieldsWithName(FIELD_NAMES.SEVERITY) // 'Severity'
         .overrideCustomFieldConfig('cellOptions', { type: 'color-text' as any })
         .overrideCustomFieldConfig('width', 115)
         .overrideMappings([
           {
             type: 'value' as any,
             options: {
-              Critical: { color: 'red', index: 0 },
-              Warning: { color: 'orange', index: 1 },
-              Info: { color: 'super-light-yellow', index: 2 },
-              Cleared: { color: 'green', index: 3 },
+              [ALARM_SEVERITIES.CRITICAL]: { color: 'red', index: 0 },    // 'Critical'
+              [ALARM_SEVERITIES.WARNING]: { color: 'orange', index: 1 },  // 'Warning'
+              [ALARM_SEVERITIES.INFO]: { color: 'super-light-yellow', index: 2 }, // 'Info'
+              [ALARM_SEVERITIES.CLEARED]: { color: 'green', index: 3 },   // 'Cleared'
             },
           },
         ]);

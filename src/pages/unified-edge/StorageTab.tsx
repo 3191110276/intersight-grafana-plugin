@@ -15,6 +15,7 @@ import React from 'react';
 import { TabbedScene } from '../../components/TabbedScene';
 import { EmptyStateScene } from '../../components/EmptyStateScene';
 import { getEmptyStateScenario } from '../../utils/emptyStateHelpers';
+import { API_ENDPOINTS, COLORS, COLUMN_WIDTHS } from './constants';
 
 // DynamicStorageScene class to handle variable dependencies
 interface DynamicStorageSceneState extends SceneObjectState {
@@ -145,7 +146,7 @@ export function getStorageControllersPanel(hideChassisColumn: boolean = false, c
     ? `Ancestors.Moid in (${moidFilter})`
     : `Ancestors.Moid in (\${RegisteredDevices:singlequote})`;
 
-  const url = `/api/v1/storage/Controllers?$top=1000&$filter=${filterExpression} and PciSlot ne 'NVMe-direct-E3.S-drives'&$expand=BackupBatteryUnit,ComputeBlade,ComputeRackUnit,ComputeBoard($expand=ComputeBlade,ComputeRackUnit)`;
+  const url = `${API_ENDPOINTS.STORAGE_CONTROLLERS}?$top=1000&$filter=${filterExpression} and PciSlot ne 'NVMe-direct-E3.S-drives'&$expand=BackupBatteryUnit,ComputeBlade,ComputeRackUnit,ComputeBoard($expand=ComputeBlade,ComputeRackUnit)`; // '/api/v1/storage/Controllers'
 
   const queryRunner = new LoggingQueryRunner({
     datasource: { uid: '${Account}' },
@@ -356,9 +357,9 @@ export function getStorageControllersPanel(hideChassisColumn: boolean = false, c
           {
             type: 'value' as any,
             options: {
-              no: { color: '#646464', index: 0, text: 'No' },
+              no: { color: COLORS.GRAY_DARK, index: 0, text: 'No' }, // '#646464'
               yes: { color: 'blue', index: 1, text: 'Yes' },
-              false: { color: '#646464', index: 2, text: 'No' },
+              false: { color: COLORS.GRAY_DARK, index: 2, text: 'No' }, // '#646464'
               true: { color: 'blue', index: 3, text: 'Yes' },
             },
           },
@@ -381,7 +382,7 @@ export function getStorageControllersPanel(hideChassisColumn: boolean = false, c
             type: 'special' as any as any,
             options: {
               match: 'null' as any as any,
-              result: { color: '#646464', index: 1, text: 'Not Present' },
+              result: { color: COLORS.GRAY_DARK, index: 1, text: 'Not Present' }, // '#646464'
             },
           },
         ])
@@ -431,7 +432,7 @@ export function getSSDDisksPanel(hideChassisColumn: boolean = false, chassisName
     ? `Ancestors.Moid in (${moidFilter})`
     : `Ancestors.Moid in (\${RegisteredDevices:singlequote})`;
 
-  const url = `/api/v1/storage/PhysicalDisks?$top=1000&$filter=Type eq 'SSD' and ${filterExpression}&$expand=Parent($expand=Parent($expand=ComputeBlade))`;
+  const url = `${API_ENDPOINTS.STORAGE_PHYSICAL_DISKS}?$top=1000&$filter=Type eq 'SSD' and ${filterExpression}&$expand=Parent($expand=Parent($expand=ComputeBlade))`; // '/api/v1/storage/PhysicalDisks'
 
   const queryRunner = new LoggingQueryRunner({
     datasource: { uid: '${Account}' },
@@ -617,7 +618,7 @@ export function getSSDDisksPanel(hideChassisColumn: boolean = false, chassisName
           },
         ])
         .overrideCustomFieldConfig('cellOptions', { type: 'color-text' as any })
-        .overrideCustomFieldConfig('width', 90);
+        .overrideCustomFieldConfig('width', COLUMN_WIDTHS.SMALL_1); // 90
 
       // Failure field (FailurePredicted)
       builder
@@ -639,7 +640,7 @@ export function getSSDDisksPanel(hideChassisColumn: boolean = false, chassisName
           },
         ])
         .overrideCustomFieldConfig('cellOptions', { type: 'color-text' as any })
-        .overrideCustomFieldConfig('width', 110);
+        .overrideCustomFieldConfig('width', COLUMN_WIDTHS.MEDIUM_2); // 110
 
       // Percent Life Left field
       builder
@@ -650,7 +651,7 @@ export function getSSDDisksPanel(hideChassisColumn: boolean = false, chassisName
           steps: [
             { value: 0, color: 'red' },
             { value: 20, color: 'orange' },
-            { value: 40, color: '#EAB839' },
+            { value: 40, color: COLORS.YELLOW_WARNING }, // '#EAB839'
             { value: 60, color: 'green' },
           ],
         })
@@ -660,17 +661,17 @@ export function getSSDDisksPanel(hideChassisColumn: boolean = false, chassisName
       builder
         .matchFieldsWithName('Size')
         .overrideUnit('mbytes')
-        .overrideCustomFieldConfig('width', 75);
+        .overrideCustomFieldConfig('width', COLUMN_WIDTHS.XSMALL_1); // 75
 
       // Slot field
       builder
         .matchFieldsWithName('Slot')
-        .overrideCustomFieldConfig('width', 60);
+        .overrideCustomFieldConfig('width', COLUMN_WIDTHS.XXSMALL_2); // 60
 
       // Protocol field
       builder
         .matchFieldsWithName('Protocol')
-        .overrideCustomFieldConfig('width', 85);
+        .overrideCustomFieldConfig('width', COLUMN_WIDTHS.XSMALL_3); // 85
 
       // Removal field
       builder
@@ -692,7 +693,7 @@ export function getSSDDisksPanel(hideChassisColumn: boolean = false, chassisName
           },
         ])
         .overrideCustomFieldConfig('cellOptions', { type: 'color-text' as any })
-        .overrideCustomFieldConfig('width', 100);
+        .overrideCustomFieldConfig('width', COLUMN_WIDTHS.SMALL_4); // 100
 
       // Media Errors field
       builder
@@ -714,7 +715,7 @@ export function getSSDDisksPanel(hideChassisColumn: boolean = false, chassisName
           },
         ])
         .overrideCustomFieldConfig('cellOptions', { type: 'color-text' as any })
-        .overrideCustomFieldConfig('width', 140);
+        .overrideCustomFieldConfig('width', COLUMN_WIDTHS.LARGE_1); // 140
 
       // Read IO Errors field
       builder
@@ -736,7 +737,7 @@ export function getSSDDisksPanel(hideChassisColumn: boolean = false, chassisName
           },
         ])
         .overrideCustomFieldConfig('cellOptions', { type: 'color-text' as any })
-        .overrideCustomFieldConfig('width', 140);
+        .overrideCustomFieldConfig('width', COLUMN_WIDTHS.LARGE_1); // 140
 
       // Write IO Errors field
       builder
@@ -758,7 +759,7 @@ export function getSSDDisksPanel(hideChassisColumn: boolean = false, chassisName
           },
         ])
         .overrideCustomFieldConfig('cellOptions', { type: 'color-text' as any })
-        .overrideCustomFieldConfig('width', 140);
+        .overrideCustomFieldConfig('width', COLUMN_WIDTHS.LARGE_1); // 140
 
       // Presence field
       builder
@@ -779,7 +780,7 @@ export function getSSDDisksPanel(hideChassisColumn: boolean = false, chassisName
           },
         ])
         .overrideCustomFieldConfig('cellOptions', { type: 'color-text' as any })
-        .overrideCustomFieldConfig('width', 100);
+        .overrideCustomFieldConfig('width', COLUMN_WIDTHS.SMALL_4); // 100
 
       return builder.build();
     })
@@ -795,7 +796,7 @@ export function getVirtualDrivesPanel(hideChassisColumn: boolean = false, chassi
     ? `Ancestors.Moid in (${moidFilter})`
     : `Ancestors.Moid in (\${RegisteredDevices:singlequote})`;
 
-  const url = `/api/v1/storage/VirtualDrives?$top=1000&$filter=${filterExpression}&$expand=StorageController,Parent($expand=Parent($expand=ComputeBlade,ComputeRackUnit))`;
+  const url = `${API_ENDPOINTS.STORAGE_VIRTUAL_DRIVES}?$top=1000&$filter=${filterExpression}&$expand=StorageController,Parent($expand=Parent($expand=ComputeBlade,ComputeRackUnit))`; // '/api/v1/storage/VirtualDrives'
 
   const queryRunner = new LoggingQueryRunner({
     datasource: { uid: '${Account}' },
@@ -962,7 +963,7 @@ export function getVirtualDrivesPanel(hideChassisColumn: boolean = false, chassi
           {
             type: 'value' as any,
             options: {
-              false: { color: '#646464', index: 1, text: 'No' },
+              false: { color: COLORS.GRAY_DARK, index: 1, text: 'No' }, // '#646464'
               true: { color: 'blue', index: 0, text: 'Yes' },
             },
           },

@@ -21,6 +21,7 @@ import { LoggingDataTransformer } from '../../utils/LoggingDataTransformer';
 import { PaginatedDataProvider } from '../../utils/PaginatedDataProvider';
 import { EmptyStateScene } from '../../components/EmptyStateScene';
 import { getEmptyStateScenario, getSelectedValues } from '../../utils/emptyStateHelpers';
+import { API_ENDPOINTS, COLUMN_WIDTHS } from './constants';
 
 // ============================================================================
 // DYNAMIC INVENTORY SCENE - Shows chassis and host inventory tables
@@ -136,7 +137,7 @@ function createInventoryBody(chassisNames: string[], showChassisColumn: boolean)
         source: 'url',
         parser: 'backend',
         format: 'table',
-        url: `/api/v1/equipment/Chasses?$filter=Name in (\${ChassisName:singlequote})&$top=1000&$expand=ExpanderModules,FanControl($select=Mode),LocatorLed($select=OperState),PowerControlState,PsuControl`,
+        url: `${API_ENDPOINTS.EQUIPMENT_CHASSES}?$filter=Name in (\${ChassisName:singlequote})&$top=1000&$expand=ExpanderModules,FanControl($select=Mode),LocatorLed($select=OperState),PowerControlState,PsuControl`, // '/api/v1/equipment/Chasses'
         root_selector: '$.Results',
         columns: [
           { selector: 'ChassisId', text: 'ChassisId', type: 'string' },
@@ -222,26 +223,26 @@ function createInventoryBody(chassisNames: string[], showChassisColumn: boolean)
     .setOverrides((builder) => {
       // Name column - fixed width to prevent horizontal scrollbar issue
       builder.matchFieldsWithName('Name')
-        .overrideCustomFieldConfig('width', 200);
+        .overrideCustomFieldConfig('width', COLUMN_WIDTHS.XLARGE); // 200
 
       // ID column
       builder.matchFieldsWithName('ID')
-        .overrideCustomFieldConfig('width', 20)
+        .overrideCustomFieldConfig('width', COLUMN_WIDTHS.TINY) // 20
         .overrideCustomFieldConfig('align', 'center');
 
       // Serial column
       builder.matchFieldsWithName('Serial')
-        .overrideCustomFieldConfig('width', 115)
+        .overrideCustomFieldConfig('width', COLUMN_WIDTHS.MEDIUM_3) // 115
         .overrideCustomFieldConfig('align', 'left');
 
       // Model column
       builder.matchFieldsWithName('Model')
-        .overrideCustomFieldConfig('width', 115)
+        .overrideCustomFieldConfig('width', COLUMN_WIDTHS.MEDIUM_3) // 115
         .overrideCustomFieldConfig('align', 'left');
 
       // State column
       builder.matchFieldsWithName('State')
-        .overrideCustomFieldConfig('width', 55)
+        .overrideCustomFieldConfig('width', COLUMN_WIDTHS.XXSMALL_1) // 55
         .overrideCustomFieldConfig('align', 'center')
         .overrideCustomFieldConfig('cellOptions', { type: 'color-background' as any as any, mode: 'basic' as any as any })
         .overrideMappings([
@@ -251,7 +252,7 @@ function createInventoryBody(chassisNames: string[], showChassisColumn: boolean)
 
       // Critical column
       builder.matchFieldsWithName('Critical')
-        .overrideCustomFieldConfig('width', 75)
+        .overrideCustomFieldConfig('width', COLUMN_WIDTHS.XSMALL_1) // 75
         .overrideCustomFieldConfig('align', 'center')
         .overrideCustomFieldConfig('cellOptions', { type: 'color-background' as any as any, mode: 'basic' as any as any })
         .overrideThresholds({
@@ -264,7 +265,7 @@ function createInventoryBody(chassisNames: string[], showChassisColumn: boolean)
 
       // Warning column
       builder.matchFieldsWithName('Warning')
-        .overrideCustomFieldConfig('width', 75)
+        .overrideCustomFieldConfig('width', COLUMN_WIDTHS.XSMALL_1) // 75
         .overrideCustomFieldConfig('align', 'center')
         .overrideCustomFieldConfig('cellOptions', { type: 'color-background' as any as any, mode: 'basic' as any as any })
         .overrideThresholds({
@@ -277,7 +278,7 @@ function createInventoryBody(chassisNames: string[], showChassisColumn: boolean)
 
       // Connection column
       builder.matchFieldsWithName('Connection')
-        .overrideCustomFieldConfig('width', 95)
+        .overrideCustomFieldConfig('width', COLUMN_WIDTHS.SMALL_2) // 95
         .overrideCustomFieldConfig('align', 'center')
         .overrideCustomFieldConfig('cellOptions', { type: 'color-background' as any as any, mode: 'basic' as any as any })
         .overrideMappings([
@@ -287,7 +288,7 @@ function createInventoryBody(chassisNames: string[], showChassisColumn: boolean)
 
       // Locator LED column
       builder.matchFieldsWithName('Locator LED')
-        .overrideCustomFieldConfig('width', 100)
+        .overrideCustomFieldConfig('width', COLUMN_WIDTHS.SMALL_4) // 100
         .overrideCustomFieldConfig('align', 'center')
         .overrideCustomFieldConfig('cellOptions', { type: 'color-background' as any as any, mode: 'basic' as any as any })
         .overrideMappings([
@@ -296,7 +297,7 @@ function createInventoryBody(chassisNames: string[], showChassisColumn: boolean)
 
       // PSU State column
       builder.matchFieldsWithName('PSU State')
-        .overrideCustomFieldConfig('width', 90)
+        .overrideCustomFieldConfig('width', COLUMN_WIDTHS.SMALL_1) // 90
         .overrideCustomFieldConfig('align', 'center')
         .overrideCustomFieldConfig('cellOptions', { type: 'color-background' as any as any, mode: 'basic' as any as any })
         .overrideMappings([
@@ -306,12 +307,12 @@ function createInventoryBody(chassisNames: string[], showChassisColumn: boolean)
 
       // Redundancy column
       builder.matchFieldsWithName('Redundancy')
-        .overrideCustomFieldConfig('width', 105)
+        .overrideCustomFieldConfig('width', COLUMN_WIDTHS.MEDIUM_1) // 105
         .overrideCustomFieldConfig('align', 'center');
 
       // Moid column
       builder.matchFieldsWithName('Moid')
-        .overrideCustomFieldConfig('width', 230)
+        .overrideCustomFieldConfig('width', COLUMN_WIDTHS.XXLARGE_1) // 230
         .overrideCustomFieldConfig('align', 'left');
     })
     .build();
@@ -330,7 +331,7 @@ function createInventoryBody(chassisNames: string[], showChassisColumn: boolean)
         source: 'url',
         parser: 'backend',
         format: 'table',
-        url: `/api/v1/compute/PhysicalSummaries?$filter=(${hostFilters})&$top=1000&$expand=`,
+        url: `${API_ENDPOINTS.COMPUTE_PHYSICAL_SUMMARIES}?$filter=(${hostFilters})&$top=1000&$expand=`, // '/api/v1/compute/PhysicalSummaries'
         root_selector: '$.Results',
         columns: [
           { selector: 'Name', text: 'Name', type: 'string' },
@@ -455,7 +456,7 @@ function createInventoryBody(chassisNames: string[], showChassisColumn: boolean)
       // Chassis column styling (only applies if column exists)
       if (showChassisColumn) {
         builder.matchFieldsWithName('Chassis')
-          .overrideCustomFieldConfig('width', 150)
+          .overrideCustomFieldConfig('width', COLUMN_WIDTHS.LARGE_2) // 150
           .overrideCustomFieldConfig('align', 'left')
           .overrideMappings([
             { type: 'regex' as any, options: { pattern: '^(.+)-\\d+$', result: { index: 0, text: '$1' } } },
@@ -464,7 +465,7 @@ function createInventoryBody(chassisNames: string[], showChassisColumn: boolean)
 
       // ID column - clean up "0#X" -> "X" and "X#0" -> "X"
       builder.matchFieldsWithName('ID')
-        .overrideCustomFieldConfig('width', 50)
+        .overrideCustomFieldConfig('width', COLUMN_WIDTHS.XXXSMALL) // 50
         .overrideCustomFieldConfig('align', 'center')
         .overrideMappings([
           { type: 'regex' as any, options: { pattern: '^0#(.+)$', result: { index: 0, text: '$1' } } },
@@ -473,12 +474,12 @@ function createInventoryBody(chassisNames: string[], showChassisColumn: boolean)
 
       // Serial column
       builder.matchFieldsWithName('Serial')
-        .overrideCustomFieldConfig('width', 115)
+        .overrideCustomFieldConfig('width', COLUMN_WIDTHS.MEDIUM_3) // 115
         .overrideCustomFieldConfig('align', 'left');
 
       // State column
       builder.matchFieldsWithName('State')
-        .overrideCustomFieldConfig('width', 115)
+        .overrideCustomFieldConfig('width', COLUMN_WIDTHS.MEDIUM_3) // 115
         .overrideCustomFieldConfig('align', 'center')
         .overrideCustomFieldConfig('cellOptions', { type: 'color-background' as any as any, mode: 'basic' as any as any })
         .overrideMappings([
@@ -488,7 +489,7 @@ function createInventoryBody(chassisNames: string[], showChassisColumn: boolean)
 
       // Power column
       builder.matchFieldsWithName('Power')
-        .overrideCustomFieldConfig('width', 60)
+        .overrideCustomFieldConfig('width', COLUMN_WIDTHS.XXSMALL_2) // 60
         .overrideCustomFieldConfig('align', 'center')
         .overrideCustomFieldConfig('cellOptions', { type: 'color-background' as any as any, mode: 'basic' as any as any })
         .overrideMappings([
@@ -498,7 +499,7 @@ function createInventoryBody(chassisNames: string[], showChassisColumn: boolean)
 
       // Critical column
       builder.matchFieldsWithName('Critical')
-        .overrideCustomFieldConfig('width', 75)
+        .overrideCustomFieldConfig('width', COLUMN_WIDTHS.XSMALL_1) // 75
         .overrideCustomFieldConfig('align', 'center')
         .overrideCustomFieldConfig('cellOptions', { type: 'color-background' as any as any, mode: 'basic' as any as any })
         .overrideThresholds({
@@ -511,7 +512,7 @@ function createInventoryBody(chassisNames: string[], showChassisColumn: boolean)
 
       // Warning column
       builder.matchFieldsWithName('Warning')
-        .overrideCustomFieldConfig('width', 75)
+        .overrideCustomFieldConfig('width', COLUMN_WIDTHS.XSMALL_1) // 75
         .overrideCustomFieldConfig('align', 'center')
         .overrideCustomFieldConfig('cellOptions', { type: 'color-background' as any as any, mode: 'basic' as any as any })
         .overrideThresholds({
@@ -524,17 +525,17 @@ function createInventoryBody(chassisNames: string[], showChassisColumn: boolean)
 
       // CPU column
       builder.matchFieldsWithName('CPU')
-        .overrideCustomFieldConfig('width', 65)
+        .overrideCustomFieldConfig('width', COLUMN_WIDTHS.XXSMALL_3) // 65
         .overrideCustomFieldConfig('align', 'center');
 
       // Interfaces column
       builder.matchFieldsWithName('Interfaces')
-        .overrideCustomFieldConfig('width', 100)
+        .overrideCustomFieldConfig('width', COLUMN_WIDTHS.SMALL_4) // 100
         .overrideCustomFieldConfig('align', 'center');
 
       // Mgmt IP column
       builder.matchFieldsWithName('Mgmt IP')
-        .overrideCustomFieldConfig('width', 105);
+        .overrideCustomFieldConfig('width', COLUMN_WIDTHS.MEDIUM_1); // 105
     })
     .build();
 

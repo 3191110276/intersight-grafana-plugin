@@ -18,6 +18,10 @@ import { LoggingQueryRunner } from '../../utils/LoggingQueryRunner';
 import { LoggingDataTransformer } from '../../utils/LoggingDataTransformer';
 import { EmptyStateScene } from '../../components/EmptyStateScene';
 import { getEmptyStateScenario, getSelectedValues } from '../../utils/emptyStateHelpers';
+import { DrilldownHeaderControl } from '../../components/DrilldownHeaderControl';
+import { ClickableTableWrapper } from '../../components/ClickableTableWrapper';
+import { getChassisCount, createDrilldownQuery } from '../../utils/drilldownHelpers';
+import { API_ENDPOINTS } from './constants';
 
 // ============================================================================
 // HELPER FUNCTIONS
@@ -45,19 +49,13 @@ function extractChassisFromHost(hostName: string): string | null {
 }
 
 /**
- * Create drilldown query by replacing ChassisName variable with hardcoded value
- * Pattern from standalone/EnvironmentalTab.tsx:24-38
+ * Create drilldown query for host by replacing ChassisName regex variable with specific hostname
+ * Extended version of createDrilldownQuery that also handles regex pattern replacement
  */
-function createDrilldownQuery(baseQuery: any, chassisName: string): any {
-  const drilldownQuery = JSON.parse(JSON.stringify(baseQuery));
-  const escapedChassisName = JSON.stringify(chassisName);
+function createDrilldownQueryExtended(baseQuery: any, chassisName: string): any {
+  const drilldownQuery = createDrilldownQuery(baseQuery, chassisName);
 
-  // Replace [${ChassisName:doublequote}] with ["chassisName"]
-  drilldownQuery.url_options.data = drilldownQuery.url_options.data.replace(
-    /\[\$\{ChassisName:doublequote\}\]/g,
-    `[${escapedChassisName}]`
-  );
-
+  // Additional replacement for regex patterns (specific to Unified Edge)
   // Replace ^${ChassisName:regex} with ^chassisName (for host queries)
   drilldownQuery.url_options.data = drilldownQuery.url_options.data.replace(
     /\^\$\{ChassisName:regex\}/g,
@@ -85,27 +83,6 @@ function createHostDrilldownQuery(baseQuery: any, hostName: string): any {
 }
 
 /**
- * Get chassis count from ChassisName variable
- * Used to determine line graph vs table threshold
- */
-function getChassisCount(scene: SceneObjectBase): number {
-  const variable = sceneGraph.lookupVariable('ChassisName', scene);
-  if (!variable || !('state' in variable)) {
-    return 0;
-  }
-
-  const value = (variable.state as any).value;
-
-  if (Array.isArray(value)) {
-    return value.filter(v => v && v !== '$__all').length;
-  } else if (value && value !== '$__all') {
-    return 1;
-  }
-
-  return 0;
-}
-
-/**
  * Get selected chassis names as array
  */
 function getSelectedChassis(scene: SceneObjectBase): string[] {
@@ -123,104 +100,6 @@ function getSelectedChassis(scene: SceneObjectBase): string[] {
   }
 
   return [];
-}
-
-// ============================================================================
-// DRILLDOWN HEADER COMPONENT (Header + Back Button)
-// ============================================================================
-
-interface DrilldownHeaderControlState extends SceneObjectState {
-  chassisName?: string;
-  hostName?: string;
-  onBack: () => void;
-}
-
-class DrilldownHeaderControl extends SceneObjectBase<DrilldownHeaderControlState> {
-  public static Component = DrilldownHeaderRenderer;
-}
-
-function DrilldownHeaderRenderer({ model }: SceneComponentProps<DrilldownHeaderControl>) {
-  const { chassisName, hostName, onBack } = model.useState();
-
-  const displayText = hostName
-    ? `Host: ${hostName}`
-    : `Chassis: ${chassisName}`;
-
-  return (
-    <div style={{
-      padding: '12px 0',
-      display: 'flex',
-      alignItems: 'center',
-      gap: '20px',
-      borderBottom: '1px solid rgba(204, 204, 220, 0.15)',
-    }}>
-      <button
-        onClick={onBack}
-        style={{
-          padding: '6px 12px',
-          cursor: 'pointer',
-          background: 'transparent',
-          border: '1px solid rgba(204, 204, 220, 0.25)',
-          borderRadius: '2px',
-          color: 'inherit',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '6px',
-          fontSize: '14px',
-        }}
-      >
-        <span>&larr;</span>
-        <span>Back to Overview</span>
-      </button>
-      <div style={{
-        fontSize: '18px',
-        fontWeight: 500,
-      }}>
-        Drilldown: {displayText}
-      </div>
-    </div>
-  );
-}
-
-// ============================================================================
-// CLICKABLE TABLE WRAPPER COMPONENT
-// ============================================================================
-
-interface ClickableTableWrapperState extends SceneObjectState {
-  tablePanel: any;
-  onRowClick: (name: string) => void;
-}
-
-class ClickableTableWrapper extends SceneObjectBase<ClickableTableWrapperState> {
-  public static Component = ClickableTableWrapperRenderer;
-}
-
-function ClickableTableWrapperRenderer({ model }: SceneComponentProps<ClickableTableWrapper>) {
-  const { tablePanel, onRowClick } = model.useState();
-
-  const handleClick = (event: React.MouseEvent) => {
-    const row = (event.target as HTMLElement).closest('[role="row"]');
-
-    if (!row) {
-      return;
-    }
-
-    const firstCell = row.querySelector('[role="gridcell"][aria-colindex="1"]');
-
-    if (firstCell) {
-      const name = firstCell.textContent?.trim();
-
-      if (name) {
-        onRowClick(name);
-      }
-    }
-  };
-
-  return (
-    <div onClick={handleClick} style={{ cursor: 'pointer', width: '100%', height: '100%' }}>
-      <tablePanel.Component model={tablePanel} />
-    </div>
-  );
 }
 
 // ============================================================================
@@ -360,8 +239,9 @@ class SynchronizedPowerConsumptionContainer extends SceneObjectBase<Synchronized
     // Add drilldown header if not in overview mode
     if (mode !== 'overview') {
       const drilldownHeader = new DrilldownHeaderControl({
-        chassisName: chassisName,
-        hostName: hostName,
+        itemName: hostName || chassisName || '',
+        itemLabel: hostName ? 'Host' : 'Chassis',
+        backButtonText: 'Back to Overview',
         onBack: () => this.exitDrilldown(),
       });
       children.push(new SceneFlexItem({ height: 50, body: drilldownHeader }));
@@ -408,7 +288,7 @@ function createChassisLineGraph(scene: SceneObjectBase, isDrilldown: boolean, ch
     source: 'url',
     parser: 'backend',
     format: 'timeseries',
-    url: '/api/v1/telemetry/TimeSeries',
+    url: API_ENDPOINTS.TELEMETRY_TIMESERIES, // '/api/v1/telemetry/TimeSeries'
     root_selector: '',
     columns: [
       { selector: 'timestamp', text: 'Time', type: 'timestamp' },
@@ -530,7 +410,7 @@ function createChassisTable(scene: SceneObjectBase, parent: SynchronizedPowerCon
     source: 'url',
     parser: 'backend',
     format: 'timeseries',
-    url: '/api/v1/telemetry/TimeSeries',
+    url: API_ENDPOINTS.TELEMETRY_TIMESERIES, // '/api/v1/telemetry/TimeSeries'
     root_selector: '',
     columns: [
       { selector: 'timestamp', text: 'Time', type: 'timestamp' },
@@ -684,7 +564,7 @@ function createHostLineGraph(
     source: 'url',
     parser: 'backend',
     format: 'timeseries',
-    url: '/api/v1/telemetry/TimeSeries',
+    url: API_ENDPOINTS.TELEMETRY_TIMESERIES, // '/api/v1/telemetry/TimeSeries'
     root_selector: '',
     columns: [
       { selector: 'timestamp', text: 'Time', type: 'timestamp' },
@@ -757,7 +637,7 @@ function createHostLineGraph(
     title = `Power Consumption: ${hostName}`;
   } else if (isDrilldown && chassisName) {
     // Drilldown to hosts in specific chassis
-    query = createDrilldownQuery(baseQuery, chassisName);
+    query = createDrilldownQueryExtended(baseQuery, chassisName);
     title = `Host Power Consumption: ${chassisName}`;
   }
 
@@ -798,7 +678,7 @@ function createHostTable(scene: SceneObjectBase, parent: SynchronizedPowerConsum
     source: 'url',
     parser: 'backend',
     format: 'timeseries',
-    url: '/api/v1/telemetry/TimeSeries',
+    url: API_ENDPOINTS.TELEMETRY_TIMESERIES, // '/api/v1/telemetry/TimeSeries'
     root_selector: '',
     columns: [
       { selector: 'timestamp', text: 'Time', type: 'timestamp' },
@@ -1230,7 +1110,9 @@ function createChassisFanSpeedTableView(scene: DynamicChassisFanSpeedScene) {
 // Drilldown view with back button
 function createChassisFanSpeedDrilldownView(chassisName: string, scene: DynamicChassisFanSpeedScene) {
   const drilldownHeader = new DrilldownHeaderControl({
-    chassisName: chassisName,
+    itemName: chassisName,
+    itemLabel: 'Chassis',
+    backButtonText: 'Back to Overview',
     onBack: () => scene.exitDrilldown(),
   });
 
@@ -1757,7 +1639,9 @@ function createChassisTemperatureTableView(scene: DynamicChassisTemperatureScene
 // Drilldown view with back button - Two panels side by side
 function createChassisTemperatureDrilldownView(chassisName: string, scene: DynamicChassisTemperatureScene) {
   const drilldownHeader = new DrilldownHeaderControl({
-    chassisName: chassisName,
+    itemName: chassisName,
+    itemLabel: 'Chassis',
+    backButtonText: 'Back to Overview',
     onBack: () => scene.exitDrilldown(),
   });
 
@@ -2397,7 +2281,9 @@ function createHostTemperatureTableWithDrilldown(scene: DynamicHostTemperatureSc
 // Drilldown view with back button and three temperature panels side by side
 function createHostTemperatureDrilldownView(hostName: string, scene: DynamicHostTemperatureScene) {
   const drilldownHeader = new DrilldownHeaderControl({
-    hostName: hostName,
+    itemName: hostName,
+    itemLabel: 'Host',
+    backButtonText: 'Back to Overview',
     onBack: () => scene.exitDrilldown(),
   });
 
@@ -2565,7 +2451,7 @@ function createEnvironmentalTabContent() {
         source: 'url',
         parser: 'backend',
         format: 'table',
-        url: '/api/v1/telemetry/TimeSeries',
+        url: API_ENDPOINTS.TELEMETRY_TIMESERIES, // '/api/v1/telemetry/TimeSeries'
         root_selector: '',
         columns: [
           { selector: 'timestamp', text: 'Time', type: 'timestamp' },

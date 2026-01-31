@@ -29,15 +29,16 @@ import {
 import { InlineSwitch, InlineFieldRow, InlineField } from '@grafana/ui';
 import { Unsubscribable } from 'rxjs';
 import { LoggingQueryRunner } from '../../utils/LoggingQueryRunner';
+import { API_ENDPOINTS, ALARM_SEVERITIES, WORKFLOW_STATUSES, COLORS, FIELD_NAMES } from './constants';
 
 // ============================================================================
-// COLOR CONSTANTS
+// COLOR CONSTANTS (Re-exported for backward compatibility)
 // ============================================================================
 
 export const ANNOTATION_COLORS = {
-  ALARM_CRITICAL: '#F2495C',
-  ALARM_WARNING: '#FF9830',
-  ACTION: '#5794F2',
+  ALARM_CRITICAL: COLORS.ALARM_CRITICAL, // '#F2495C'
+  ALARM_WARNING: COLORS.ALARM_WARNING,   // '#FF9830'
+  ACTION: COLORS.WORKFLOW_RUNNING,       // '#5794F2'
 };
 
 // ============================================================================
@@ -219,12 +220,12 @@ export class InfinityAnnotationLayer extends SceneDataLayerBase<InfinityAnnotati
       source: 'url',
       parser: 'backend',
       format: 'table',
-      url: `/api/v1/cond/Alarms?$select=Severity,Description,LastTransitionTime&$filter=(startswith(AffectedMoDisplayName, '${chassisName}')) and (Severity in ('Critical','Warning')) and ((LastTransitionTime ge ${fromDate}) and (LastTransitionTime le ${toDate}))&$orderby=LastTransitionTime desc&$top=100`,
+      url: `${API_ENDPOINTS.COND_ALARMS}?$select=Severity,Description,LastTransitionTime&$filter=(startswith(AffectedMoDisplayName, '${chassisName}')) and (Severity in ('${ALARM_SEVERITIES.CRITICAL}','${ALARM_SEVERITIES.WARNING}')) and ((LastTransitionTime ge ${fromDate}) and (LastTransitionTime le ${toDate}))&$orderby=LastTransitionTime desc&$top=100`, // '/api/v1/cond/Alarms'
       root_selector: '$.Results',
       columns: [
-        { selector: 'Severity', text: 'Severity', type: 'string' },
-        { selector: 'Description', text: 'Description', type: 'string' },
-        { selector: 'LastTransitionTime', text: 'Time', type: 'timestamp' },
+        { selector: FIELD_NAMES.SEVERITY, text: FIELD_NAMES.SEVERITY, type: 'string' }, // 'Severity'
+        { selector: FIELD_NAMES.DESCRIPTION, text: FIELD_NAMES.DESCRIPTION, type: 'string' }, // 'Description'
+        { selector: FIELD_NAMES.LAST_TRANSITION_TIME, text: 'Time', type: 'timestamp' }, // 'LastTransitionTime'
       ],
       url_options: { method: 'GET', data: '' },
     };
@@ -240,14 +241,14 @@ export class InfinityAnnotationLayer extends SceneDataLayerBase<InfinityAnnotati
       source: 'url',
       parser: 'backend',
       format: 'table',
-      url: `/api/v1/workflow/WorkflowInfos?$select=Name,Email,WorkflowStatus,StartTime,EndTime&$filter=(startswith(WorkflowCtx.TargetCtxList.TargetName, '${chassisName}')) and ((StartTime ge ${fromDate}) and (StartTime le ${toDate}) or (EndTime ge ${fromDate}) and (EndTime le ${toDate}))&$orderby=StartTime desc&$top=100`,
+      url: `${API_ENDPOINTS.WORKFLOW_WORKFLOW_INFO}s?$select=Name,Email,WorkflowStatus,StartTime,EndTime&$filter=(startswith(WorkflowCtx.TargetCtxList.TargetName, '${chassisName}')) and ((StartTime ge ${fromDate}) and (StartTime le ${toDate}) or (EndTime ge ${fromDate}) and (EndTime le ${toDate}))&$orderby=StartTime desc&$top=100`, // '/api/v1/workflow/WorkflowInfo'
       root_selector: '$.Results',
       columns: [
-        { selector: 'Name', text: 'Name', type: 'string' },
+        { selector: FIELD_NAMES.NAME, text: FIELD_NAMES.NAME, type: 'string' }, // 'Name'
         { selector: 'Email', text: 'Email', type: 'string' },
-        { selector: 'WorkflowStatus', text: 'Status', type: 'string' },
-        { selector: 'StartTime', text: 'StartTime', type: 'timestamp' },
-        { selector: 'EndTime', text: 'EndTime', type: 'timestamp' },
+        { selector: 'WorkflowStatus', text: FIELD_NAMES.STATUS, type: 'string' }, // 'Status'
+        { selector: FIELD_NAMES.START_TIME, text: FIELD_NAMES.START_TIME, type: 'timestamp' }, // 'StartTime'
+        { selector: FIELD_NAMES.END_TIME, text: FIELD_NAMES.END_TIME, type: 'timestamp' }, // 'EndTime'
       ],
       url_options: { method: 'GET', data: '' },
     };
@@ -269,8 +270,8 @@ export class InfinityAnnotationLayer extends SceneDataLayerBase<InfinityAnnotati
 
     // Get field indices based on annotation type
     if (annotationType === 'alarms') {
-      const severityField = frame.fields.find(f => f.name === 'Severity');
-      const descriptionField = frame.fields.find(f => f.name === 'Description');
+      const severityField = frame.fields.find(f => f.name === FIELD_NAMES.SEVERITY); // 'Severity'
+      const descriptionField = frame.fields.find(f => f.name === FIELD_NAMES.DESCRIPTION); // 'Description'
       const timeField = frame.fields.find(f => f.name === 'Time');
 
       if (severityField && descriptionField && timeField) {
@@ -281,23 +282,23 @@ export class InfinityAnnotationLayer extends SceneDataLayerBase<InfinityAnnotati
 
           const time = typeof timeValue === 'string' ? new Date(timeValue).getTime() : timeValue;
 
-          const severityIcon = severity === 'Critical' ? '🔴' : '🟠';
+          const severityIcon = severity === ALARM_SEVERITIES.CRITICAL ? '🔴' : '🟠'; // 'Critical'
           events.push({
             time,
             title: `${severityIcon} ${severity}`,
             text: description,
-            color: severity === 'Critical' ? ANNOTATION_COLORS.ALARM_CRITICAL : ANNOTATION_COLORS.ALARM_WARNING,
+            color: severity === ALARM_SEVERITIES.CRITICAL ? ANNOTATION_COLORS.ALARM_CRITICAL : ANNOTATION_COLORS.ALARM_WARNING, // 'Critical'
             tags: [],
           });
         }
       }
     } else {
       // Actions annotation type
-      const nameField = frame.fields.find(f => f.name === 'Name');
+      const nameField = frame.fields.find(f => f.name === FIELD_NAMES.NAME); // 'Name'
       const emailField = frame.fields.find(f => f.name === 'Email');
-      const statusField = frame.fields.find(f => f.name === 'Status');
-      const startTimeField = frame.fields.find(f => f.name === 'StartTime');
-      const endTimeField = frame.fields.find(f => f.name === 'EndTime');
+      const statusField = frame.fields.find(f => f.name === FIELD_NAMES.STATUS); // 'Status'
+      const startTimeField = frame.fields.find(f => f.name === FIELD_NAMES.START_TIME); // 'StartTime'
+      const endTimeField = frame.fields.find(f => f.name === FIELD_NAMES.END_TIME); // 'EndTime'
 
       if (nameField && statusField && startTimeField) {
         for (let i = 0; i < frame.length; i++) {
@@ -312,9 +313,9 @@ export class InfinityAnnotationLayer extends SceneDataLayerBase<InfinityAnnotati
 
           // Status icon: green check for Completed, red X for Failed/Terminated, blue circle for others
           let statusIcon = '🔵';
-          if (status === 'Completed') {
+          if (status === WORKFLOW_STATUSES.COMPLETED) { // 'Completed'
             statusIcon = '✅';
-          } else if (status === 'Failed' || status === 'Terminated') {
+          } else if (status === WORKFLOW_STATUSES.FAILED || status === 'Terminated') { // 'Failed'
             statusIcon = '❌';
           }
 

@@ -16,6 +16,7 @@ import { LoggingQueryRunner } from '../../utils/LoggingQueryRunner';
 import { LoggingDataTransformer } from '../../utils/LoggingDataTransformer';
 import { EmptyStateScene } from '../../components/EmptyStateScene';
 import { getEmptyStateScenario, getSelectedValues } from '../../utils/emptyStateHelpers';
+import { DrilldownHeaderControl } from '../../components/DrilldownHeaderControl';
 
 // ============================================================================
 // DRILLDOWN QUERY HELPER
@@ -38,58 +39,6 @@ function createDrilldownQuery(baseQuery: any, serverName: string): any {
   );
 
   return drilldownQuery;
-}
-
-// ============================================================================
-// DRILLDOWN HEADER COMPONENT (Header + Back Button)
-// ============================================================================
-
-interface DrilldownHeaderControlState extends SceneObjectState {
-  serverName: string;
-  onBack: () => void;
-}
-
-class DrilldownHeaderControl extends SceneObjectBase<DrilldownHeaderControlState> {
-  public static Component = DrilldownHeaderRenderer;
-}
-
-function DrilldownHeaderRenderer({ model }: SceneComponentProps<DrilldownHeaderControl>) {
-  const { serverName, onBack } = model.useState();
-
-  return (
-    <div style={{
-      padding: '12px 0',
-      display: 'flex',
-      alignItems: 'center',
-      gap: '20px',
-      borderBottom: '1px solid rgba(204, 204, 220, 0.15)',
-    }}>
-      <button
-        onClick={onBack}
-        style={{
-          padding: '6px 12px',
-          cursor: 'pointer',
-          background: 'transparent',
-          border: '1px solid rgba(204, 204, 220, 0.25)',
-          borderRadius: '2px',
-          color: 'inherit',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '6px',
-          fontSize: '14px',
-        }}
-      >
-        <span>&larr;</span>
-        <span>Back to Table</span>
-      </button>
-      <div style={{
-        fontSize: '18px',
-        fontWeight: 500,
-      }}>
-        Drilldown: {serverName}
-      </div>
-    </div>
-  );
 }
 
 // ============================================================================
@@ -653,7 +602,8 @@ function createMultiServerPanels(scene: DynamicPowerConsumptionScene) {
 function createDrilldownView(serverName: string, scene: DynamicPowerConsumptionScene) {
   // Create header with back button
   const drilldownHeader = new DrilldownHeaderControl({
-    serverName: serverName,
+    itemName: serverName,
+    backButtonText: 'Back to Table',
     onBack: () => scene.exitDrilldown(),
   });
 
@@ -1378,7 +1328,8 @@ function createFanSpeedTableView(scene: DynamicFanSpeedScene) {
 // Drilldown view with back button
 function createFanSpeedDrilldownView(serverName: string, scene: DynamicFanSpeedScene) {
   const drilldownHeader = new DrilldownHeaderControl({
-    serverName: serverName,
+    itemName: serverName,
+    backButtonText: 'Back to Table',
     onBack: () => scene.exitDrilldown(),
   });
 
@@ -1859,7 +1810,8 @@ function createTemperatureTableView(scene: DynamicTemperatureScene) {
 // Drilldown view with back button
 function createTemperatureDrilldownView(serverName: string, scene: DynamicTemperatureScene) {
   const drilldownHeader = new DrilldownHeaderControl({
-    serverName: serverName,
+    itemName: serverName,
+    backButtonText: 'Back to Table',
     onBack: () => scene.exitDrilldown(),
   });
 

@@ -13,8 +13,14 @@
       "small": "img/logo.svg",
       "large": "img/logo.svg"
     },
+    "links": [
+      {
+        "name": "License",
+        "url": "https://www.apache.org/licenses/LICENSE-2.0"
+      }
+    ],
     "screenshots": [],
-    "version": "1.0.0",
+    "version": "0.8.0",
     "updated": "2026-01-21"
   },
   "dependencies": {

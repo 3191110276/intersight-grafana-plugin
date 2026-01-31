@@ -16,6 +16,9 @@ import { LoggingDataTransformer } from '../../utils/LoggingDataTransformer';
 import { TableCellDisplayMode } from '@grafana/ui';
 import { EmptyStateScene } from '../../components/EmptyStateScene';
 import { getEmptyStateScenario, getSelectedValues } from '../../utils/emptyStateHelpers';
+import { DrilldownHeaderControl } from '../../components/DrilldownHeaderControl';
+import { ClickableTableWrapper } from '../../components/ClickableTableWrapper';
+import { API_ENDPOINTS } from './constants';
 
 // ============================================================================
 // QUERY DEFINITIONS - Reused across single and multi-chassis views
@@ -29,7 +32,7 @@ const queryA = {
   source: 'url',
   parser: 'backend',
   format: 'timeseries',
-  url: '/api/v1/telemetry/TimeSeries',
+  url: API_ENDPOINTS.TELEMETRY_TIMESERIES, // '/api/v1/telemetry/TimeSeries'
   root_selector: '',
   columns: [
     { selector: 'timestamp', text: 'Time', type: 'timestamp' },
@@ -91,7 +94,7 @@ const queryB = {
   source: 'url',
   parser: 'backend',
   format: 'timeseries',
-  url: '/api/v1/telemetry/TimeSeries',
+  url: API_ENDPOINTS.TELEMETRY_TIMESERIES, // '/api/v1/telemetry/TimeSeries'
   root_selector: '',
   columns: [
     { selector: 'timestamp', text: 'Time', type: 'timestamp' },
@@ -161,7 +164,7 @@ const queryC = {
   source: 'url',
   parser: 'backend',
   format: 'timeseries',
-  url: '/api/v1/telemetry/TimeSeries',
+  url: API_ENDPOINTS.TELEMETRY_TIMESERIES, // '/api/v1/telemetry/TimeSeries'
   root_selector: '',
   columns: [
     { selector: 'timestamp', text: 'Time', type: 'timestamp' },
@@ -232,8 +235,6 @@ const queryC = {
  * Pattern from Environmental tab's host drilldown
  */
 function createDrilldownQuery(baseQuery: any, hostName: string): any {
-  console.log('[CPUUtil] createDrilldownQuery called with hostName:', hostName);
-
   // Deep clone the base query
   const drilldownQuery = JSON.parse(JSON.stringify(baseQuery));
 
@@ -241,119 +242,18 @@ function createDrilldownQuery(baseQuery: any, hostName: string): any {
   // Escape special regex characters in hostname
   const escapedHostName = hostName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
-  console.log('[CPUUtil] Original query data (first 200 chars):', drilldownQuery.url_options.data.substring(0, 200));
-
   drilldownQuery.url_options.data = drilldownQuery.url_options.data.replace(
     /"pattern": "\^\$\{ChassisName:regex\}"/g,
     `"pattern": "^${escapedHostName}"`
   );
 
-  console.log('[CPUUtil] Modified query data (first 200 chars):', drilldownQuery.url_options.data.substring(0, 200));
-
   return drilldownQuery;
-}
-
-// ============================================================================
-// DRILLDOWN HEADER COMPONENT (Header + Back Button)
-// ============================================================================
-
-interface DrilldownHeaderControlState extends SceneObjectState {
-  hostName: string;
-  onBack: () => void;
-}
-
-class DrilldownHeaderControl extends SceneObjectBase<DrilldownHeaderControlState> {
-  public static Component = DrilldownHeaderRenderer;
-}
-
-function DrilldownHeaderRenderer({ model }: SceneComponentProps<DrilldownHeaderControl>) {
-  const { hostName, onBack } = model.useState();
-
-  return (
-    <div style={{
-      padding: '12px 0',
-      display: 'flex',
-      alignItems: 'center',
-      gap: '20px',
-      borderBottom: '1px solid rgba(204, 204, 220, 0.15)',
-    }}>
-      <button
-        onClick={onBack}
-        style={{
-          padding: '6px 12px',
-          cursor: 'pointer',
-          background: 'transparent',
-          border: '1px solid rgba(204, 204, 220, 0.25)',
-          borderRadius: '2px',
-          color: 'inherit',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '6px',
-          fontSize: '14px',
-        }}
-      >
-        <span>&larr;</span>
-        <span>Back to Table</span>
-      </button>
-      <div style={{
-        fontSize: '18px',
-        fontWeight: 500,
-      }}>
-        Drilldown: {hostName}
-      </div>
-    </div>
-  );
 }
 
 // ============================================================================
 // CLICKABLE TABLE WRAPPER COMPONENT
 // ============================================================================
 
-interface ClickableTableWrapperState extends SceneObjectState {
-  tablePanel: any;
-  onRowClick: (name: string) => void;
-}
-
-class ClickableTableWrapper extends SceneObjectBase<ClickableTableWrapperState> {
-  public static Component = ClickableTableWrapperRenderer;
-}
-
-function ClickableTableWrapperRenderer({ model }: SceneComponentProps<ClickableTableWrapper>) {
-  const { tablePanel, onRowClick } = model.useState();
-
-  const handleClick = (event: React.MouseEvent) => {
-    console.log('[CPUUtil] Click detected on table');
-
-    // Find the closest row (uses role="row")
-    const row = (event.target as HTMLElement).closest('[role="row"]');
-
-    if (!row) {
-      console.log('[CPUUtil] No row found');
-      return;
-    }
-
-    // Get the first cell (uses role="cell" for this table, positioned at left: 0px)
-    const firstCell = row.querySelector('[role="cell"]');
-
-    if (firstCell) {
-      const name = firstCell.textContent?.trim();
-      console.log('[CPUUtil] Extracted name from first cell:', name);
-
-      if (name) {
-        console.log('[CPUUtil] Calling onRowClick with:', name);
-        onRowClick(name);
-      }
-    } else {
-      console.log('[CPUUtil] First cell not found');
-    }
-  };
-
-  return (
-    <div onClick={handleClick} style={{ cursor: 'pointer', width: '100%', height: '100%' }}>
-      <tablePanel.Component model={tablePanel} />
-    </div>
-  );
-}
 
 // ============================================================================
 // DYNAMIC CPU UTILIZATION SCENE - Conditional rendering based on ChassisName
@@ -403,12 +303,10 @@ class DynamicCPUUtilizationScene extends SceneObjectBase<DynamicCPUUtilizationSc
    * Drills down to a specific host's detailed view
    */
   public drillToHost(hostName: string) {
-    console.log('[CPUUtil] drillToHost called with:', hostName);
     this.setState({
       drilldownHost: hostName,
       isDrilldown: true,
     });
-    console.log('[CPUUtil] State updated, calling rebuildBody');
     this.rebuildBody();
   }
 
@@ -424,17 +322,13 @@ class DynamicCPUUtilizationScene extends SceneObjectBase<DynamicCPUUtilizationSc
   }
 
   private rebuildBody() {
-    console.log('[CPUUtil] rebuildBody called, isActive:', this.isActive, 'isDrilldown:', this.state.isDrilldown, 'drilldownHost:', this.state.drilldownHost);
-
     // Skip if scene is not active (prevents race conditions during deactivation)
     if (!this.isActive) {
-      console.log('[CPUUtil] Scene not active, skipping rebuild');
       return;
     }
 
     // Check for drilldown mode first
     if (this.state.isDrilldown && this.state.drilldownHost) {
-      console.log('[CPUUtil] Creating drilldown view for host:', this.state.drilldownHost);
       const drilldownBody = createDrilldownView(this.state.drilldownHost, this);
       this.setState({ body: drilldownBody });
       return;
@@ -577,11 +471,10 @@ function createDualGraphsBody() {
 // ============================================================================
 
 function createDrilldownView(hostName: string, scene: DynamicCPUUtilizationScene) {
-  console.log('[CPUUtil] createDrilldownView called for host:', hostName);
-
   // Create combined header with back button
   const drilldownHeader = new DrilldownHeaderControl({
-    hostName: hostName,
+    itemName: hostName,
+    backButtonText: 'Back to Table',
     onBack: () => scene.exitDrilldown(),
   });
 
@@ -775,7 +668,6 @@ function createMultiChassisTableBody(scene: DynamicCPUUtilizationScene) {
   const clickableTable = new ClickableTableWrapper({
     tablePanel: tablePanel,
     onRowClick: (hostName: string) => {
-      console.log('[CPUUtil] onRowClick callback called with:', hostName);
       scene.drillToHost(hostName);
     },
   });

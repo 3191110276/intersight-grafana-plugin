@@ -24,232 +24,19 @@ import { DashboardCursorSync } from '@grafana/data';
 import { TabbedScene } from '../../components/TabbedScene';
 import { LoggingQueryRunner } from '../../utils/LoggingQueryRunner';
 import { LoggingDataTransformer } from '../../utils/LoggingDataTransformer';
-
-// ============================================================================
-// HELPER FUNCTIONS
-// ============================================================================
-
-/**
- * Get chassis count from ChassisName variable
- * Used to determine single vs multiple chassis view
- */
-function getChassisCount(scene: SceneObjectBase): number {
-  const variable = sceneGraph.lookupVariable('ChassisName', scene);
-  if (!variable || !('state' in variable)) {
-    return 0;
-  }
-
-  const value = (variable.state as any).value;
-
-  if (Array.isArray(value)) {
-    return value.filter((v) => v && v !== '$__all').length;
-  } else if (value && value !== '$__all') {
-    return 1;
-  }
-
-  return 0;
-}
-
-/**
- * Create drilldown query by replacing ChassisName variable with hardcoded value
- */
-function createDrilldownQuery(baseQuery: any, chassisName: string): any {
-  const drilldownQuery = JSON.parse(JSON.stringify(baseQuery));
-  const escapedChassisName = JSON.stringify(chassisName);
-
-  // Replace [${ChassisName:doublequote}] with ["chassisName"]
-  drilldownQuery.url_options.data = drilldownQuery.url_options.data.replace(
-    /\[\$\{ChassisName:doublequote\}\]/g,
-    `[${escapedChassisName}]`
-  );
-
-  return drilldownQuery;
-}
-
-// ============================================================================
-// DRILLDOWN HEADER COMPONENT
-// ============================================================================
-
-interface DrilldownHeaderControlState extends SceneObjectState {
-  chassisName: string;
-  onBack: () => void;
-}
-
-class DrilldownHeaderControl extends SceneObjectBase<DrilldownHeaderControlState> {
-  public static Component = DrilldownHeaderRenderer;
-}
-
-function DrilldownHeaderRenderer({ model }: SceneComponentProps<DrilldownHeaderControl>) {
-  const { chassisName, onBack } = model.useState();
-
-  return (
-    <div
-      style={{
-        padding: '12px 0',
-        display: 'flex',
-        alignItems: 'center',
-        gap: '20px',
-        borderBottom: '1px solid rgba(204, 204, 220, 0.15)',
-      }}
-    >
-      <button
-        onClick={onBack}
-        style={{
-          padding: '6px 12px',
-          cursor: 'pointer',
-          background: 'transparent',
-          border: '1px solid rgba(204, 204, 220, 0.25)',
-          borderRadius: '2px',
-          color: 'inherit',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '6px',
-          fontSize: '14px',
-        }}
-      >
-        <span>&larr;</span>
-        <span>Back to Overview</span>
-      </button>
-      <div
-        style={{
-          fontSize: '18px',
-          fontWeight: 500,
-        }}
-      >
-        Drilldown: Chassis: {chassisName}
-      </div>
-    </div>
-  );
-}
-
-// ============================================================================
-// CLICKABLE TABLE WRAPPER COMPONENT
-// ============================================================================
-
-interface ClickableTableWrapperState extends SceneObjectState {
-  tablePanel: any;
-  onRowClick: (name: string) => void;
-}
-
-class ClickableTableWrapper extends SceneObjectBase<ClickableTableWrapperState> {
-  public static Component = ClickableTableWrapperRenderer;
-}
-
-function ClickableTableWrapperRenderer({ model }: SceneComponentProps<ClickableTableWrapper>) {
-  const { tablePanel, onRowClick } = model.useState();
-
-  const handleClick = (event: React.MouseEvent) => {
-    // Find the row element
-    let row = (event.target as HTMLElement).closest('[role="row"]');
-
-    // Fallback: try standard table selectors
-    if (!row) {
-      row = (event.target as HTMLElement).closest('tr');
-    }
-
-    if (!row) {
-      return;
-    }
-
-    // Grafana's virtualized table uses <div role="cell"> without aria-colindex
-    // Try multiple selector strategies for first cell
-    let firstCell = row.querySelector('[role="gridcell"][aria-colindex="1"]'); // Old Grafana tables
-
-    if (!firstCell) {
-      // Grafana 12+ virtualized tables use role="cell"
-      firstCell = row.querySelector('[role="cell"]');
-    }
-
-    if (!firstCell) {
-      // Fallback: try first td (non-virtualized tables)
-      firstCell = row.querySelector('td:first-child');
-    }
-
-    if (firstCell) {
-      const name = firstCell.textContent?.trim();
-      if (name) {
-        onRowClick(name);
-      }
-    }
-  };
-
-  return (
-    <div onClick={handleClick} style={{ cursor: 'pointer', width: '100%', height: '100%' }}>
-      <tablePanel.Component model={tablePanel} />
-    </div>
-  );
-}
+import { DrilldownHeaderControl } from '../../components/DrilldownHeaderControl';
+import { ClickableTableWrapper } from '../../components/ClickableTableWrapper';
+import { SharedDrilldownState, findSharedDrilldownState } from '../../utils/drilldownState';
+import { getChassisCount, createDrilldownQuery } from '../../utils/drilldownHelpers';
+import { DrilldownDetailsContainer, DrilldownDetailsContainerState, DrilldownDetailsContainerRenderer } from '../../utils/DrilldownDetailsContainer';
+import { NETWORK_ERROR_LABELS } from '../../utils/constants';
+import { API_ENDPOINTS, COLUMN_WIDTHS } from './constants';
 
 // ============================================================================
 // SHARED DRILLDOWN STATE
 // ============================================================================
 
-interface SharedDrilldownStateState extends SceneObjectState {
-  mode: 'overview' | 'drilldown';
-  chassisName?: string;
-  lastChassisValue?: any;  // Track previous ChassisName value to detect changes
-}
-
-/**
- * Shared drilldown state manager that synchronizes drilldown across all Network Errors containers
- */
-class SharedDrilldownState extends SceneObjectBase<SharedDrilldownStateState> {
-  public static Component = () => null; // Non-visual component
-  // @ts-ignore
-  protected _variableDependency = new VariableDependencyConfig(this, {
-    variableNames: ['ChassisName'],
-    onReferencedVariableValueChanged: () => {
-      const currentChassisValue = this.getChassisVariableValue();
-      const lastChassisValue = this.state.lastChassisValue;
-
-      // Only exit drilldown if ChassisName actually changed
-      if (this.hasChassisVariableChanged(lastChassisValue, currentChassisValue)) {
-        if (this.state.mode !== 'overview') {
-          this.exitDrilldown();
-        }
-      }
-
-      // Update tracked value
-      this.setState({ lastChassisValue: currentChassisValue });
-    },
-  });
-
-  public drillToChassis(chassisName: string) {
-    this.setState({
-      mode: 'drilldown',
-      chassisName,
-    });
-  }
-
-  public exitDrilldown() {
-    this.setState({
-      mode: 'overview',
-      chassisName: undefined,
-    });
-  }
-
-  private getChassisVariableValue(): any {
-    const variable = sceneGraph.lookupVariable('ChassisName', this);
-    if (!variable || !('state' in variable)) {
-      return undefined;
-    }
-    return (variable.state as any).value;
-  }
-
-  private hasChassisVariableChanged(oldValue: any, newValue: any): boolean {
-    // Handle arrays (multi-select)
-    if (Array.isArray(oldValue) && Array.isArray(newValue)) {
-      if (oldValue.length !== newValue.length) return true;
-      // Sort and compare
-      const sorted1 = [...oldValue].sort();
-      const sorted2 = [...newValue].sort();
-      return !sorted1.every((val, idx) => val === sorted2[idx]);
-    }
-
-    // Handle simple values
-    return oldValue !== newValue;
-  }
-}
+// Using shared drilldown state from utils/drilldownState.ts
 
 // ============================================================================
 // BASE QUERIES - eCMC DOWNLINKS
@@ -267,7 +54,7 @@ function createDownlinkPortsQuery() {
     source: 'url',
     parser: 'backend',
     format: 'table',
-    url: '/api/v1/telemetry/TimeSeries',
+    url: API_ENDPOINTS.TELEMETRY_TIMESERIES, // '/api/v1/telemetry/TimeSeries'
     root_selector: '',
     columns: [
       { selector: 'timestamp', text: 'Time', type: 'timestamp' },
@@ -396,7 +183,7 @@ function createDownlinkPortsTableQuery() {
     source: 'url',
     parser: 'backend',
     format: 'table',
-    url: '/api/v1/telemetry/TimeSeries',
+    url: API_ENDPOINTS.TELEMETRY_TIMESERIES, // '/api/v1/telemetry/TimeSeries'
     root_selector: '',
     columns: [
       { selector: 'timestamp', text: 'Time', type: 'timestamp' },
@@ -537,7 +324,7 @@ function createUplinkPortsQuery() {
     source: 'url',
     parser: 'backend',
     format: 'table',
-    url: '/api/v1/telemetry/TimeSeries',
+    url: API_ENDPOINTS.TELEMETRY_TIMESERIES, // '/api/v1/telemetry/TimeSeries'
     root_selector: '',
     columns: [
       { selector: 'timestamp', text: 'Time', type: 'timestamp' },
@@ -696,7 +483,7 @@ function createUplinkPortChannelsQuery() {
     source: 'url',
     parser: 'backend',
     format: 'table',
-    url: '/api/v1/telemetry/TimeSeries',
+    url: API_ENDPOINTS.TELEMETRY_TIMESERIES, // '/api/v1/telemetry/TimeSeries'
     root_selector: '',
     columns: [
       { selector: 'timestamp', text: 'Time', type: 'timestamp' },
@@ -861,7 +648,7 @@ function createUplinkPortsTableQuery() {
     source: 'url',
     parser: 'backend',
     format: 'table',
-    url: '/api/v1/telemetry/TimeSeries',
+    url: API_ENDPOINTS.TELEMETRY_TIMESERIES, // '/api/v1/telemetry/TimeSeries'
     root_selector: '',
     columns: [
       { selector: 'timestamp', text: 'Time', type: 'timestamp' },
@@ -1028,7 +815,7 @@ function createUplinkPortChannelsTableQuery() {
     source: 'url',
     parser: 'backend',
     format: 'table',
-    url: '/api/v1/telemetry/TimeSeries',
+    url: API_ENDPOINTS.TELEMETRY_TIMESERIES, // '/api/v1/telemetry/TimeSeries'
     root_selector: '',
     columns: [
       { selector: 'timestamp', text: 'Time', type: 'timestamp' },
@@ -1187,98 +974,44 @@ function createUplinkPortChannelsTableQuery() {
 // NETWORK ERRORS DETAILS CONTAINER
 // ============================================================================
 
-interface NetworkErrorsDetailsContainerState extends SceneObjectState {
+interface NetworkErrorsDetailsContainerState extends DrilldownDetailsContainerState {
   sectionType: 'ports' | 'port-channels' | 'downlinks';
-  body: any;
 }
 
 /**
  * Container scene that manages conditional rendering and drilldown for network errors details
  */
-class NetworkErrorsDetailsContainer extends SceneObjectBase<NetworkErrorsDetailsContainerState> {
-  public static Component = NetworkErrorsDetailsContainerRenderer;
+class NetworkErrorsDetailsContainer extends DrilldownDetailsContainer<NetworkErrorsDetailsContainerState> {
+  public static Component = DrilldownDetailsContainerRenderer;
 
   public constructor(state: NetworkErrorsDetailsContainerState) {
-    super(state);
+    super(state, {
+      multiViewThreshold: 1,
+      emptyStateTitle: 'Network Errors',
+      emptyStateMessage: '### No Chassis Selected\n\nPlease select one or more chassis from the Chassis filter above.',
+    });
   }
 
-  // @ts-ignore
-  public activate() {
-    const result = super.activate();
+  // ============================================================================
+  // ABSTRACT METHOD IMPLEMENTATIONS
+  // ============================================================================
 
-    // Find and subscribe to shared drilldown state changes
-    const sharedDrilldownState = this.getSharedDrilldownState();
-    if (sharedDrilldownState) {
-      const subscription = sharedDrilldownState.subscribeToState(() => {
-        this.rebuildBody();
-      });
-
-      // Store subscription for cleanup
-      this._subs.add(subscription);
-    }
-
-    // Build panels when scene becomes active (when it has access to variables)
-    this.rebuildBody();
-    return result;
-  }
-
-  public drillToChassis(chassisName: string) {
-    const sharedState = this.getSharedDrilldownState();
-    if (sharedState) {
-      sharedState.drillToChassis(chassisName);
-    }
-  }
-
-  public exitDrilldown() {
-    const sharedState = this.getSharedDrilldownState();
-    if (sharedState) {
-      sharedState.exitDrilldown();
-    }
-  }
-
-  private getSharedDrilldownState(): SharedDrilldownState | null {
-    try {
-      return sceneGraph.findObject(this, (obj) => obj instanceof SharedDrilldownState) as SharedDrilldownState;
-    } catch {
-      return null;
-    }
-  }
-
-  private rebuildBody() {
-    // Only rebuild if scene is active (has access to variables)
-    if (!this.isActive) {
-      return;
-    }
-
+  protected createDrilldownView(target: string): any {
     const { sectionType } = this.state;
+    return createDrilldownView(target, this, sectionType);
+  }
 
-    // Get drilldown state from scene graph
-    const sharedDrilldownState = this.getSharedDrilldownState();
-    const mode = sharedDrilldownState?.state.mode || 'overview';
-    const chassisName = sharedDrilldownState?.state.chassisName;
+  protected createSingleView(count: number): any {
+    const { sectionType } = this.state;
+    return createLineChartView(sectionType);
+  }
 
-    // Priority 1: Drilldown mode
-    if (mode === 'drilldown' && chassisName) {
-      this.setState({ body: createDrilldownView(chassisName, this, sectionType) });
-      return;
-    }
+  protected createMultiView(count: number): any {
+    const { sectionType } = this.state;
+    return createSummaryView(this, count, sectionType);
+  }
 
-    // Priority 2: Get chassis count
-    const count = getChassisCount(this);
-
-    // Priority 3: Single chassis (1) - show line chart view
-    if (count === 1) {
-      this.setState({ body: createLineChartView(sectionType) });
-      return;
-    }
-
-    // Priority 4: Multi-chassis (2+) - show table with drilldown
-    if (count > 1) {
-      this.setState({ body: createSummaryView(this, count, sectionType) });
-      return;
-    }
-
-    // Priority 5: No chassis selected - show empty state
+  protected createEmptyState(): any {
     const emptyStatePanel = PanelBuilders.text()
       .setTitle('Network Errors')
       .setOption('content', '### No Chassis Selected\n\nPlease select one or more chassis from the Chassis filter above.')
@@ -1286,24 +1019,12 @@ class NetworkErrorsDetailsContainer extends SceneObjectBase<NetworkErrorsDetails
       .setDisplayMode('transparent')
       .build();
 
-    this.setState({
-      body: new SceneFlexLayout({
-        children: [
-          new SceneFlexItem({ ySizing: 'fill', body: emptyStatePanel })
-        ]
-      })
+    return new SceneFlexLayout({
+      children: [
+        new SceneFlexItem({ ySizing: 'fill', body: emptyStatePanel })
+      ]
     });
   }
-}
-
-function NetworkErrorsDetailsContainerRenderer({ model }: SceneComponentProps<NetworkErrorsDetailsContainer>) {
-  const { body } = model.useState();
-
-  return (
-    <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column' }}>
-      {body && body.Component && <body.Component model={body} />}
-    </div>
-  );
 }
 
 // ============================================================================
@@ -1347,23 +1068,6 @@ function createLineChartView(tabType: 'ports' | 'port-channels' | 'downlinks'): 
     ? ['jabber', 'late_collisions']
     : ['deferred', 'late_collisions', 'carrier_sense', 'tx_discard', 'jabber'];
 
-  // Human-readable names for error types
-  const errorTypeLabels: Record<string, string> = {
-    // RX errors
-    'too_short': 'Too Short',
-    'crc': 'CRC',
-    'too_long': 'Too Long',
-    'runt': 'Runt',
-    'no_buffer': 'No Buffer',
-    'rx_discard': 'RX Discard',
-    // TX errors
-    'jabber': 'Jabber',
-    'late_collisions': 'Late Collisions',
-    'deferred': 'Deferred',
-    'carrier_sense': 'Carrier Sense',
-    'tx_discard': 'TX Discard',
-  };
-
   // A: Transmit errors transformer
   const aTxTransformer = new LoggingDataTransformer({
     $data: queryRunner.clone(),
@@ -1396,7 +1100,7 @@ function createLineChartView(tabType: 'ports' | 'port-channels' | 'downlinks'): 
           includeByName: {},
           indexByName: {},
           renameByName: Object.fromEntries(
-            txErrorFields.map(field => [field, errorTypeLabels[field] || field])
+            txErrorFields.map(field => [field, NETWORK_ERROR_LABELS[field] || field])
           ),
         },
       },
@@ -1501,7 +1205,7 @@ function createLineChartView(tabType: 'ports' | 'port-channels' | 'downlinks'): 
           includeByName: {},
           indexByName: {},
           renameByName: Object.fromEntries(
-            rxErrorFields.map(field => [field, errorTypeLabels[field] || field])
+            rxErrorFields.map(field => [field, NETWORK_ERROR_LABELS[field] || field])
           ),
         },
       },
@@ -1613,7 +1317,7 @@ function createLineChartView(tabType: 'ports' | 'port-channels' | 'downlinks'): 
           includeByName: {},
           indexByName: {},
           renameByName: Object.fromEntries(
-            txErrorFields.map(field => [field, errorTypeLabels[field] || field])
+            txErrorFields.map(field => [field, NETWORK_ERROR_LABELS[field] || field])
           ),
         },
       },
@@ -1718,7 +1422,7 @@ function createLineChartView(tabType: 'ports' | 'port-channels' | 'downlinks'): 
           includeByName: {},
           indexByName: {},
           renameByName: Object.fromEntries(
-            rxErrorFields.map(field => [field, errorTypeLabels[field] || field])
+            rxErrorFields.map(field => [field, NETWORK_ERROR_LABELS[field] || field])
           ),
         },
       },
@@ -1897,7 +1601,7 @@ function createSummaryView(
       enablePagination: true,
       show: false,
     })
-    .setOption('sortBy', [{ displayName: 'Total Errors', desc: true }])
+    .setOption('sortBy', [{ displayName: 'Total', desc: true }])
     .setCustomFieldConfig('filterable', true)
     .setOverrides((builder) => {
       builder.matchFieldsWithName('Chassis').overrideCustomFieldConfig('width', 240);
@@ -2035,7 +1739,9 @@ function createDrilldownView(
   tabType: 'ports' | 'port-channels' | 'downlinks'
 ): SceneFlexLayout {
   const drilldownHeader = new DrilldownHeaderControl({
-    chassisName: chassisName,
+    itemName: chassisName,
+    itemLabel: 'Chassis',
+    backButtonText: 'Back to Overview',
     onBack: () => scene.exitDrilldown(),
   });
 
@@ -2072,23 +1778,6 @@ function createDrilldownView(
     ? ['jabber', 'late_collisions']
     : ['deferred', 'late_collisions', 'carrier_sense', 'tx_discard', 'jabber'];
 
-  // Human-readable names for error types
-  const errorTypeLabels: Record<string, string> = {
-    // RX errors
-    'too_short': 'Too Short',
-    'crc': 'CRC',
-    'too_long': 'Too Long',
-    'runt': 'Runt',
-    'no_buffer': 'No Buffer',
-    'rx_discard': 'RX Discard',
-    // TX errors
-    'jabber': 'Jabber',
-    'late_collisions': 'Late Collisions',
-    'deferred': 'Deferred',
-    'carrier_sense': 'Carrier Sense',
-    'tx_discard': 'TX Discard',
-  };
-
   // A: Transmit errors transformer
   const aTxTransformer = new LoggingDataTransformer({
     $data: queryRunner.clone(),
@@ -2121,7 +1810,7 @@ function createDrilldownView(
           includeByName: {},
           indexByName: {},
           renameByName: Object.fromEntries(
-            txErrorFields.map(field => [field, errorTypeLabels[field] || field])
+            txErrorFields.map(field => [field, NETWORK_ERROR_LABELS[field] || field])
           ),
         },
       },
@@ -2226,7 +1915,7 @@ function createDrilldownView(
           includeByName: {},
           indexByName: {},
           renameByName: Object.fromEntries(
-            rxErrorFields.map(field => [field, errorTypeLabels[field] || field])
+            rxErrorFields.map(field => [field, NETWORK_ERROR_LABELS[field] || field])
           ),
         },
       },
@@ -2338,7 +2027,7 @@ function createDrilldownView(
           includeByName: {},
           indexByName: {},
           renameByName: Object.fromEntries(
-            txErrorFields.map(field => [field, errorTypeLabels[field] || field])
+            txErrorFields.map(field => [field, NETWORK_ERROR_LABELS[field] || field])
           ),
         },
       },
@@ -2443,7 +2132,7 @@ function createDrilldownView(
           includeByName: {},
           indexByName: {},
           renameByName: Object.fromEntries(
-            rxErrorFields.map(field => [field, errorTypeLabels[field] || field])
+            rxErrorFields.map(field => [field, NETWORK_ERROR_LABELS[field] || field])
           ),
         },
       },
@@ -2569,9 +2258,8 @@ function createDrilldownView(
 export function getNetworkErrorsTab() {
   // Create shared drilldown state
   const sharedDrilldownState = new SharedDrilldownState({
-    mode: 'overview',
-    chassisName: undefined,
-    lastChassisValue: undefined,
+    variableName: 'ChassisName',
+    initialMode: 'overview',
   });
 
   const uplinksRow = createUplinksRow();

@@ -69,6 +69,7 @@ module.exports = (env, argv) => {
         patterns: [
           { from: 'src/plugin.json', to: '.' },
           { from: 'src/img', to: 'img', noErrorOnMissing: true },
+          { from: 'LICENSE', to: '.' },
         ],
       }),
     ],

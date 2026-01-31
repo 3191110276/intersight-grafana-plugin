@@ -22,6 +22,7 @@ import { LoggingQueryRunner } from '../../utils/LoggingQueryRunner';
 import { LoggingDataTransformer } from '../../utils/LoggingDataTransformer';
 import { EmptyStateScene } from '../../components/EmptyStateScene';
 import { getEmptyStateScenario } from '../../utils/emptyStateHelpers';
+import { DrilldownHeaderControl } from '../../components/DrilldownHeaderControl';
 
 // ============================================================================
 // QUERY DEFINITIONS
@@ -524,59 +525,6 @@ function createDrilldownQuery(
 }
 
 // ============================================================================
-// DRILLDOWN HEADER COMPONENT
-// ============================================================================
-
-interface DrilldownHeaderControlState extends SceneObjectState {
-  hostName: string;
-  portName: string;
-  onBack: () => void;
-}
-
-class DrilldownHeaderControl extends SceneObjectBase<DrilldownHeaderControlState> {
-  public static Component = DrilldownHeaderRenderer;
-}
-
-function DrilldownHeaderRenderer({ model }: SceneComponentProps<DrilldownHeaderControl>) {
-  const { hostName, portName, onBack } = model.useState();
-
-  return (
-    <div style={{
-      padding: '12px 0',
-      display: 'flex',
-      alignItems: 'center',
-      gap: '20px',
-      borderBottom: '1px solid rgba(204, 204, 220, 0.15)',
-    }}>
-      <button
-        onClick={onBack}
-        style={{
-          padding: '6px 12px',
-          cursor: 'pointer',
-          background: 'transparent',
-          border: '1px solid rgba(204, 204, 220, 0.25)',
-          borderRadius: '2px',
-          color: 'inherit',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '6px',
-          fontSize: '14px',
-        }}
-      >
-        <span>&larr;</span>
-        <span>Back to Overview</span>
-      </button>
-      <div style={{
-        fontSize: '18px',
-        fontWeight: 500,
-      }}>
-        SFP: {hostName} / {portName}
-      </div>
-    </div>
-  );
-}
-
-// ============================================================================
 // CLICKABLE TABLE WRAPPER COMPONENT (extracts 3 columns)
 // ============================================================================
 
@@ -783,8 +731,9 @@ function createDrilldownView(
   scene: DynamicSFPScene
 ) {
   const drilldownHeader = new DrilldownHeaderControl({
-    hostName,
-    portName,
+    itemName: `${hostName} / ${portName}`,
+    itemLabel: 'SFP',
+    backButtonText: 'Back to Overview',
     onBack: () => scene.exitDrilldown(),
   });
 

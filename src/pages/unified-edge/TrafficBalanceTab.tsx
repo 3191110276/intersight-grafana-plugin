@@ -16,140 +16,10 @@ import {
 import { DashboardCursorSync } from '@grafana/data';
 import { LoggingQueryRunner } from '../../utils/LoggingQueryRunner';
 import { LoggingDataTransformer } from '../../utils/LoggingDataTransformer';
-
-// ============================================================================
-// HELPER FUNCTIONS
-// ============================================================================
-
-/**
- * Get chassis count from ChassisName variable
- */
-function getChassisCount(scene: SceneObjectBase): number {
-  const variable = sceneGraph.lookupVariable('ChassisName', scene);
-  if (!variable || !('state' in variable)) {
-    return 0;
-  }
-
-  const value = (variable.state as any).value;
-
-  if (Array.isArray(value)) {
-    return value.filter(v => v && v !== '$__all').length;
-  } else if (value && value !== '$__all') {
-    return 1;
-  }
-
-  return 0;
-}
-
-/**
- * Create drilldown query by replacing ChassisName variable with hardcoded value
- */
-function createDrilldownQuery(baseQuery: any, chassisName: string): any {
-  const drilldownQuery = JSON.parse(JSON.stringify(baseQuery));
-  const escapedChassisName = JSON.stringify(chassisName);
-
-  // Replace [${ChassisName:doublequote}] with ["chassisName"]
-  drilldownQuery.url_options.data = drilldownQuery.url_options.data.replace(
-    /\[\$\{ChassisName:doublequote\}\]/g,
-    `[${escapedChassisName}]`
-  );
-
-  return drilldownQuery;
-}
-
-// ============================================================================
-// DRILLDOWN HEADER COMPONENT
-// ============================================================================
-
-interface DrilldownHeaderControlState extends SceneObjectState {
-  chassisName: string;
-  onBack: () => void;
-}
-
-class DrilldownHeaderControl extends SceneObjectBase<DrilldownHeaderControlState> {
-  public static Component = DrilldownHeaderRenderer;
-}
-
-function DrilldownHeaderRenderer({ model }: SceneComponentProps<DrilldownHeaderControl>) {
-  const { chassisName, onBack } = model.useState();
-
-  return (
-    <div style={{
-      padding: '12px 0',
-      display: 'flex',
-      alignItems: 'center',
-      gap: '20px',
-      borderBottom: '1px solid rgba(204, 204, 220, 0.15)',
-    }}>
-      <button
-        onClick={onBack}
-        style={{
-          padding: '6px 12px',
-          cursor: 'pointer',
-          background: 'transparent',
-          border: '1px solid rgba(204, 204, 220, 0.25)',
-          borderRadius: '2px',
-          color: 'inherit',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '6px',
-          fontSize: '14px',
-        }}
-      >
-        <span>&larr;</span>
-        <span>Back to Overview</span>
-      </button>
-      <div style={{
-        fontSize: '18px',
-        fontWeight: 500,
-      }}>
-        Drilldown: Chassis {chassisName}
-      </div>
-    </div>
-  );
-}
-
-// ============================================================================
-// CLICKABLE TABLE WRAPPER COMPONENT
-// ============================================================================
-
-interface ClickableTableWrapperState extends SceneObjectState {
-  tablePanel: any;
-  onRowClick: (name: string) => void;
-}
-
-class ClickableTableWrapper extends SceneObjectBase<ClickableTableWrapperState> {
-  public static Component = ClickableTableWrapperRenderer;
-}
-
-function ClickableTableWrapperRenderer({ model }: SceneComponentProps<ClickableTableWrapper>) {
-  const { tablePanel, onRowClick } = model.useState();
-
-  const handleClick = (event: React.MouseEvent) => {
-    const row = (event.target as HTMLElement).closest('[role="row"]');
-
-    if (!row) {
-      return;
-    }
-
-    const allCells = row.querySelectorAll('[role="cell"]');
-    const firstCell = allCells[0];
-
-    if (firstCell) {
-      const name = firstCell.textContent?.trim();
-
-      if (name) {
-        onRowClick(name);
-      }
-    }
-  };
-
-  return (
-    <div onClick={handleClick} style={{ cursor: 'pointer', width: '100%', height: '100%' }}>
-      <tablePanel.Component model={tablePanel} />
-    </div>
-  );
-}
+import { DrilldownHeaderControl } from '../../components/DrilldownHeaderControl';
+import { ClickableTableWrapper } from '../../components/ClickableTableWrapper';
+import { getChassisCount, createDrilldownQuery } from '../../utils/drilldownHelpers';
+import { API_ENDPOINTS, COLUMN_WIDTHS } from './constants';
 
 // ============================================================================
 // TRAFFIC BALANCE DETAILS CONTAINER
@@ -358,7 +228,9 @@ function createTableView(parent: TrafficBalanceDetailsContainer) {
  */
 function createDrilldownView(chassisName: string, parent: TrafficBalanceDetailsContainer) {
   const drilldownHeader = new DrilldownHeaderControl({
-    chassisName: chassisName,
+    itemName: chassisName,
+    itemLabel: 'Chassis',
+    backButtonText: 'Back to Overview',
     onBack: () => parent.exitDrilldown(),
   });
 
@@ -413,7 +285,7 @@ function createPanel189_LineChart(isDrilldown: boolean, chassisName?: string) {
     source: 'url',
     parser: 'backend',
     format: 'timeseries',
-    url: '/api/v1/telemetry/TimeSeries',
+    url: API_ENDPOINTS.TELEMETRY_TIMESERIES, // '/api/v1/telemetry/TimeSeries'
     root_selector: '',
     columns: [
       { selector: 'timestamp', text: 'Time', type: 'timestamp' },
@@ -531,7 +403,7 @@ function createPanel190_LineChart(isDrilldown: boolean, chassisName?: string) {
     source: 'url',
     parser: 'backend',
     format: 'timeseries',
-    url: '/api/v1/telemetry/TimeSeries',
+    url: API_ENDPOINTS.TELEMETRY_TIMESERIES, // '/api/v1/telemetry/TimeSeries'
     root_selector: '',
     columns: [
       { selector: 'timestamp', text: 'Time', type: 'timestamp' },
@@ -649,7 +521,7 @@ function createPanel191_LineChart(isDrilldown: boolean, chassisName?: string) {
     source: 'url',
     parser: 'backend',
     format: 'timeseries',
-    url: '/api/v1/telemetry/TimeSeries',
+    url: API_ENDPOINTS.TELEMETRY_TIMESERIES, // '/api/v1/telemetry/TimeSeries'
     root_selector: '',
     columns: [
       { selector: 'timestamp', text: 'Time', type: 'timestamp' },
@@ -767,7 +639,7 @@ function createPanel192_LineChart(isDrilldown: boolean, chassisName?: string) {
     source: 'url',
     parser: 'backend',
     format: 'timeseries',
-    url: '/api/v1/telemetry/TimeSeries',
+    url: API_ENDPOINTS.TELEMETRY_TIMESERIES, // '/api/v1/telemetry/TimeSeries'
     root_selector: '',
     columns: [
       { selector: 'timestamp', text: 'Time', type: 'timestamp' },
@@ -889,7 +761,7 @@ function createPanel189_Table(parent: TrafficBalanceDetailsContainer) {
     source: 'url',
     parser: 'backend',
     format: 'timeseries',
-    url: '/api/v1/telemetry/TimeSeries',
+    url: API_ENDPOINTS.TELEMETRY_TIMESERIES, // '/api/v1/telemetry/TimeSeries'
     root_selector: '',
     columns: [
       { selector: 'timestamp', text: 'Time', type: 'timestamp' },
@@ -1033,7 +905,7 @@ function createPanel190_Table(parent: TrafficBalanceDetailsContainer) {
     source: 'url',
     parser: 'backend',
     format: 'timeseries',
-    url: '/api/v1/telemetry/TimeSeries',
+    url: API_ENDPOINTS.TELEMETRY_TIMESERIES, // '/api/v1/telemetry/TimeSeries'
     root_selector: '',
     columns: [
       { selector: 'timestamp', text: 'Time', type: 'timestamp' },
@@ -1177,7 +1049,7 @@ function createPanel191_Table(parent: TrafficBalanceDetailsContainer) {
     source: 'url',
     parser: 'backend',
     format: 'timeseries',
-    url: '/api/v1/telemetry/TimeSeries',
+    url: API_ENDPOINTS.TELEMETRY_TIMESERIES, // '/api/v1/telemetry/TimeSeries'
     root_selector: '',
     columns: [
       { selector: 'timestamp', text: 'Time', type: 'timestamp' },
@@ -1321,7 +1193,7 @@ function createPanel192_Table(parent: TrafficBalanceDetailsContainer) {
     source: 'url',
     parser: 'backend',
     format: 'timeseries',
-    url: '/api/v1/telemetry/TimeSeries',
+    url: API_ENDPOINTS.TELEMETRY_TIMESERIES, // '/api/v1/telemetry/TimeSeries'
     root_selector: '',
     columns: [
       { selector: 'timestamp', text: 'Time', type: 'timestamp' },
@@ -1517,7 +1389,7 @@ function getPanel185_EthTransmitTrafficA() {
       source: 'url',
       parser: 'backend',
       format: 'table',
-      url: '/api/v1/telemetry/TimeSeries',
+      url: API_ENDPOINTS.TELEMETRY_TIMESERIES, // '/api/v1/telemetry/TimeSeries'
       root_selector: '',
       columns: [
         { selector: 'timestamp', text: 'Time', type: 'timestamp' },
@@ -1624,7 +1496,7 @@ function getPanel186_EthTransmitTrafficB() {
       source: 'url',
       parser: 'backend',
       format: 'table',
-      url: '/api/v1/telemetry/TimeSeries',
+      url: API_ENDPOINTS.TELEMETRY_TIMESERIES, // '/api/v1/telemetry/TimeSeries'
       root_selector: '',
       columns: [
         { selector: 'timestamp', text: 'Time', type: 'timestamp' },
@@ -1731,7 +1603,7 @@ function getPanel187_EthReceiveTrafficA() {
       source: 'url',
       parser: 'backend',
       format: 'table',
-      url: '/api/v1/telemetry/TimeSeries',
+      url: API_ENDPOINTS.TELEMETRY_TIMESERIES, // '/api/v1/telemetry/TimeSeries'
       root_selector: '',
       columns: [
         { selector: 'timestamp', text: 'Time', type: 'timestamp' },
@@ -1838,7 +1710,7 @@ function getPanel188_EthReceiveTrafficB() {
       source: 'url',
       parser: 'backend',
       format: 'table',
-      url: '/api/v1/telemetry/TimeSeries',
+      url: API_ENDPOINTS.TELEMETRY_TIMESERIES, // '/api/v1/telemetry/TimeSeries'
       root_selector: '',
       columns: [
         { selector: 'timestamp', text: 'Time', type: 'timestamp' },

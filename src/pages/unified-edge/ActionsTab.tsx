@@ -25,6 +25,7 @@ import { DataFrame, LoadingState, PanelData, getDefaultTimeRange } from '@grafan
 import { Observable } from 'rxjs';
 import { EmptyStateScene } from '../../components/EmptyStateScene';
 import { getEmptyStateScenario, getSelectedValues } from '../../utils/emptyStateHelpers';
+import { API_ENDPOINTS, WORKFLOW_STATUSES, FIELD_NAMES } from './constants';
 
 // ============================================================================
 // CUSTOM DATA PROVIDER - Filters columns based on data presence
@@ -363,13 +364,13 @@ function buildActionsBodyWithQueryRunner(
 
       // Status field
       builder
-        .matchFieldsWithName('Status')
+        .matchFieldsWithName(FIELD_NAMES.STATUS) // 'Status'
         .overrideMappings([
           {
             type: 'value' as any,
             options: {
-              Completed: { color: 'green', index: 0, text: 'Completed' },
-              Failed: { color: 'red', index: 1, text: 'Failed' },
+              [WORKFLOW_STATUSES.COMPLETED]: { color: 'green', index: 0, text: WORKFLOW_STATUSES.COMPLETED }, // 'Completed'
+              [WORKFLOW_STATUSES.FAILED]: { color: 'red', index: 1, text: WORKFLOW_STATUSES.FAILED }, // 'Failed'
             },
           },
         ])
@@ -464,7 +465,7 @@ function getAllChassisActionsPanel(chassisNames: string[], showChassisColumn: bo
       source: 'url',
       parser: 'backend',
       format: 'table',
-      url: `/api/v1/workflow/WorkflowInfos?$select=Name,Email,WorkflowStatus,Progress,CreateTime,StartTime,EndTime,Moid,TraceId,Src,Internal,WorkflowCtx/InitiatorCtx/InitiatorType&$skip=0&$top=1000&$filter=${filterClause}&$orderby=CreateTime desc`,
+      url: `${API_ENDPOINTS.WORKFLOW_WORKFLOW_INFO}s?$select=Name,Email,WorkflowStatus,Progress,CreateTime,StartTime,EndTime,Moid,TraceId,Src,Internal,WorkflowCtx/InitiatorCtx/InitiatorType&$skip=0&$top=1000&$filter=${filterClause}&$orderby=CreateTime desc`, // '/api/v1/workflow/WorkflowInfo'
       root_selector: '$.Results',
       columns: [
         { selector: 'CreateTime', text: 'CreateTime', type: 'timestamp' },
