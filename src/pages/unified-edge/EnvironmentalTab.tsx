@@ -21,6 +21,7 @@ import { getEmptyStateScenario, getSelectedValues } from '../../utils/emptyState
 import { DrilldownHeaderControl } from '../../components/DrilldownHeaderControl';
 import { ClickableTableWrapper } from '../../components/ClickableTableWrapper';
 import { getChassisCount, createDrilldownQuery } from '../../utils/drilldownHelpers';
+import { createInfinityPostQuery } from '../../utils/infinityQueryHelpers';
 import { API_ENDPOINTS } from './constants';
 
 // ============================================================================
@@ -281,25 +282,16 @@ function SynchronizedPowerConsumptionContainerRenderer({ model }: SceneComponent
 }
 
 function createChassisLineGraph(scene: SceneObjectBase, isDrilldown: boolean, chassisName?: string) {
-  const baseQuery = {
+  const baseQuery = createInfinityPostQuery({
     refId: 'A',
-    queryType: 'infinity',
-    type: 'json',
-    source: 'url',
-    parser: 'backend',
     format: 'timeseries',
     url: API_ENDPOINTS.TELEMETRY_TIMESERIES, // '/api/v1/telemetry/TimeSeries'
-    root_selector: '',
     columns: [
       { selector: 'timestamp', text: 'Time', type: 'timestamp' },
       { selector: 'event.host_name', text: 'Chassis Name', type: 'string' },
       { selector: 'event.power_sum', text: 'Power', type: 'number' },
     ],
-    url_options: {
-      method: 'POST',
-      body_type: 'raw',
-      body_content_type: 'application/json',
-      data: `  {
+    body: `  {
     "queryType": "groupBy",
     "dataSource": {
       "type": "query",
@@ -362,8 +354,7 @@ function createChassisLineGraph(scene: SceneObjectBase, isDrilldown: boolean, ch
       }
     ]
   }`,
-    },
-  };
+  });
 
   const query = isDrilldown && chassisName
     ? createDrilldownQuery(baseQuery, chassisName)
@@ -403,25 +394,16 @@ function createChassisLineGraph(scene: SceneObjectBase, isDrilldown: boolean, ch
 }
 
 function createChassisTable(scene: SceneObjectBase, parent: SynchronizedPowerConsumptionContainer) {
-  const baseQuery = {
+  const baseQuery = createInfinityPostQuery({
     refId: 'A',
-    queryType: 'infinity',
-    type: 'json',
-    source: 'url',
-    parser: 'backend',
     format: 'timeseries',
     url: API_ENDPOINTS.TELEMETRY_TIMESERIES, // '/api/v1/telemetry/TimeSeries'
-    root_selector: '',
     columns: [
       { selector: 'timestamp', text: 'Time', type: 'timestamp' },
       { selector: 'event.host_name', text: 'Chassis Name', type: 'string' },
       { selector: 'event.power_sum', text: 'Power', type: 'number' },
     ],
-    url_options: {
-      method: 'POST',
-      body_type: 'raw',
-      body_content_type: 'application/json',
-      data: `  {
+    body: `  {
     "queryType": "groupBy",
     "dataSource": {
       "type": "query",
@@ -484,8 +466,7 @@ function createChassisTable(scene: SceneObjectBase, parent: SynchronizedPowerCon
       }
     ]
   }`,
-    },
-  };
+  });
 
   const queryRunner = new LoggingQueryRunner({
     datasource: { uid: '${Account}' },
@@ -557,25 +538,16 @@ function createHostLineGraph(
   hostName?: string,
   chassisName?: string
 ) {
-  const baseQuery = {
+  const baseQuery = createInfinityPostQuery({
     refId: 'A',
-    queryType: 'infinity',
-    type: 'json',
-    source: 'url',
-    parser: 'backend',
     format: 'timeseries',
     url: API_ENDPOINTS.TELEMETRY_TIMESERIES, // '/api/v1/telemetry/TimeSeries'
-    root_selector: '',
     columns: [
       { selector: 'timestamp', text: 'Time', type: 'timestamp' },
       { selector: 'event.hostname', text: 'Hostname', type: 'string' },
       { selector: 'event.max-power', text: 'Power', type: 'number' },
     ],
-    url_options: {
-      method: 'POST',
-      body_type: 'raw',
-      body_content_type: 'application/json',
-      data: `  {
+    body: `  {
     "queryType": "groupBy",
     "dataSource": "PhysicalEntities",
         "granularity": {
@@ -620,8 +592,7 @@ function createHostLineGraph(
       }
     ]
   }`,
-    },
-  };
+  });
 
   let query = baseQuery;
   let title = 'Host Power Consumption (Max)';
@@ -671,25 +642,16 @@ function createHostLineGraph(
 }
 
 function createHostTable(scene: SceneObjectBase, parent: SynchronizedPowerConsumptionContainer) {
-  const baseQuery = {
+  const baseQuery = createInfinityPostQuery({
     refId: 'A',
-    queryType: 'infinity',
-    type: 'json',
-    source: 'url',
-    parser: 'backend',
     format: 'timeseries',
     url: API_ENDPOINTS.TELEMETRY_TIMESERIES, // '/api/v1/telemetry/TimeSeries'
-    root_selector: '',
     columns: [
       { selector: 'timestamp', text: 'Time', type: 'timestamp' },
       { selector: 'event.hostname', text: 'Hostname', type: 'string' },
       { selector: 'event.max-power', text: 'Power', type: 'number' },
     ],
-    url_options: {
-      method: 'POST',
-      body_type: 'raw',
-      body_content_type: 'application/json',
-      data: `  {
+    body: `  {
     "queryType": "groupBy",
     "dataSource": "PhysicalEntities",
         "granularity": {
@@ -734,8 +696,7 @@ function createHostTable(scene: SceneObjectBase, parent: SynchronizedPowerConsum
       }
     ]
   }`,
-    },
-  };
+  });
 
   const queryRunner = new LoggingQueryRunner({
     datasource: { uid: '${Account}' },
@@ -799,25 +760,16 @@ function createHostTable(scene: SceneObjectBase, parent: SynchronizedPowerConsum
 // CHASSIS FAN SPEED QUERY
 // ============================================================================
 
-const chassisFanSpeedQuery = {
+const chassisFanSpeedQuery = createInfinityPostQuery({
   refId: 'A',
-  queryType: 'infinity',
-  type: 'json',
-  source: 'url',
-  parser: 'backend',
   format: 'timeseries',
   url: '/api/v1/telemetry/TimeSeries',
-  root_selector: '',
   columns: [
     { selector: 'timestamp', text: 'Time', type: 'timestamp' },
     { selector: 'event.host_name', text: 'Chassis Name', type: 'string' },
     { selector: 'event.fan_speed', text: 'Fan Speed', type: 'number' },
   ],
-  url_options: {
-    method: 'POST',
-    body_type: 'raw',
-    body_content_type: 'application/json',
-    data: `  {
+  body: `  {
     "queryType": "groupBy",
     "dataSource": "PhysicalEntities",
     "granularity": {
@@ -885,8 +837,7 @@ const chassisFanSpeedQuery = {
           }
         ]
   }`,
-  },
-} as any;
+});
 
 // ============================================================================
 // DYNAMIC CHASSIS FAN SPEED SCENE - Conditional rendering based on chassis count
@@ -1167,25 +1118,16 @@ function createChassisFanSpeedDrilldownView(chassisName: string, scene: DynamicC
 // ============================================================================
 
 // Intake temperature query (TEMP_FRONT sensor)
-const chassisIntakeTemperatureQuery = {
+const chassisIntakeTemperatureQuery = createInfinityPostQuery({
   refId: 'A',
-  queryType: 'infinity',
-  type: 'json',
-  source: 'url',
-  parser: 'backend',
   format: 'timeseries',
   url: '/api/v1/telemetry/TimeSeries',
-  root_selector: '',
   columns: [
     { selector: 'timestamp', text: 'Time', type: 'timestamp' },
     { selector: 'event.chassis_name', text: 'Chassis Name', type: 'string' },
     { selector: 'event.hw-temperature-Avg', text: 'Temperature', type: 'number' },
   ],
-  url_options: {
-    method: 'POST',
-    body_type: 'raw',
-    body_content_type: 'application/json',
-    data: `  {
+  body: `  {
     "queryType": "groupBy",
     "dataSource": "PhysicalEntities",
     "granularity": {
@@ -1252,29 +1194,19 @@ const chassisIntakeTemperatureQuery = {
       }
     ]
   }`,
-  },
-} as any;
+});
 
 // Exhaust temperature query (server_back sensor)
-const chassisExhaustTemperatureQuery = {
+const chassisExhaustTemperatureQuery = createInfinityPostQuery({
   refId: 'B',
-  queryType: 'infinity',
-  type: 'json',
-  source: 'url',
-  parser: 'backend',
   format: 'timeseries',
   url: '/api/v1/telemetry/TimeSeries',
-  root_selector: '',
   columns: [
     { selector: 'timestamp', text: 'Time', type: 'timestamp' },
     { selector: 'event.chassis_name', text: 'Chassis Name', type: 'string' },
     { selector: 'event.hw-temperature-Avg', text: 'Temperature', type: 'number' },
   ],
-  url_options: {
-    method: 'POST',
-    body_type: 'raw',
-    body_content_type: 'application/json',
-    data: `  {
+  body: `  {
     "queryType": "groupBy",
     "dataSource": "PhysicalEntities",
     "granularity": {
@@ -1341,8 +1273,7 @@ const chassisExhaustTemperatureQuery = {
       }
     ]
   }`,
-  },
-} as any;
+});
 
 // ============================================================================
 // DYNAMIC CHASSIS TEMPERATURE SCENE - Conditional rendering based on chassis count
@@ -1756,25 +1687,16 @@ function createChassisTemperatureDrilldownView(chassisName: string, scene: Dynam
 // ============================================================================
 
 // Query A: Intake Temperature (server_front sensor)
-const intakeTemperatureQuery = {
+const intakeTemperatureQuery = createInfinityPostQuery({
   refId: 'A',
-  queryType: 'infinity',
-  type: 'json',
-  source: 'url',
-  parser: 'backend',
   format: 'timeseries',
   url: '/api/v1/telemetry/TimeSeries',
-  root_selector: '',
   columns: [
     { selector: 'timestamp', text: 'Time', type: 'timestamp' },
     { selector: 'event.hostname', text: 'Hostname', type: 'string' },
     { selector: 'event.max_temp', text: 'Temperature', type: 'number' },
   ],
-  url_options: {
-    method: 'POST',
-    body_type: 'raw',
-    body_content_type: 'application/json',
-    data: `  {
+  body: `  {
     "queryType": "groupBy",
     "dataSource": "PhysicalEntities",
         "granularity": {
@@ -1826,29 +1748,19 @@ const intakeTemperatureQuery = {
       }
     ]
   }`,
-  },
-} as any;
+});
 
 // Query B: CPU Temperature (P1_TEMP_SENS)
-const cpuTemperatureQuery = {
+const cpuTemperatureQuery = createInfinityPostQuery({
   refId: 'B',
-  queryType: 'infinity',
-  type: 'json',
-  source: 'url',
-  parser: 'backend',
   format: 'timeseries',
   url: '/api/v1/telemetry/TimeSeries',
-  root_selector: '',
   columns: [
     { selector: 'timestamp', text: 'Time', type: 'timestamp' },
     { selector: 'event.hostname', text: 'Hostname', type: 'string' },
     { selector: 'event.max_temp', text: 'Temperature', type: 'number' },
   ],
-  url_options: {
-    method: 'POST',
-    body_type: 'raw',
-    body_content_type: 'application/json',
-    data: `  {
+  body: `  {
     "queryType": "groupBy",
     "dataSource": "PhysicalEntities",
         "granularity": {
@@ -1902,29 +1814,19 @@ const cpuTemperatureQuery = {
       }
     ]
   }`,
-  },
-} as any;
+});
 
 // Query D: Exhaust Temperature (server_back sensor)
-const exhaustTemperatureQuery = {
+const exhaustTemperatureQuery = createInfinityPostQuery({
   refId: 'D',
-  queryType: 'infinity',
-  type: 'json',
-  source: 'url',
-  parser: 'backend',
   format: 'timeseries',
   url: '/api/v1/telemetry/TimeSeries',
-  root_selector: '',
   columns: [
     { selector: 'timestamp', text: 'Time', type: 'timestamp' },
     { selector: 'event.hostname', text: 'Hostname', type: 'string' },
     { selector: 'event.max_temp', text: 'Temperature', type: 'number' },
   ],
-  url_options: {
-    method: 'POST',
-    body_type: 'raw',
-    body_content_type: 'application/json',
-    data: `  {
+  body: `  {
     "queryType": "groupBy",
     "dataSource": "PhysicalEntities",
         "granularity": {
@@ -1976,8 +1878,7 @@ const exhaustTemperatureQuery = {
       }
     ]
   }`,
-  },
-} as any;
+});
 
 // ============================================================================
 // DYNAMIC HOST TEMPERATURE SCENE
@@ -2444,25 +2345,16 @@ function createEnvironmentalTabContent() {
   const powerSupplyQueryRunner = new LoggingQueryRunner({
     datasource: { uid: '${Account}' },
     queries: [
-      {
+      createInfinityPostQuery({
         refId: 'A',
-        queryType: 'infinity',
-        type: 'json',
-        source: 'url',
-        parser: 'backend',
         format: 'table',
         url: API_ENDPOINTS.TELEMETRY_TIMESERIES, // '/api/v1/telemetry/TimeSeries'
-        root_selector: '',
         columns: [
           { selector: 'timestamp', text: 'Time', type: 'timestamp' },
           { selector: 'event.host_name', text: 'Hostname', type: 'string' },
           { selector: 'event.status_sum', text: 'Status', type: 'number' },
         ],
-        url_options: {
-          method: 'POST',
-          body_type: 'raw',
-          body_content_type: 'application/json',
-          data: `  {
+        body: `  {
     "queryType": "groupBy",
     "dataSource": {
       "type": "query",
@@ -2525,8 +2417,7 @@ function createEnvironmentalTabContent() {
       }
     ]
   }`,
-        },
-      } as any,
+      }),
     ],
   });
 

@@ -29,6 +29,7 @@ import { ClickableTableWrapper } from '../../components/ClickableTableWrapper';
 import { SharedDrilldownState, findSharedDrilldownState } from '../../utils/drilldownState';
 import { getChassisCount, createDrilldownQuery } from '../../utils/drilldownHelpers';
 import { DrilldownDetailsContainer, DrilldownDetailsContainerState, DrilldownDetailsContainerRenderer } from '../../utils/DrilldownDetailsContainer';
+import { createInfinityPostQuery } from '../../utils/infinityQueryHelpers';
 import { NETWORK_ERROR_LABELS } from '../../utils/constants';
 import { API_ENDPOINTS, COLUMN_WIDTHS } from './constants';
 
@@ -47,15 +48,10 @@ import { API_ENDPOINTS, COLUMN_WIDTHS } from './constants';
  * Filters: backplane_port + host_port
  */
 function createDownlinkPortsQuery() {
-  return {
+  return createInfinityPostQuery({
     refId: 'A',
-    queryType: 'infinity',
-    type: 'json',
-    source: 'url',
-    parser: 'backend',
     format: 'table',
     url: API_ENDPOINTS.TELEMETRY_TIMESERIES, // '/api/v1/telemetry/TimeSeries'
-    root_selector: '',
     columns: [
       { selector: 'timestamp', text: 'Time', type: 'timestamp' },
       { selector: 'event.name', text: 'PortName', type: 'string' },
@@ -71,11 +67,7 @@ function createDownlinkPortsQuery() {
       { selector: 'event.tx_sum', text: 'TX', type: 'number' },
       { selector: 'event.rx_sum', text: 'RX', type: 'number' },
     ],
-    url_options: {
-      method: 'POST',
-      body_type: 'raw',
-      body_content_type: 'application/json',
-      data: `{
+    body: `{
   "queryType": "groupBy",
   "dataSource": "NetworkInterfaces",
   "granularity": {
@@ -167,8 +159,7 @@ function createDownlinkPortsQuery() {
     }
   ]
 }`,
-    },
-  } as any;
+  });
 }
 
 /**
@@ -176,15 +167,10 @@ function createDownlinkPortsQuery() {
  * Uses "all" granularity for aggregate table view
  */
 function createDownlinkPortsTableQuery() {
-  return {
+  return createInfinityPostQuery({
     refId: 'A',
-    queryType: 'infinity',
-    type: 'json',
-    source: 'url',
-    parser: 'backend',
     format: 'table',
     url: API_ENDPOINTS.TELEMETRY_TIMESERIES, // '/api/v1/telemetry/TimeSeries'
-    root_selector: '',
     columns: [
       { selector: 'timestamp', text: 'Time', type: 'timestamp' },
       { selector: 'event.domain_name', text: 'Chassis', type: 'string' },
@@ -200,11 +186,7 @@ function createDownlinkPortsTableQuery() {
       { selector: 'event.tx_sum', text: 'TX Sum', type: 'number' },
       { selector: 'event.total', text: 'Total', type: 'number' },
     ],
-    url_options: {
-      method: 'POST',
-      body_type: 'raw',
-      body_content_type: 'application/json',
-      data: `{
+    body: `{
   "queryType": "groupBy",
   "dataSource": "NetworkInterfaces",
   "granularity": "all",
@@ -304,8 +286,7 @@ function createDownlinkPortsTableQuery() {
     }
   ]
 }`,
-    },
-  } as any;
+  });
 }
 
 // ============================================================================
@@ -317,15 +298,10 @@ function createDownlinkPortsTableQuery() {
  * Filters: ethernet + eth_uplink
  */
 function createUplinkPortsQuery() {
-  return {
+  return createInfinityPostQuery({
     refId: 'A',
-    queryType: 'infinity',
-    type: 'json',
-    source: 'url',
-    parser: 'backend',
     format: 'table',
     url: API_ENDPOINTS.TELEMETRY_TIMESERIES, // '/api/v1/telemetry/TimeSeries'
-    root_selector: '',
     columns: [
       { selector: 'timestamp', text: 'Time', type: 'timestamp' },
       { selector: 'event.name', text: 'PortName', type: 'string' },
@@ -341,11 +317,7 @@ function createUplinkPortsQuery() {
       { selector: 'event.tx_sum', text: 'TX', type: 'number' },
       { selector: 'event.rx_sum', text: 'RX', type: 'number' },
     ],
-    url_options: {
-      method: 'POST',
-      body_type: 'raw',
-      body_content_type: 'application/json',
-      data: `{
+    body: `{
   "queryType": "groupBy",
   "dataSource": "NetworkInterfaces",
   "granularity": {
@@ -467,8 +439,7 @@ function createUplinkPortsQuery() {
     }
   ]
 }`,
-    },
-  } as any;
+  });
 }
 
 /**
@@ -476,15 +447,10 @@ function createUplinkPortsQuery() {
  * Filters: ethernet_port_channel + eth_uplink_pc
  */
 function createUplinkPortChannelsQuery() {
-  return {
+  return createInfinityPostQuery({
     refId: 'A',
-    queryType: 'infinity',
-    type: 'json',
-    source: 'url',
-    parser: 'backend',
     format: 'table',
     url: API_ENDPOINTS.TELEMETRY_TIMESERIES, // '/api/v1/telemetry/TimeSeries'
-    root_selector: '',
     columns: [
       { selector: 'timestamp', text: 'Time', type: 'timestamp' },
       { selector: 'event.name', text: 'PortName', type: 'string' },
@@ -506,11 +472,7 @@ function createUplinkPortChannelsQuery() {
       { selector: 'event.tx_sum', text: 'TX', type: 'number' },
       { selector: 'event.rx_sum', text: 'RX', type: 'number' },
     ],
-    url_options: {
-      method: 'POST',
-      body_type: 'raw',
-      body_content_type: 'application/json',
-      data: `{
+    body: `{
   "queryType": "groupBy",
   "dataSource": "NetworkInterfaces",
   "granularity": {
@@ -632,8 +594,7 @@ function createUplinkPortChannelsQuery() {
     }
   ]
 }`,
-    },
-  } as any;
+  });
 }
 
 /**
@@ -641,15 +602,10 @@ function createUplinkPortChannelsQuery() {
  * Uses "all" granularity for aggregate table view
  */
 function createUplinkPortsTableQuery() {
-  return {
+  return createInfinityPostQuery({
     refId: 'A',
-    queryType: 'infinity',
-    type: 'json',
-    source: 'url',
-    parser: 'backend',
     format: 'table',
     url: API_ENDPOINTS.TELEMETRY_TIMESERIES, // '/api/v1/telemetry/TimeSeries'
-    root_selector: '',
     columns: [
       { selector: 'timestamp', text: 'Time', type: 'timestamp' },
       { selector: 'event.domain_name', text: 'Chassis', type: 'string' },
@@ -665,11 +621,7 @@ function createUplinkPortsTableQuery() {
       { selector: 'event.tx_sum', text: 'TX Sum', type: 'number' },
       { selector: 'event.total', text: 'Total', type: 'number' },
     ],
-    url_options: {
-      method: 'POST',
-      body_type: 'raw',
-      body_content_type: 'application/json',
-      data: `{
+    body: `{
   "queryType": "groupBy",
   "dataSource": "NetworkInterfaces",
   "granularity": "all",
@@ -799,8 +751,7 @@ function createUplinkPortsTableQuery() {
     }
   ]
 }`,
-    },
-  } as any;
+  });
 }
 
 /**
@@ -808,15 +759,10 @@ function createUplinkPortsTableQuery() {
  * Uses "all" granularity for aggregate table view
  */
 function createUplinkPortChannelsTableQuery() {
-  return {
+  return createInfinityPostQuery({
     refId: 'A',
-    queryType: 'infinity',
-    type: 'json',
-    source: 'url',
-    parser: 'backend',
     format: 'table',
     url: API_ENDPOINTS.TELEMETRY_TIMESERIES, // '/api/v1/telemetry/TimeSeries'
-    root_selector: '',
     columns: [
       { selector: 'timestamp', text: 'Time', type: 'timestamp' },
       { selector: 'event.domain_name', text: 'Chassis', type: 'string' },
@@ -832,11 +778,7 @@ function createUplinkPortChannelsTableQuery() {
       { selector: 'event.tx_sum', text: 'TX Sum', type: 'number' },
       { selector: 'event.total', text: 'Total', type: 'number' },
     ],
-    url_options: {
-      method: 'POST',
-      body_type: 'raw',
-      body_content_type: 'application/json',
-      data: `{
+    body: `{
   "queryType": "groupBy",
   "dataSource": "NetworkInterfaces",
   "granularity": "all",
@@ -966,8 +908,7 @@ function createUplinkPortChannelsTableQuery() {
     }
   ]
 }`,
-    },
-  } as any;
+  });
 }
 
 // ============================================================================

@@ -18,6 +18,7 @@ import { EmptyStateScene } from '../../components/EmptyStateScene';
 import { getEmptyStateScenario, getSelectedValues } from '../../utils/emptyStateHelpers';
 import { DrilldownHeaderControl } from '../../components/DrilldownHeaderControl';
 import { ClickableTableWrapper } from '../../components/ClickableTableWrapper';
+import { createInfinityPostQuery } from '../../utils/infinityQueryHelpers';
 import { API_ENDPOINTS } from './constants';
 
 // ============================================================================
@@ -25,25 +26,16 @@ import { API_ENDPOINTS } from './constants';
 // ============================================================================
 
 // Query A: CPU Utilization
-const queryA = {
+const queryA = createInfinityPostQuery({
   refId: 'A',
-  queryType: 'infinity',
-  type: 'json',
-  source: 'url',
-  parser: 'backend',
   format: 'timeseries',
   url: API_ENDPOINTS.TELEMETRY_TIMESERIES, // '/api/v1/telemetry/TimeSeries'
-  root_selector: '',
   columns: [
     { selector: 'timestamp', text: 'Time', type: 'timestamp' },
     { selector: 'event.host_name', text: 'Host Name', type: 'string' },
     { selector: 'event.utilization', text: 'Utilization', type: 'number' },
   ],
-  url_options: {
-    method: 'POST',
-    body_type: 'raw',
-    body_content_type: 'application/json',
-    data: `  {
+  body: `  {
     "queryType": "groupBy",
     "dataSource": "PhysicalEntities",
     "granularity": {
@@ -83,29 +75,19 @@ const queryA = {
       }
     ]
   }`,
-  },
-} as any;
+});
 
 // Query B: CPU 1 Temperature
-const queryB = {
+const queryB = createInfinityPostQuery({
   refId: 'B',
-  queryType: 'infinity',
-  type: 'json',
-  source: 'url',
-  parser: 'backend',
   format: 'timeseries',
   url: API_ENDPOINTS.TELEMETRY_TIMESERIES, // '/api/v1/telemetry/TimeSeries'
-  root_selector: '',
   columns: [
     { selector: 'timestamp', text: 'Time', type: 'timestamp' },
     { selector: 'event.host_name', text: 'Host Name', type: 'string' },
     { selector: 'event.temperature', text: 'Temperature', type: 'number' },
   ],
-  url_options: {
-    method: 'POST',
-    body_type: 'raw',
-    body_content_type: 'application/json',
-    data: `  {
+  body: `  {
     "queryType": "groupBy",
     "dataSource": "PhysicalEntities",
     "granularity": {
@@ -153,29 +135,19 @@ const queryB = {
       }
     ]
   }`,
-  },
-} as any;
+});
 
 // Query C: CPU 2 Temperature
-const queryC = {
+const queryC = createInfinityPostQuery({
   refId: 'C',
-  queryType: 'infinity',
-  type: 'json',
-  source: 'url',
-  parser: 'backend',
   format: 'timeseries',
   url: API_ENDPOINTS.TELEMETRY_TIMESERIES, // '/api/v1/telemetry/TimeSeries'
-  root_selector: '',
   columns: [
     { selector: 'timestamp', text: 'Time', type: 'timestamp' },
     { selector: 'event.host_name', text: 'Host Name', type: 'string' },
     { selector: 'event.temperature', text: 'Temperature', type: 'number' },
   ],
-  url_options: {
-    method: 'POST',
-    body_type: 'raw',
-    body_content_type: 'application/json',
-    data: `  {
+  body: `  {
     "queryType": "groupBy",
     "dataSource": "PhysicalEntities",
     "granularity": {
@@ -223,8 +195,7 @@ const queryC = {
       }
     ]
   }`,
-  },
-} as any;
+});
 
 // ============================================================================
 // DRILLDOWN QUERY HELPER

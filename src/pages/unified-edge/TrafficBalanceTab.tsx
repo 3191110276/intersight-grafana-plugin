@@ -19,6 +19,7 @@ import { LoggingDataTransformer } from '../../utils/LoggingDataTransformer';
 import { DrilldownHeaderControl } from '../../components/DrilldownHeaderControl';
 import { ClickableTableWrapper } from '../../components/ClickableTableWrapper';
 import { getChassisCount, createDrilldownQuery } from '../../utils/drilldownHelpers';
+import { createInfinityPostQuery } from '../../utils/infinityQueryHelpers';
 import { API_ENDPOINTS, COLUMN_WIDTHS } from './constants';
 
 // ============================================================================
@@ -278,25 +279,16 @@ function createDrilldownView(chassisName: string, parent: TrafficBalanceDetailsC
 
 // Panel 189: A: Eth uplink transmit utilization per chassis (Sum)
 function createPanel189_LineChart(isDrilldown: boolean, chassisName?: string) {
-  const baseQuery = {
+  const baseQuery = createInfinityPostQuery({
     refId: 'A',
-    queryType: 'infinity',
-    type: 'json',
-    source: 'url',
-    parser: 'backend',
     format: 'timeseries',
     url: API_ENDPOINTS.TELEMETRY_TIMESERIES, // '/api/v1/telemetry/TimeSeries'
-    root_selector: '',
     columns: [
       { selector: 'timestamp', text: 'Time', type: 'timestamp' },
       { selector: 'event.domain_name', text: 'Domain Name', type: 'string' },
       { selector: 'event.sum', text: 'Utilization', type: 'number' },
     ],
-    url_options: {
-      method: 'POST',
-      body_type: 'raw',
-      body_content_type: 'application/json',
-      data: `  {
+    body: `  {
     "queryType": "groupBy",
     "dataSource": "NetworkInterfaces",
     "granularity": {
@@ -354,8 +346,7 @@ function createPanel189_LineChart(isDrilldown: boolean, chassisName?: string) {
       }
     ]
   }`,
-    },
-  };
+  });
 
   const query = isDrilldown && chassisName
     ? createDrilldownQuery(baseQuery, chassisName)
@@ -396,25 +387,16 @@ function createPanel189_LineChart(isDrilldown: boolean, chassisName?: string) {
 
 // Panel 190: B: Eth uplink transmit utilization per chassis (Sum)
 function createPanel190_LineChart(isDrilldown: boolean, chassisName?: string) {
-  const baseQuery = {
+  const baseQuery = createInfinityPostQuery({
     refId: 'A',
-    queryType: 'infinity',
-    type: 'json',
-    source: 'url',
-    parser: 'backend',
     format: 'timeseries',
     url: API_ENDPOINTS.TELEMETRY_TIMESERIES, // '/api/v1/telemetry/TimeSeries'
-    root_selector: '',
     columns: [
       { selector: 'timestamp', text: 'Time', type: 'timestamp' },
       { selector: 'event.domain_name', text: 'Domain Name', type: 'string' },
       { selector: 'event.sum', text: 'Utilization', type: 'number' },
     ],
-    url_options: {
-      method: 'POST',
-      body_type: 'raw',
-      body_content_type: 'application/json',
-      data: `  {
+    body: `  {
     "queryType": "groupBy",
     "dataSource": "NetworkInterfaces",
     "granularity": {
@@ -472,8 +454,7 @@ function createPanel190_LineChart(isDrilldown: boolean, chassisName?: string) {
       }
     ]
   }`,
-    },
-  };
+  });
 
   const query = isDrilldown && chassisName
     ? createDrilldownQuery(baseQuery, chassisName)
@@ -514,25 +495,16 @@ function createPanel190_LineChart(isDrilldown: boolean, chassisName?: string) {
 
 // Panel 191: A: Eth uplink receive utilization per chassis (Sum)
 function createPanel191_LineChart(isDrilldown: boolean, chassisName?: string) {
-  const baseQuery = {
+  const baseQuery = createInfinityPostQuery({
     refId: 'A',
-    queryType: 'infinity',
-    type: 'json',
-    source: 'url',
-    parser: 'backend',
     format: 'timeseries',
     url: API_ENDPOINTS.TELEMETRY_TIMESERIES, // '/api/v1/telemetry/TimeSeries'
-    root_selector: '',
     columns: [
       { selector: 'timestamp', text: 'Time', type: 'timestamp' },
       { selector: 'event.domain_name', text: 'Domain Name', type: 'string' },
       { selector: 'event.sum', text: 'Utilization', type: 'number' },
     ],
-    url_options: {
-      method: 'POST',
-      body_type: 'raw',
-      body_content_type: 'application/json',
-      data: `  {
+    body: `  {
     "queryType": "groupBy",
     "dataSource": "NetworkInterfaces",
     "granularity": {
@@ -590,8 +562,7 @@ function createPanel191_LineChart(isDrilldown: boolean, chassisName?: string) {
       }
     ]
   }`,
-    },
-  };
+  });
 
   const query = isDrilldown && chassisName
     ? createDrilldownQuery(baseQuery, chassisName)
@@ -632,25 +603,16 @@ function createPanel191_LineChart(isDrilldown: boolean, chassisName?: string) {
 
 // Panel 192: B: Eth uplink receive utilization per chassis (Sum)
 function createPanel192_LineChart(isDrilldown: boolean, chassisName?: string) {
-  const baseQuery = {
+  const baseQuery = createInfinityPostQuery({
     refId: 'A',
-    queryType: 'infinity',
-    type: 'json',
-    source: 'url',
-    parser: 'backend',
     format: 'timeseries',
     url: API_ENDPOINTS.TELEMETRY_TIMESERIES, // '/api/v1/telemetry/TimeSeries'
-    root_selector: '',
     columns: [
       { selector: 'timestamp', text: 'Time', type: 'timestamp' },
       { selector: 'event.domain_name', text: 'Domain Name', type: 'string' },
       { selector: 'event.sum', text: 'Utilization', type: 'number' },
     ],
-    url_options: {
-      method: 'POST',
-      body_type: 'raw',
-      body_content_type: 'application/json',
-      data: `  {
+    body: `  {
     "queryType": "groupBy",
     "dataSource": "NetworkInterfaces",
     "granularity": {
@@ -708,8 +670,7 @@ function createPanel192_LineChart(isDrilldown: boolean, chassisName?: string) {
       }
     ]
   }`,
-    },
-  };
+  });
 
   const query = isDrilldown && chassisName
     ? createDrilldownQuery(baseQuery, chassisName)
@@ -754,25 +715,16 @@ function createPanel192_LineChart(isDrilldown: boolean, chassisName?: string) {
 
 // Panel 189: A: Eth uplink transmit utilization per chassis (Table)
 function createPanel189_Table(parent: TrafficBalanceDetailsContainer) {
-  const baseQuery = {
+  const baseQuery = createInfinityPostQuery({
     refId: 'A',
-    queryType: 'infinity',
-    type: 'json',
-    source: 'url',
-    parser: 'backend',
     format: 'timeseries',
     url: API_ENDPOINTS.TELEMETRY_TIMESERIES, // '/api/v1/telemetry/TimeSeries'
-    root_selector: '',
     columns: [
       { selector: 'timestamp', text: 'Time', type: 'timestamp' },
       { selector: 'event.domain_name', text: 'Domain Name', type: 'string' },
       { selector: 'event.sum', text: 'Utilization', type: 'number' },
     ],
-    url_options: {
-      method: 'POST',
-      body_type: 'raw',
-      body_content_type: 'application/json',
-      data: `  {
+    body: `  {
     "queryType": "groupBy",
     "dataSource": "NetworkInterfaces",
     "granularity": {
@@ -830,8 +782,7 @@ function createPanel189_Table(parent: TrafficBalanceDetailsContainer) {
       }
     ]
   }`,
-    },
-  };
+  });
 
   const queryRunner = new LoggingQueryRunner({
     datasource: { uid: '${Account}' },
@@ -898,25 +849,16 @@ function createPanel189_Table(parent: TrafficBalanceDetailsContainer) {
 
 // Panel 190: B: Eth uplink transmit utilization per chassis (Table)
 function createPanel190_Table(parent: TrafficBalanceDetailsContainer) {
-  const baseQuery = {
+  const baseQuery = createInfinityPostQuery({
     refId: 'A',
-    queryType: 'infinity',
-    type: 'json',
-    source: 'url',
-    parser: 'backend',
     format: 'timeseries',
     url: API_ENDPOINTS.TELEMETRY_TIMESERIES, // '/api/v1/telemetry/TimeSeries'
-    root_selector: '',
     columns: [
       { selector: 'timestamp', text: 'Time', type: 'timestamp' },
       { selector: 'event.domain_name', text: 'Domain Name', type: 'string' },
       { selector: 'event.sum', text: 'Utilization', type: 'number' },
     ],
-    url_options: {
-      method: 'POST',
-      body_type: 'raw',
-      body_content_type: 'application/json',
-      data: `  {
+    body: `  {
     "queryType": "groupBy",
     "dataSource": "NetworkInterfaces",
     "granularity": {
@@ -974,8 +916,7 @@ function createPanel190_Table(parent: TrafficBalanceDetailsContainer) {
       }
     ]
   }`,
-    },
-  };
+  });
 
   const queryRunner = new LoggingQueryRunner({
     datasource: { uid: '${Account}' },
@@ -1042,25 +983,16 @@ function createPanel190_Table(parent: TrafficBalanceDetailsContainer) {
 
 // Panel 191: A: Eth uplink receive utilization per chassis (Table)
 function createPanel191_Table(parent: TrafficBalanceDetailsContainer) {
-  const baseQuery = {
+  const baseQuery = createInfinityPostQuery({
     refId: 'A',
-    queryType: 'infinity',
-    type: 'json',
-    source: 'url',
-    parser: 'backend',
     format: 'timeseries',
     url: API_ENDPOINTS.TELEMETRY_TIMESERIES, // '/api/v1/telemetry/TimeSeries'
-    root_selector: '',
     columns: [
       { selector: 'timestamp', text: 'Time', type: 'timestamp' },
       { selector: 'event.domain_name', text: 'Domain Name', type: 'string' },
       { selector: 'event.sum', text: 'Utilization', type: 'number' },
     ],
-    url_options: {
-      method: 'POST',
-      body_type: 'raw',
-      body_content_type: 'application/json',
-      data: `  {
+    body: `  {
     "queryType": "groupBy",
     "dataSource": "NetworkInterfaces",
     "granularity": {
@@ -1118,8 +1050,7 @@ function createPanel191_Table(parent: TrafficBalanceDetailsContainer) {
       }
     ]
   }`,
-    },
-  };
+  });
 
   const queryRunner = new LoggingQueryRunner({
     datasource: { uid: '${Account}' },
@@ -1186,25 +1117,16 @@ function createPanel191_Table(parent: TrafficBalanceDetailsContainer) {
 
 // Panel 192: B: Eth uplink receive utilization per chassis (Table)
 function createPanel192_Table(parent: TrafficBalanceDetailsContainer) {
-  const baseQuery = {
+  const baseQuery = createInfinityPostQuery({
     refId: 'A',
-    queryType: 'infinity',
-    type: 'json',
-    source: 'url',
-    parser: 'backend',
     format: 'timeseries',
     url: API_ENDPOINTS.TELEMETRY_TIMESERIES, // '/api/v1/telemetry/TimeSeries'
-    root_selector: '',
     columns: [
       { selector: 'timestamp', text: 'Time', type: 'timestamp' },
       { selector: 'event.domain_name', text: 'Domain Name', type: 'string' },
       { selector: 'event.sum', text: 'Utilization', type: 'number' },
     ],
-    url_options: {
-      method: 'POST',
-      body_type: 'raw',
-      body_content_type: 'application/json',
-      data: `  {
+    body: `  {
     "queryType": "groupBy",
     "dataSource": "NetworkInterfaces",
     "granularity": {
@@ -1262,8 +1184,7 @@ function createPanel192_Table(parent: TrafficBalanceDetailsContainer) {
       }
     ]
   }`,
-    },
-  };
+  });
 
   const queryRunner = new LoggingQueryRunner({
     datasource: { uid: '${Account}' },
@@ -1382,25 +1303,17 @@ export function getTrafficBalanceTab() {
 function getPanel185_EthTransmitTrafficA() {
   const queryRunner = new LoggingQueryRunner({
     datasource: { uid: '${Account}' },
-    queries: [{
-      refId: 'A',
-      queryType: 'infinity',
-      type: 'json',
-      source: 'url',
-      parser: 'backend',
-      format: 'table',
-      url: API_ENDPOINTS.TELEMETRY_TIMESERIES, // '/api/v1/telemetry/TimeSeries'
-      root_selector: '',
-      columns: [
-        { selector: 'timestamp', text: 'Time', type: 'timestamp' },
-        { selector: 'event.domain_name', text: 'Domain Name', type: 'string' },
-        { selector: 'event.sum', text: 'Utilization', type: 'number' },
-      ],
-      url_options: {
-        method: 'POST',
-        body_type: 'raw',
-        body_content_type: 'application/json',
-        data: `  {
+    queries: [
+      createInfinityPostQuery({
+        refId: 'A',
+        format: 'table',
+        url: API_ENDPOINTS.TELEMETRY_TIMESERIES, // '/api/v1/telemetry/TimeSeries'
+        columns: [
+          { selector: 'timestamp', text: 'Time', type: 'timestamp' },
+          { selector: 'event.domain_name', text: 'Domain Name', type: 'string' },
+          { selector: 'event.sum', text: 'Utilization', type: 'number' },
+        ],
+        body: `  {
     "queryType": "groupBy",
     "dataSource": "NetworkInterfaces",
     "granularity": {
@@ -1451,8 +1364,8 @@ function getPanel185_EthTransmitTrafficA() {
       }
     ]
   }`,
-      },
-    } as any],
+      }),
+    ],
   });
 
   return PanelBuilders.stat()
@@ -1489,25 +1402,17 @@ function getPanel185_EthTransmitTrafficA() {
 function getPanel186_EthTransmitTrafficB() {
   const queryRunner = new LoggingQueryRunner({
     datasource: { uid: '${Account}' },
-    queries: [{
-      refId: 'A',
-      queryType: 'infinity',
-      type: 'json',
-      source: 'url',
-      parser: 'backend',
-      format: 'table',
-      url: API_ENDPOINTS.TELEMETRY_TIMESERIES, // '/api/v1/telemetry/TimeSeries'
-      root_selector: '',
-      columns: [
-        { selector: 'timestamp', text: 'Time', type: 'timestamp' },
-        { selector: 'event.domain_name', text: 'Domain Name', type: 'string' },
-        { selector: 'event.sum', text: 'Utilization', type: 'number' },
-      ],
-      url_options: {
-        method: 'POST',
-        body_type: 'raw',
-        body_content_type: 'application/json',
-        data: `  {
+    queries: [
+      createInfinityPostQuery({
+        refId: 'A',
+        format: 'table',
+        url: API_ENDPOINTS.TELEMETRY_TIMESERIES, // '/api/v1/telemetry/TimeSeries'
+        columns: [
+          { selector: 'timestamp', text: 'Time', type: 'timestamp' },
+          { selector: 'event.domain_name', text: 'Domain Name', type: 'string' },
+          { selector: 'event.sum', text: 'Utilization', type: 'number' },
+        ],
+        body: `  {
     "queryType": "groupBy",
     "dataSource": "NetworkInterfaces",
     "granularity": {
@@ -1558,8 +1463,8 @@ function getPanel186_EthTransmitTrafficB() {
       }
     ]
   }`,
-      },
-    } as any],
+      }),
+    ],
   });
 
   return PanelBuilders.stat()
@@ -1596,25 +1501,17 @@ function getPanel186_EthTransmitTrafficB() {
 function getPanel187_EthReceiveTrafficA() {
   const queryRunner = new LoggingQueryRunner({
     datasource: { uid: '${Account}' },
-    queries: [{
-      refId: 'A',
-      queryType: 'infinity',
-      type: 'json',
-      source: 'url',
-      parser: 'backend',
-      format: 'table',
-      url: API_ENDPOINTS.TELEMETRY_TIMESERIES, // '/api/v1/telemetry/TimeSeries'
-      root_selector: '',
-      columns: [
-        { selector: 'timestamp', text: 'Time', type: 'timestamp' },
-        { selector: 'event.domain_name', text: 'Domain Name', type: 'string' },
-        { selector: 'event.sum', text: 'Utilization', type: 'number' },
-      ],
-      url_options: {
-        method: 'POST',
-        body_type: 'raw',
-        body_content_type: 'application/json',
-        data: `  {
+    queries: [
+      createInfinityPostQuery({
+        refId: 'A',
+        format: 'table',
+        url: API_ENDPOINTS.TELEMETRY_TIMESERIES, // '/api/v1/telemetry/TimeSeries'
+        columns: [
+          { selector: 'timestamp', text: 'Time', type: 'timestamp' },
+          { selector: 'event.domain_name', text: 'Domain Name', type: 'string' },
+          { selector: 'event.sum', text: 'Utilization', type: 'number' },
+        ],
+        body: `  {
     "queryType": "groupBy",
     "dataSource": "NetworkInterfaces",
     "granularity": {
@@ -1665,8 +1562,8 @@ function getPanel187_EthReceiveTrafficA() {
       }
     ]
   }`,
-      },
-    } as any],
+      }),
+    ],
   });
 
   return PanelBuilders.stat()
@@ -1703,25 +1600,17 @@ function getPanel187_EthReceiveTrafficA() {
 function getPanel188_EthReceiveTrafficB() {
   const queryRunner = new LoggingQueryRunner({
     datasource: { uid: '${Account}' },
-    queries: [{
-      refId: 'A',
-      queryType: 'infinity',
-      type: 'json',
-      source: 'url',
-      parser: 'backend',
-      format: 'table',
-      url: API_ENDPOINTS.TELEMETRY_TIMESERIES, // '/api/v1/telemetry/TimeSeries'
-      root_selector: '',
-      columns: [
-        { selector: 'timestamp', text: 'Time', type: 'timestamp' },
-        { selector: 'event.domain_name', text: 'Domain Name', type: 'string' },
-        { selector: 'event.sum', text: 'Utilization', type: 'number' },
-      ],
-      url_options: {
-        method: 'POST',
-        body_type: 'raw',
-        body_content_type: 'application/json',
-        data: `  {
+    queries: [
+      createInfinityPostQuery({
+        refId: 'A',
+        format: 'table',
+        url: API_ENDPOINTS.TELEMETRY_TIMESERIES, // '/api/v1/telemetry/TimeSeries'
+        columns: [
+          { selector: 'timestamp', text: 'Time', type: 'timestamp' },
+          { selector: 'event.domain_name', text: 'Domain Name', type: 'string' },
+          { selector: 'event.sum', text: 'Utilization', type: 'number' },
+        ],
+        body: `  {
     "queryType": "groupBy",
     "dataSource": "NetworkInterfaces",
     "granularity": {
@@ -1772,8 +1661,8 @@ function getPanel188_EthReceiveTrafficB() {
       }
     ]
   }`,
-      },
-    } as any],
+      }),
+    ],
   });
 
   return PanelBuilders.stat()

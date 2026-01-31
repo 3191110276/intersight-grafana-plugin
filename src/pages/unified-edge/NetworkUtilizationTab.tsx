@@ -27,6 +27,7 @@ import { ClickableTableWrapper } from '../../components/ClickableTableWrapper';
 import { SharedDrilldownState, findSharedDrilldownState } from '../../utils/drilldownState';
 import { getChassisCount, createDrilldownQuery } from '../../utils/drilldownHelpers';
 import { DrilldownDetailsContainer, DrilldownDetailsContainerState, DrilldownDetailsContainerRenderer } from '../../utils/DrilldownDetailsContainer';
+import { createInfinityPostQuery } from '../../utils/infinityQueryHelpers';
 import { API_ENDPOINTS, COLUMN_WIDTHS } from './constants';
 
 // ============================================================================
@@ -342,15 +343,10 @@ function createUnifiedTableQuery(tabType: string, aggregation: string) {
     ]`;
   }
 
-  return {
+  return createInfinityPostQuery({
     refId: 'A',
-    queryType: 'infinity',
-    type: 'json',
-    source: 'url',
-    parser: 'backend',
     format: 'table',
     url: '/api/v1/telemetry/TimeSeries',
-    root_selector: '',
     columns: [
       { selector: 'timestamp', text: 'Time', type: 'timestamp' },
       { selector: 'event.domain_name', text: 'Chassis', type: 'string' },
@@ -359,11 +355,7 @@ function createUnifiedTableQuery(tabType: string, aggregation: string) {
       { selector: `event.${txMetric}`, text: 'TX', type: 'number' },
       { selector: `event.${rxMetric}`, text: 'RX', type: 'number' },
     ],
-    url_options: {
-      method: 'POST',
-      body_type: 'raw',
-      body_content_type: 'application/json',
-      data: `  {
+    body: `  {
     "queryType": "groupBy",
     "dataSource": "NetworkInterfaces",
     "granularity": {
@@ -419,8 +411,7 @@ function createUnifiedTableQuery(tabType: string, aggregation: string) {
     "aggregations": ${aggregationsJson},
     "postAggregations": ${postAggregationsJson}
   }`,
-    },
-  } as any;
+  });
 }
 
 /**
@@ -583,15 +574,10 @@ function createUnifiedDownlinksTableQuery(tabType: string, aggregation: string) 
     ]`;
   }
 
-  return {
+  return createInfinityPostQuery({
     refId: 'A',
-    queryType: 'infinity',
-    type: 'json',
-    source: 'url',
-    parser: 'backend',
     format: 'table',
     url: '/api/v1/telemetry/TimeSeries',
-    root_selector: '',
     columns: [
       { selector: 'timestamp', text: 'Time', type: 'timestamp' },
       { selector: 'event.domain_name', text: 'Chassis', type: 'string' },
@@ -600,11 +586,7 @@ function createUnifiedDownlinksTableQuery(tabType: string, aggregation: string) 
       { selector: `event.${txMetric}`, text: 'TX', type: 'number' },
       { selector: `event.${rxMetric}`, text: 'RX', type: 'number' },
     ],
-    url_options: {
-      method: 'POST',
-      body_type: 'raw',
-      body_content_type: 'application/json',
-      data: `  {
+    body: `  {
     "queryType": "groupBy",
     "dataSource": "NetworkInterfaces",
     "granularity": {
@@ -660,8 +642,7 @@ function createUnifiedDownlinksTableQuery(tabType: string, aggregation: string) 
     "aggregations": ${aggregationsJson},
     "postAggregations": ${postAggregationsJson}
   }`,
-    },
-  } as any;
+  });
 }
 
 /**
@@ -1203,26 +1184,17 @@ function createPanel_eCMC_A_TX(portRole: string, tabType: string, isDrilldown: b
     ]`;
   }
 
-  const baseQuery = {
+  const baseQuery = createInfinityPostQuery({
     refId: 'A',
-    queryType: 'infinity',
-    type: 'json',
-    source: 'url',
-    parser: 'backend',
     format: 'timeseries',
     url: '/api/v1/telemetry/TimeSeries',
-    root_selector: '',
     columns: [
       { selector: 'timestamp', text: 'Time', type: 'timestamp' },
       { selector: 'event.domain_name', text: 'Chassis', type: 'string' },
       { selector: 'event.port_name', text: 'Port', type: 'string' },
       { selector: `event.${metricName}`, text: 'Utilization', type: 'number' },
     ],
-    url_options: {
-      method: 'POST',
-      body_type: 'raw',
-      body_content_type: 'application/json',
-      data: `  {
+    body: `  {
     "queryType": "groupBy",
     "dataSource": "NetworkInterfaces",
     "granularity": {
@@ -1293,8 +1265,7 @@ function createPanel_eCMC_A_TX(portRole: string, tabType: string, isDrilldown: b
     "aggregations": ${aggregationsJson},
     "postAggregations": ${postAggregationsJson}
   }`,
-    },
-  };
+  });
 
   const query = isDrilldown && chassisName
     ? createDrilldownQuery(baseQuery, chassisName)
@@ -1493,26 +1464,17 @@ function createPanel_eCMC_A_RX(portRole: string, tabType: string, isDrilldown: b
     ]`;
   }
 
-  const baseQuery = {
+  const baseQuery = createInfinityPostQuery({
     refId: 'A',
-    queryType: 'infinity',
-    type: 'json',
-    source: 'url',
-    parser: 'backend',
     format: 'timeseries',
     url: '/api/v1/telemetry/TimeSeries',
-    root_selector: '',
     columns: [
       { selector: 'timestamp', text: 'Time', type: 'timestamp' },
       { selector: 'event.domain_name', text: 'Chassis', type: 'string' },
       { selector: 'event.port_name', text: 'Port', type: 'string' },
       { selector: `event.${metricName}`, text: 'Utilization', type: 'number' },
     ],
-    url_options: {
-      method: 'POST',
-      body_type: 'raw',
-      body_content_type: 'application/json',
-      data: `  {
+    body: `  {
     "queryType": "groupBy",
     "dataSource": "NetworkInterfaces",
     "granularity": {
@@ -1583,8 +1545,7 @@ function createPanel_eCMC_A_RX(portRole: string, tabType: string, isDrilldown: b
     "aggregations": ${aggregationsJson},
     "postAggregations": ${postAggregationsJson}
   }`,
-    },
-  };
+  });
 
   const query = isDrilldown && chassisName
     ? createDrilldownQuery(baseQuery, chassisName)
@@ -1783,26 +1744,17 @@ function createPanel_eCMC_B_TX(portRole: string, tabType: string, isDrilldown: b
     ]`;
   }
 
-  const baseQuery = {
+  const baseQuery = createInfinityPostQuery({
     refId: 'A',
-    queryType: 'infinity',
-    type: 'json',
-    source: 'url',
-    parser: 'backend',
     format: 'timeseries',
     url: '/api/v1/telemetry/TimeSeries',
-    root_selector: '',
     columns: [
       { selector: 'timestamp', text: 'Time', type: 'timestamp' },
       { selector: 'event.domain_name', text: 'Chassis', type: 'string' },
       { selector: 'event.port_name', text: 'Port', type: 'string' },
       { selector: `event.${metricName}`, text: 'Utilization', type: 'number' },
     ],
-    url_options: {
-      method: 'POST',
-      body_type: 'raw',
-      body_content_type: 'application/json',
-      data: `  {
+    body: `  {
     "queryType": "groupBy",
     "dataSource": "NetworkInterfaces",
     "granularity": {
@@ -1873,8 +1825,7 @@ function createPanel_eCMC_B_TX(portRole: string, tabType: string, isDrilldown: b
     "aggregations": ${aggregationsJson},
     "postAggregations": ${postAggregationsJson}
   }`,
-    },
-  };
+  });
 
   const query = isDrilldown && chassisName
     ? createDrilldownQuery(baseQuery, chassisName)
@@ -2073,26 +2024,17 @@ function createPanel_eCMC_B_RX(portRole: string, tabType: string, isDrilldown: b
     ]`;
   }
 
-  const baseQuery = {
+  const baseQuery = createInfinityPostQuery({
     refId: 'A',
-    queryType: 'infinity',
-    type: 'json',
-    source: 'url',
-    parser: 'backend',
     format: 'timeseries',
     url: '/api/v1/telemetry/TimeSeries',
-    root_selector: '',
     columns: [
       { selector: 'timestamp', text: 'Time', type: 'timestamp' },
       { selector: 'event.domain_name', text: 'Chassis', type: 'string' },
       { selector: 'event.port_name', text: 'Port', type: 'string' },
       { selector: `event.${metricName}`, text: 'Utilization', type: 'number' },
     ],
-    url_options: {
-      method: 'POST',
-      body_type: 'raw',
-      body_content_type: 'application/json',
-      data: `  {
+    body: `  {
     "queryType": "groupBy",
     "dataSource": "NetworkInterfaces",
     "granularity": {
@@ -2163,8 +2105,7 @@ function createPanel_eCMC_B_RX(portRole: string, tabType: string, isDrilldown: b
     "aggregations": ${aggregationsJson},
     "postAggregations": ${postAggregationsJson}
   }`,
-    },
-  };
+  });
 
   const query = isDrilldown && chassisName
     ? createDrilldownQuery(baseQuery, chassisName)
