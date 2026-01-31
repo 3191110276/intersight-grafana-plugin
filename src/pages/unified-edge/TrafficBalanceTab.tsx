@@ -217,896 +217,290 @@ function createDrilldownView(chassisName: string, parent: TrafficBalanceDetailsC
 // PANEL CREATION FUNCTIONS
 // ============================================================================
 
-// Panel 189: A: Eth uplink transmit utilization per chassis (Sum)
+/**
+ * Create a traffic balance line chart panel
+ * @param ecmcType - 'A' or 'B' for eCMC-A or eCMC-B
+ * @param direction - 'transmit' or 'receive' for data direction
+ * @param isDrilldown - Whether this is a drilldown view
+ * @param chassisName - Specific chassis name for drilldown (optional)
+ */
+function createTrafficBalanceLineChart(
+  ecmcType: 'A' | 'B',
+  direction: 'transmit' | 'receive',
+  isDrilldown: boolean,
+  chassisName?: string
+) {
+  const hostSuffix = ` eCMC-${ecmcType}`;
+  const fieldName = `hw.network.io_${direction}`;
+
+  const baseQuery = createTimeseriesQuery({
+    refId: 'A',
+    format: 'timeseries',
+    dataSource: 'NetworkInterfaces',
+    dimensions: ['domain_name'],
+    virtualColumns: [{
+      type: 'nested-field',
+      columnName: 'intersight.domain.name',
+      outputName: 'domain_name',
+      expectedType: 'STRING',
+      path: '$',
+    }],
+    filter: {
+      type: 'and',
+      fields: [
+        {
+          type: 'in',
+          dimension: 'intersight.domain.name',
+          values: '[\${ChassisName:doublequote}]',
+        },
+        {
+          type: 'search',
+          dimension: 'host.name',
+          query: {
+            type: 'insensitive_contains',
+            value: hostSuffix,
+          },
+        },
+        {
+          type: 'selector',
+          dimension: 'hw.network.port.type',
+          value: 'ethernet',
+        },
+        {
+          type: 'selector',
+          dimension: 'hw.network.port.role',
+          value: 'eth_uplink',
+        },
+        {
+          type: 'selector',
+          dimension: 'instrument.name',
+          value: 'hw.network',
+        },
+      ],
+    },
+    aggregations: [
+      {
+        type: 'doubleSum',
+        name: 'sum',
+        fieldName: fieldName,
+      },
+    ],
+    columns: [
+      { selector: 'timestamp', text: 'Time', type: 'timestamp' },
+      { selector: 'event.domain_name', text: 'Domain Name', type: 'string' },
+      { selector: 'event.sum', text: 'Utilization', type: 'number' },
+    ],
+  });
+
+  const query = isDrilldown && chassisName
+    ? createDrilldownQuery(baseQuery, chassisName)
+    : baseQuery;
+
+  const queryRunner = new LoggingQueryRunner({
+    datasource: { uid: '${Account}' },
+    queries: [query as any],
+  });
+
+  const transformer = new LoggingDataTransformer({
+    $data: queryRunner,
+    transformations: [
+      {
+        id: 'renameByRegex',
+        options: {
+          regex: 'Utilization (.*)',
+          renamePattern: '$1',
+        },
+      },
+    ],
+  });
+
+  const title = isDrilldown && chassisName
+    ? `${ecmcType}: Eth ${direction} for ${chassisName}`
+    : `${ecmcType}: Eth uplink ${direction} utilization per chassis (Sum)`;
+
+  return PanelBuilders.timeseries()
+    .setTitle(title)
+    .setData(transformer)
+    .setUnit('decbytes')
+    .setCustomFieldConfig('drawStyle', 'line' as any)
+    .setCustomFieldConfig('fillOpacity', 0)
+    .setCustomFieldConfig('axisSoftMin', 0)
+    .setOption('tooltip', { mode: 'multi' as any })
+    .build();
+}
+
+// Convenience wrappers for backward compatibility
 function createPanel189_LineChart(isDrilldown: boolean, chassisName?: string) {
-  const baseQuery = createTimeseriesQuery({
-    refId: 'A',
-    format: 'timeseries',
-    dataSource: 'NetworkInterfaces',
-    dimensions: ['domain_name'],
-    virtualColumns: [{
-      type: 'nested-field',
-      columnName: 'intersight.domain.name',
-      outputName: 'domain_name',
-      expectedType: 'STRING',
-      path: '$',
-    }],
-    filter: {
-      type: 'and',
-      fields: [
-        {
-          type: 'in',
-          dimension: 'intersight.domain.name',
-          values: '[\${ChassisName:doublequote}]',
-        },
-        {
-          type: 'search',
-          dimension: 'host.name',
-          query: {
-            type: 'insensitive_contains',
-            value: ' eCMC-A',
-          },
-        },
-        {
-          type: 'selector',
-          dimension: 'hw.network.port.type',
-          value: 'ethernet',
-        },
-        {
-          type: 'selector',
-          dimension: 'hw.network.port.role',
-          value: 'eth_uplink',
-        },
-        {
-          type: 'selector',
-          dimension: 'instrument.name',
-          value: 'hw.network',
-        },
-      ],
-    },
-    aggregations: [
-      {
-        type: 'doubleSum',
-        name: 'sum',
-        fieldName: 'hw.network.io_transmit',
-      },
-    ],
-    columns: [
-      { selector: 'timestamp', text: 'Time', type: 'timestamp' },
-      { selector: 'event.domain_name', text: 'Domain Name', type: 'string' },
-      { selector: 'event.sum', text: 'Utilization', type: 'number' },
-    ],
-  });
-
-  const query = isDrilldown && chassisName
-    ? createDrilldownQuery(baseQuery, chassisName)
-    : baseQuery;
-
-  const queryRunner = new LoggingQueryRunner({
-    datasource: { uid: '${Account}' },
-    queries: [query as any],
-  });
-
-  const transformer = new LoggingDataTransformer({
-    $data: queryRunner,
-    transformations: [
-      {
-        id: 'renameByRegex',
-        options: {
-          regex: 'Utilization (.*)',
-          renamePattern: '$1',
-        },
-      },
-    ],
-  });
-
-  const title = isDrilldown && chassisName
-    ? `A: Eth transmit for ${chassisName}`
-    : 'A: Eth uplink transmit utilization per chassis (Sum)';
-
-  return PanelBuilders.timeseries()
-    .setTitle(title)
-    .setData(transformer)
-    .setUnit('decbytes')
-    .setCustomFieldConfig('drawStyle', 'line' as any)
-    .setCustomFieldConfig('fillOpacity', 0)
-    .setCustomFieldConfig('axisSoftMin', 0)
-    .setOption('tooltip', { mode: 'multi' as any })
-    .build();
+  return createTrafficBalanceLineChart('A', 'transmit', isDrilldown, chassisName);
 }
 
-// Panel 190: B: Eth uplink transmit utilization per chassis (Sum)
 function createPanel190_LineChart(isDrilldown: boolean, chassisName?: string) {
-  const baseQuery = createTimeseriesQuery({
-    refId: 'A',
-    format: 'timeseries',
-    dataSource: 'NetworkInterfaces',
-    dimensions: ['domain_name'],
-    virtualColumns: [{
-      type: 'nested-field',
-      columnName: 'intersight.domain.name',
-      outputName: 'domain_name',
-      expectedType: 'STRING',
-      path: '$',
-    }],
-    filter: {
-      type: 'and',
-      fields: [
-        {
-          type: 'in',
-          dimension: 'intersight.domain.name',
-          values: '[\${ChassisName:doublequote}]',
-        },
-        {
-          type: 'search',
-          dimension: 'host.name',
-          query: {
-            type: 'insensitive_contains',
-            value: ' eCMC-B',
-          },
-        },
-        {
-          type: 'selector',
-          dimension: 'hw.network.port.type',
-          value: 'ethernet',
-        },
-        {
-          type: 'selector',
-          dimension: 'hw.network.port.role',
-          value: 'eth_uplink',
-        },
-        {
-          type: 'selector',
-          dimension: 'instrument.name',
-          value: 'hw.network',
-        },
-      ],
-    },
-    aggregations: [
-      {
-        type: 'doubleSum',
-        name: 'sum',
-        fieldName: 'hw.network.io_transmit',
-      },
-    ],
-    columns: [
-      { selector: 'timestamp', text: 'Time', type: 'timestamp' },
-      { selector: 'event.domain_name', text: 'Domain Name', type: 'string' },
-      { selector: 'event.sum', text: 'Utilization', type: 'number' },
-    ],
-  });
-
-  const query = isDrilldown && chassisName
-    ? createDrilldownQuery(baseQuery, chassisName)
-    : baseQuery;
-
-  const queryRunner = new LoggingQueryRunner({
-    datasource: { uid: '${Account}' },
-    queries: [query as any],
-  });
-
-  const transformer = new LoggingDataTransformer({
-    $data: queryRunner,
-    transformations: [
-      {
-        id: 'renameByRegex',
-        options: {
-          regex: 'Utilization (.*)',
-          renamePattern: '$1',
-        },
-      },
-    ],
-  });
-
-  const title = isDrilldown && chassisName
-    ? `B: Eth transmit for ${chassisName}`
-    : 'B: Eth uplink transmit utilization per chassis (Sum)';
-
-  return PanelBuilders.timeseries()
-    .setTitle(title)
-    .setData(transformer)
-    .setUnit('decbytes')
-    .setCustomFieldConfig('drawStyle', 'line' as any)
-    .setCustomFieldConfig('fillOpacity', 0)
-    .setCustomFieldConfig('axisSoftMin', 0)
-    .setOption('tooltip', { mode: 'multi' as any })
-    .build();
+  return createTrafficBalanceLineChart('B', 'transmit', isDrilldown, chassisName);
 }
 
-// Panel 191: A: Eth uplink receive utilization per chassis (Sum)
 function createPanel191_LineChart(isDrilldown: boolean, chassisName?: string) {
-  const baseQuery = createTimeseriesQuery({
-    refId: 'A',
-    format: 'timeseries',
-    dataSource: 'NetworkInterfaces',
-    dimensions: ['domain_name'],
-    virtualColumns: [{
-      type: 'nested-field',
-      columnName: 'intersight.domain.name',
-      outputName: 'domain_name',
-      expectedType: 'STRING',
-      path: '$',
-    }],
-    filter: {
-      type: 'and',
-      fields: [
-        {
-          type: 'in',
-          dimension: 'intersight.domain.name',
-          values: '[\${ChassisName:doublequote}]',
-        },
-        {
-          type: 'search',
-          dimension: 'host.name',
-          query: {
-            type: 'insensitive_contains',
-            value: ' eCMC-A',
-          },
-        },
-        {
-          type: 'selector',
-          dimension: 'hw.network.port.type',
-          value: 'ethernet',
-        },
-        {
-          type: 'selector',
-          dimension: 'hw.network.port.role',
-          value: 'eth_uplink',
-        },
-        {
-          type: 'selector',
-          dimension: 'instrument.name',
-          value: 'hw.network',
-        },
-      ],
-    },
-    aggregations: [
-      {
-        type: 'doubleSum',
-        name: 'sum',
-        fieldName: 'hw.network.io_receive',
-      },
-    ],
-    columns: [
-      { selector: 'timestamp', text: 'Time', type: 'timestamp' },
-      { selector: 'event.domain_name', text: 'Domain Name', type: 'string' },
-      { selector: 'event.sum', text: 'Utilization', type: 'number' },
-    ],
-  });
-
-  const query = isDrilldown && chassisName
-    ? createDrilldownQuery(baseQuery, chassisName)
-    : baseQuery;
-
-  const queryRunner = new LoggingQueryRunner({
-    datasource: { uid: '${Account}' },
-    queries: [query as any],
-  });
-
-  const transformer = new LoggingDataTransformer({
-    $data: queryRunner,
-    transformations: [
-      {
-        id: 'renameByRegex',
-        options: {
-          regex: 'Utilization (.*)',
-          renamePattern: '$1',
-        },
-      },
-    ],
-  });
-
-  const title = isDrilldown && chassisName
-    ? `A: Eth receive for ${chassisName}`
-    : 'A: Eth uplink receive utilization per chassis (Sum)';
-
-  return PanelBuilders.timeseries()
-    .setTitle(title)
-    .setData(transformer)
-    .setUnit('decbytes')
-    .setCustomFieldConfig('drawStyle', 'line' as any)
-    .setCustomFieldConfig('fillOpacity', 0)
-    .setCustomFieldConfig('axisSoftMin', 0)
-    .setOption('tooltip', { mode: 'multi' as any })
-    .build();
+  return createTrafficBalanceLineChart('A', 'receive', isDrilldown, chassisName);
 }
 
-// Panel 192: B: Eth uplink receive utilization per chassis (Sum)
 function createPanel192_LineChart(isDrilldown: boolean, chassisName?: string) {
-  const baseQuery = createTimeseriesQuery({
-    refId: 'A',
-    format: 'timeseries',
-    dataSource: 'NetworkInterfaces',
-    dimensions: ['domain_name'],
-    virtualColumns: [{
-      type: 'nested-field',
-      columnName: 'intersight.domain.name',
-      outputName: 'domain_name',
-      expectedType: 'STRING',
-      path: '$',
-    }],
-    filter: {
-      type: 'and',
-      fields: [
-        {
-          type: 'in',
-          dimension: 'intersight.domain.name',
-          values: '[\${ChassisName:doublequote}]',
-        },
-        {
-          type: 'search',
-          dimension: 'host.name',
-          query: {
-            type: 'insensitive_contains',
-            value: ' eCMC-B',
-          },
-        },
-        {
-          type: 'selector',
-          dimension: 'hw.network.port.type',
-          value: 'ethernet',
-        },
-        {
-          type: 'selector',
-          dimension: 'hw.network.port.role',
-          value: 'eth_uplink',
-        },
-        {
-          type: 'selector',
-          dimension: 'instrument.name',
-          value: 'hw.network',
-        },
-      ],
-    },
-    aggregations: [
-      {
-        type: 'doubleSum',
-        name: 'sum',
-        fieldName: 'hw.network.io_receive',
-      },
-    ],
-    columns: [
-      { selector: 'timestamp', text: 'Time', type: 'timestamp' },
-      { selector: 'event.domain_name', text: 'Domain Name', type: 'string' },
-      { selector: 'event.sum', text: 'Utilization', type: 'number' },
-    ],
-  });
-
-  const query = isDrilldown && chassisName
-    ? createDrilldownQuery(baseQuery, chassisName)
-    : baseQuery;
-
-  const queryRunner = new LoggingQueryRunner({
-    datasource: { uid: '${Account}' },
-    queries: [query as any],
-  });
-
-  const transformer = new LoggingDataTransformer({
-    $data: queryRunner,
-    transformations: [
-      {
-        id: 'renameByRegex',
-        options: {
-          regex: 'Utilization (.*)',
-          renamePattern: '$1',
-        },
-      },
-    ],
-  });
-
-  const title = isDrilldown && chassisName
-    ? `B: Eth receive for ${chassisName}`
-    : 'B: Eth uplink receive utilization per chassis (Sum)';
-
-  return PanelBuilders.timeseries()
-    .setTitle(title)
-    .setData(transformer)
-    .setUnit('decbytes')
-    .setCustomFieldConfig('drawStyle', 'line' as any)
-    .setCustomFieldConfig('fillOpacity', 0)
-    .setCustomFieldConfig('axisSoftMin', 0)
-    .setOption('tooltip', { mode: 'multi' as any })
-    .build();
+  return createTrafficBalanceLineChart('B', 'receive', isDrilldown, chassisName);
 }
 
 // ============================================================================
 // TABLE PANEL CREATION FUNCTIONS
 // ============================================================================
 
-// Panel 189: A: Eth uplink transmit utilization per chassis (Table)
+/**
+ * Create a traffic balance table panel with drilldown capability
+ * @param ecmcType - 'A' or 'B' for eCMC-A or eCMC-B
+ * @param direction - 'transmit' or 'receive' for data direction
+ * @param parent - Parent container for drilldown callbacks
+ */
+function createTrafficBalanceTable(
+  ecmcType: 'A' | 'B',
+  direction: 'transmit' | 'receive',
+  parent: TrafficBalanceDetailsContainer
+) {
+  const hostSuffix = ` eCMC-${ecmcType}`;
+  const fieldName = `hw.network.io_${direction}`;
+
+  const baseQuery = createTimeseriesQuery({
+    refId: 'A',
+    format: 'timeseries',
+    dataSource: 'NetworkInterfaces',
+    dimensions: ['domain_name'],
+    virtualColumns: [{
+      type: 'nested-field',
+      columnName: 'intersight.domain.name',
+      outputName: 'domain_name',
+      expectedType: 'STRING',
+      path: '$',
+    }],
+    filter: {
+      type: 'and',
+      fields: [
+        {
+          type: 'in',
+          dimension: 'intersight.domain.name',
+          values: '[\${ChassisName:doublequote}]',
+        },
+        {
+          type: 'search',
+          dimension: 'host.name',
+          query: {
+            type: 'insensitive_contains',
+            value: hostSuffix,
+          },
+        },
+        {
+          type: 'selector',
+          dimension: 'hw.network.port.type',
+          value: 'ethernet',
+        },
+        {
+          type: 'selector',
+          dimension: 'hw.network.port.role',
+          value: 'eth_uplink',
+        },
+        {
+          type: 'selector',
+          dimension: 'instrument.name',
+          value: 'hw.network',
+        },
+      ],
+    },
+    aggregations: [
+      {
+        type: 'doubleSum',
+        name: 'sum',
+        fieldName: fieldName,
+      },
+    ],
+    columns: [
+      { selector: 'timestamp', text: 'Time', type: 'timestamp' },
+      { selector: 'event.domain_name', text: 'Domain Name', type: 'string' },
+      { selector: 'event.sum', text: 'Utilization', type: 'number' },
+    ],
+  });
+
+  const queryRunner = new LoggingQueryRunner({
+    datasource: { uid: '${Account}' },
+    queries: [baseQuery as any],
+  });
+
+  const transformer = new LoggingDataTransformer({
+    $data: queryRunner,
+    transformations: [
+      {
+        id: 'renameByRegex',
+        options: {
+          regex: 'Utilization (.*)',
+          renamePattern: '$1',
+        },
+      },
+      {
+        id: 'timeSeriesTable',
+        options: {
+          A: { timeField: 'Time' },
+        },
+      },
+      {
+        id: 'organize',
+        options: {
+          excludeByName: {},
+          includeByName: {},
+          indexByName: {
+            'Domain Name': 0,
+            'Utilization': 1,
+          },
+          renameByName: {
+            'Domain Name': 'Chassis Name',
+            'Trend #A': 'Utilization',
+          },
+        },
+      },
+    ],
+  });
+
+  const tablePanel = PanelBuilders.table()
+    .setTitle(`${ecmcType}: Eth uplink ${direction} utilization per chassis - Click row to drill down`)
+    .setData(transformer)
+    .setUnit('decbytes')
+    .setOption('sortBy', [{ displayName: 'Utilization', desc: true }])
+    .setOption('footer' as any, {
+      enablePagination: true,
+      show: false,
+    })
+    .setOverrides((builder) => {
+      builder
+        .matchFieldsWithName('Utilization')
+        .overrideColor({ mode: 'fixed', fixedColor: 'semi-dark-blue' });
+
+      builder.matchFieldsWithName('Chassis Name').overrideCustomFieldConfig('width', 240);
+    })
+    .build();
+
+  return new ClickableTableWrapper({
+    tablePanel,
+    onRowClick: (chassisName: string) => parent.drillToChassis(chassisName),
+  });
+}
+
+// Convenience wrappers for backward compatibility
 function createPanel189_Table(parent: TrafficBalanceDetailsContainer) {
-  const baseQuery = createTimeseriesQuery({
-    refId: 'A',
-    format: 'timeseries',
-    dataSource: 'NetworkInterfaces',
-    dimensions: ['domain_name'],
-    virtualColumns: [{
-      type: 'nested-field',
-      columnName: 'intersight.domain.name',
-      outputName: 'domain_name',
-      expectedType: 'STRING',
-      path: '$',
-    }],
-    filter: {
-      type: 'and',
-      fields: [
-        {
-          type: 'in',
-          dimension: 'intersight.domain.name',
-          values: '[\${ChassisName:doublequote}]',
-        },
-        {
-          type: 'search',
-          dimension: 'host.name',
-          query: {
-            type: 'insensitive_contains',
-            value: ' eCMC-A',
-          },
-        },
-        {
-          type: 'selector',
-          dimension: 'hw.network.port.type',
-          value: 'ethernet',
-        },
-        {
-          type: 'selector',
-          dimension: 'hw.network.port.role',
-          value: 'eth_uplink',
-        },
-        {
-          type: 'selector',
-          dimension: 'instrument.name',
-          value: 'hw.network',
-        },
-      ],
-    },
-    aggregations: [
-      {
-        type: 'doubleSum',
-        name: 'sum',
-        fieldName: 'hw.network.io_transmit',
-      },
-    ],
-    columns: [
-      { selector: 'timestamp', text: 'Time', type: 'timestamp' },
-      { selector: 'event.domain_name', text: 'Domain Name', type: 'string' },
-      { selector: 'event.sum', text: 'Utilization', type: 'number' },
-    ],
-  });
-
-  const queryRunner = new LoggingQueryRunner({
-    datasource: { uid: '${Account}' },
-    queries: [baseQuery as any],
-  });
-
-  const transformer = new LoggingDataTransformer({
-    $data: queryRunner,
-    transformations: [
-      {
-        id: 'renameByRegex',
-        options: {
-          regex: 'Utilization (.*)',
-          renamePattern: '$1',
-        },
-      },
-      {
-        id: 'timeSeriesTable',
-        options: {
-          A: { timeField: 'Time' },
-        },
-      },
-      {
-        id: 'organize',
-        options: {
-          excludeByName: {},
-          includeByName: {},
-          indexByName: {
-            'Domain Name': 0,
-            'Utilization': 1,
-          },
-          renameByName: {
-            'Domain Name': 'Chassis Name',
-            'Trend #A': 'Utilization',
-          },
-        },
-      },
-    ],
-  });
-
-  const tablePanel = PanelBuilders.table()
-    .setTitle('A: Eth uplink transmit utilization per chassis - Click row to drill down')
-    .setData(transformer)
-    .setUnit('decbytes')
-    .setOption('sortBy', [{ displayName: 'Utilization', desc: true }])
-    .setOption('footer' as any, {
-      enablePagination: true,
-      show: false,
-    })
-    .setOverrides((builder) => {
-      builder
-        .matchFieldsWithName('Utilization')
-        .overrideColor({ mode: 'fixed', fixedColor: 'semi-dark-blue' });
-
-      builder.matchFieldsWithName('Chassis Name').overrideCustomFieldConfig('width', 240);
-    })
-    .build();
-
-  return new ClickableTableWrapper({
-    tablePanel,
-    onRowClick: (chassisName: string) => parent.drillToChassis(chassisName),
-  });
+  return createTrafficBalanceTable('A', 'transmit', parent);
 }
 
-// Panel 190: B: Eth uplink transmit utilization per chassis (Table)
 function createPanel190_Table(parent: TrafficBalanceDetailsContainer) {
-  const baseQuery = createTimeseriesQuery({
-    refId: 'A',
-    format: 'timeseries',
-    dataSource: 'NetworkInterfaces',
-    dimensions: ['domain_name'],
-    virtualColumns: [{
-      type: 'nested-field',
-      columnName: 'intersight.domain.name',
-      outputName: 'domain_name',
-      expectedType: 'STRING',
-      path: '$',
-    }],
-    filter: {
-      type: 'and',
-      fields: [
-        {
-          type: 'in',
-          dimension: 'intersight.domain.name',
-          values: '[\${ChassisName:doublequote}]',
-        },
-        {
-          type: 'search',
-          dimension: 'host.name',
-          query: {
-            type: 'insensitive_contains',
-            value: ' eCMC-B',
-          },
-        },
-        {
-          type: 'selector',
-          dimension: 'hw.network.port.type',
-          value: 'ethernet',
-        },
-        {
-          type: 'selector',
-          dimension: 'hw.network.port.role',
-          value: 'eth_uplink',
-        },
-        {
-          type: 'selector',
-          dimension: 'instrument.name',
-          value: 'hw.network',
-        },
-      ],
-    },
-    aggregations: [
-      {
-        type: 'doubleSum',
-        name: 'sum',
-        fieldName: 'hw.network.io_transmit',
-      },
-    ],
-    columns: [
-      { selector: 'timestamp', text: 'Time', type: 'timestamp' },
-      { selector: 'event.domain_name', text: 'Domain Name', type: 'string' },
-      { selector: 'event.sum', text: 'Utilization', type: 'number' },
-    ],
-  });
-
-  const queryRunner = new LoggingQueryRunner({
-    datasource: { uid: '${Account}' },
-    queries: [baseQuery as any],
-  });
-
-  const transformer = new LoggingDataTransformer({
-    $data: queryRunner,
-    transformations: [
-      {
-        id: 'renameByRegex',
-        options: {
-          regex: 'Utilization (.*)',
-          renamePattern: '$1',
-        },
-      },
-      {
-        id: 'timeSeriesTable',
-        options: {
-          A: { timeField: 'Time' },
-        },
-      },
-      {
-        id: 'organize',
-        options: {
-          excludeByName: {},
-          includeByName: {},
-          indexByName: {
-            'Domain Name': 0,
-            'Utilization': 1,
-          },
-          renameByName: {
-            'Domain Name': 'Chassis Name',
-            'Trend #A': 'Utilization',
-          },
-        },
-      },
-    ],
-  });
-
-  const tablePanel = PanelBuilders.table()
-    .setTitle('B: Eth uplink transmit utilization per chassis - Click row to drill down')
-    .setData(transformer)
-    .setUnit('decbytes')
-    .setOption('sortBy', [{ displayName: 'Utilization', desc: true }])
-    .setOption('footer' as any, {
-      enablePagination: true,
-      show: false,
-    })
-    .setOverrides((builder) => {
-      builder
-        .matchFieldsWithName('Utilization')
-        .overrideColor({ mode: 'fixed', fixedColor: 'semi-dark-blue' });
-
-      builder.matchFieldsWithName('Chassis Name').overrideCustomFieldConfig('width', 240);
-    })
-    .build();
-
-  return new ClickableTableWrapper({
-    tablePanel,
-    onRowClick: (chassisName: string) => parent.drillToChassis(chassisName),
-  });
+  return createTrafficBalanceTable('B', 'transmit', parent);
 }
 
-// Panel 191: A: Eth uplink receive utilization per chassis (Table)
 function createPanel191_Table(parent: TrafficBalanceDetailsContainer) {
-  const baseQuery = createTimeseriesQuery({
-    refId: 'A',
-    format: 'timeseries',
-    dataSource: 'NetworkInterfaces',
-    dimensions: ['domain_name'],
-    virtualColumns: [{
-      type: 'nested-field',
-      columnName: 'intersight.domain.name',
-      outputName: 'domain_name',
-      expectedType: 'STRING',
-      path: '$',
-    }],
-    filter: {
-      type: 'and',
-      fields: [
-        {
-          type: 'in',
-          dimension: 'intersight.domain.name',
-          values: '[\${ChassisName:doublequote}]',
-        },
-        {
-          type: 'search',
-          dimension: 'host.name',
-          query: {
-            type: 'insensitive_contains',
-            value: ' eCMC-A',
-          },
-        },
-        {
-          type: 'selector',
-          dimension: 'hw.network.port.type',
-          value: 'ethernet',
-        },
-        {
-          type: 'selector',
-          dimension: 'hw.network.port.role',
-          value: 'eth_uplink',
-        },
-        {
-          type: 'selector',
-          dimension: 'instrument.name',
-          value: 'hw.network',
-        },
-      ],
-    },
-    aggregations: [
-      {
-        type: 'doubleSum',
-        name: 'sum',
-        fieldName: 'hw.network.io_receive',
-      },
-    ],
-    columns: [
-      { selector: 'timestamp', text: 'Time', type: 'timestamp' },
-      { selector: 'event.domain_name', text: 'Domain Name', type: 'string' },
-      { selector: 'event.sum', text: 'Utilization', type: 'number' },
-    ],
-  });
-
-  const queryRunner = new LoggingQueryRunner({
-    datasource: { uid: '${Account}' },
-    queries: [baseQuery as any],
-  });
-
-  const transformer = new LoggingDataTransformer({
-    $data: queryRunner,
-    transformations: [
-      {
-        id: 'renameByRegex',
-        options: {
-          regex: 'Utilization (.*)',
-          renamePattern: '$1',
-        },
-      },
-      {
-        id: 'timeSeriesTable',
-        options: {
-          A: { timeField: 'Time' },
-        },
-      },
-      {
-        id: 'organize',
-        options: {
-          excludeByName: {},
-          includeByName: {},
-          indexByName: {
-            'Domain Name': 0,
-            'Utilization': 1,
-          },
-          renameByName: {
-            'Domain Name': 'Chassis Name',
-            'Trend #A': 'Utilization',
-          },
-        },
-      },
-    ],
-  });
-
-  const tablePanel = PanelBuilders.table()
-    .setTitle('A: Eth uplink receive utilization per chassis - Click row to drill down')
-    .setData(transformer)
-    .setUnit('decbytes')
-    .setOption('sortBy', [{ displayName: 'Utilization', desc: true }])
-    .setOption('footer' as any, {
-      enablePagination: true,
-      show: false,
-    })
-    .setOverrides((builder) => {
-      builder
-        .matchFieldsWithName('Utilization')
-        .overrideColor({ mode: 'fixed', fixedColor: 'semi-dark-blue' });
-
-      builder.matchFieldsWithName('Chassis Name').overrideCustomFieldConfig('width', 240);
-    })
-    .build();
-
-  return new ClickableTableWrapper({
-    tablePanel,
-    onRowClick: (chassisName: string) => parent.drillToChassis(chassisName),
-  });
+  return createTrafficBalanceTable('A', 'receive', parent);
 }
 
-// Panel 192: B: Eth uplink receive utilization per chassis (Table)
 function createPanel192_Table(parent: TrafficBalanceDetailsContainer) {
-  const baseQuery = createTimeseriesQuery({
-    refId: 'A',
-    format: 'timeseries',
-    dataSource: 'NetworkInterfaces',
-    dimensions: ['domain_name'],
-    virtualColumns: [{
-      type: 'nested-field',
-      columnName: 'intersight.domain.name',
-      outputName: 'domain_name',
-      expectedType: 'STRING',
-      path: '$',
-    }],
-    filter: {
-      type: 'and',
-      fields: [
-        {
-          type: 'in',
-          dimension: 'intersight.domain.name',
-          values: '[\${ChassisName:doublequote}]',
-        },
-        {
-          type: 'search',
-          dimension: 'host.name',
-          query: {
-            type: 'insensitive_contains',
-            value: ' eCMC-B',
-          },
-        },
-        {
-          type: 'selector',
-          dimension: 'hw.network.port.type',
-          value: 'ethernet',
-        },
-        {
-          type: 'selector',
-          dimension: 'hw.network.port.role',
-          value: 'eth_uplink',
-        },
-        {
-          type: 'selector',
-          dimension: 'instrument.name',
-          value: 'hw.network',
-        },
-      ],
-    },
-    aggregations: [
-      {
-        type: 'doubleSum',
-        name: 'sum',
-        fieldName: 'hw.network.io_receive',
-      },
-    ],
-    columns: [
-      { selector: 'timestamp', text: 'Time', type: 'timestamp' },
-      { selector: 'event.domain_name', text: 'Domain Name', type: 'string' },
-      { selector: 'event.sum', text: 'Utilization', type: 'number' },
-    ],
-  });
-
-  const queryRunner = new LoggingQueryRunner({
-    datasource: { uid: '${Account}' },
-    queries: [baseQuery as any],
-  });
-
-  const transformer = new LoggingDataTransformer({
-    $data: queryRunner,
-    transformations: [
-      {
-        id: 'renameByRegex',
-        options: {
-          regex: 'Utilization (.*)',
-          renamePattern: '$1',
-        },
-      },
-      {
-        id: 'timeSeriesTable',
-        options: {
-          A: { timeField: 'Time' },
-        },
-      },
-      {
-        id: 'organize',
-        options: {
-          excludeByName: {},
-          includeByName: {},
-          indexByName: {
-            'Domain Name': 0,
-            'Utilization': 1,
-          },
-          renameByName: {
-            'Domain Name': 'Chassis Name',
-            'Trend #A': 'Utilization',
-          },
-        },
-      },
-    ],
-  });
-
-  const tablePanel = PanelBuilders.table()
-    .setTitle('B: Eth uplink receive utilization per chassis - Click row to drill down')
-    .setData(transformer)
-    .setUnit('decbytes')
-    .setOption('sortBy', [{ displayName: 'Utilization', desc: true }])
-    .setOption('footer' as any, {
-      enablePagination: true,
-      show: false,
-    })
-    .setOverrides((builder) => {
-      builder
-        .matchFieldsWithName('Utilization')
-        .overrideColor({ mode: 'fixed', fixedColor: 'semi-dark-blue' });
-
-      builder.matchFieldsWithName('Chassis Name').overrideCustomFieldConfig('width', 240);
-    })
-    .build();
-
-  return new ClickableTableWrapper({
-    tablePanel,
-    onRowClick: (chassisName: string) => parent.drillToChassis(chassisName),
-  });
+  return createTrafficBalanceTable('B', 'receive', parent);
 }
 
 export function getTrafficBalanceTab() {
