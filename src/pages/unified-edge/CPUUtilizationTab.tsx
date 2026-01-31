@@ -6,7 +6,8 @@ import {
   sceneGraph,
   behaviors,
 } from '@grafana/scenes';
-import { DynamicChassisScene, DynamicChassisSceneState, DynamicChassisSceneRenderer } from '../../utils/DynamicChassisScene';
+import { DynamicChassisSceneState, DynamicChassisSceneRenderer } from '../../utils/DynamicChassisScene';
+import { HostDrilldownScene } from '../../utils/DrilldownScenes';
 import { DashboardCursorSync } from '@grafana/data';
 import { LoggingQueryRunner } from '../../utils/LoggingQueryRunner';
 import { LoggingDataTransformer } from '../../utils/LoggingDataTransformer';
@@ -246,30 +247,8 @@ interface DynamicCPUUtilizationSceneState extends DynamicChassisSceneState {
  * - 1-2 chassis: 2 timeseries graphs (CPU Utilization + Combined CPU Temperature)
  * - 3+ chassis: Table with sparklines (matching IMM Domain style)
  */
-class DynamicCPUUtilizationScene extends DynamicChassisScene<DynamicCPUUtilizationSceneState> {
+class DynamicCPUUtilizationScene extends HostDrilldownScene<DynamicCPUUtilizationSceneState> {
   public static Component = DynamicChassisSceneRenderer;
-
-  /**
-   * Drills down to a specific host's detailed view
-   */
-  public drillToHost(hostName: string) {
-    this.setState({
-      drilldownHost: hostName,
-      isDrilldown: true,
-    });
-    this.rebuildBody();
-  }
-
-  /**
-   * Exits drilldown mode and returns to table view
-   */
-  public exitDrilldown() {
-    this.setState({
-      drilldownHost: undefined,
-      isDrilldown: false,
-    });
-    this.rebuildBody();
-  }
 
   protected rebuildBody() {
     // Skip if scene is not active (prevents race conditions during deactivation)

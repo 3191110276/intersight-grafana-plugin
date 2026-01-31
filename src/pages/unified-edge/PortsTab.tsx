@@ -20,7 +20,8 @@ import {
   SceneDataProvider,
   SceneDataState,
 } from '@grafana/scenes';
-import { DynamicChassisScene, DynamicChassisSceneState, DynamicChassisSceneRenderer } from '../../utils/DynamicChassisScene';
+import { DynamicChassisSceneState, DynamicChassisSceneRenderer } from '../../utils/DynamicChassisScene';
+import { ChassisDrilldownScene } from '../../utils/DrilldownScenes';
 import { DataFrame, FieldType, LoadingState, MutableDataFrame, PanelData } from '@grafana/data';
 import { Observable } from 'rxjs';
 import { EmptyStateScene } from '../../components/EmptyStateScene';
@@ -730,7 +731,7 @@ interface DynamicPortsSceneState extends DynamicChassisSceneState {
   isDrilldown?: boolean;
 }
 
-class DynamicPortsScene extends DynamicChassisScene<DynamicPortsSceneState> {
+class DynamicPortsScene extends ChassisDrilldownScene<DynamicPortsSceneState> {
   public static Component = DynamicChassisSceneRenderer;
 
   // Override to watch both ChassisName and RegisteredDevices
@@ -747,22 +748,6 @@ class DynamicPortsScene extends DynamicChassisScene<DynamicPortsSceneState> {
       }
     },
   });
-
-  public drillToChassis(chassisName: string) {
-    this.setState({
-      drilldownChassis: chassisName,
-      isDrilldown: true,
-    });
-    this.rebuildBody();
-  }
-
-  public exitDrilldown() {
-    this.setState({
-      drilldownChassis: undefined,
-      isDrilldown: false,
-    });
-    this.rebuildBody();
-  }
 
   protected rebuildBody() {
     if (!this.isActive) {

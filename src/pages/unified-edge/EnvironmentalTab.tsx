@@ -14,6 +14,7 @@ import {
   behaviors,
 } from '@grafana/scenes';
 import { DynamicChassisScene, DynamicChassisSceneState, DynamicChassisSceneRenderer } from '../../utils/DynamicChassisScene';
+import { HostDrilldownScene, ChassisDrilldownScene } from '../../utils/DrilldownScenes';
 import { DashboardCursorSync } from '@grafana/data';
 import { LoggingQueryRunner } from '../../utils/LoggingQueryRunner';
 import { LoggingDataTransformer } from '../../utils/LoggingDataTransformer';
@@ -809,7 +810,7 @@ interface DynamicChassisFanSpeedSceneState extends DynamicChassisSceneState {
   isDrilldown?: boolean;
 }
 
-class DynamicChassisFanSpeedScene extends DynamicChassisScene<DynamicChassisFanSpeedSceneState> {
+class DynamicChassisFanSpeedScene extends ChassisDrilldownScene<DynamicChassisFanSpeedSceneState> {
   public static Component = DynamicChassisSceneRenderer;
 
   protected onChassisVariableChanged(): void {
@@ -817,22 +818,6 @@ class DynamicChassisFanSpeedScene extends DynamicChassisScene<DynamicChassisFanS
     if (this.state.isDrilldown) {
       this.exitDrilldown();
     }
-    this.rebuildBody();
-  }
-
-  public drillToChassis(chassisName: string) {
-    this.setState({
-      drilldownChassis: chassisName,
-      isDrilldown: true,
-    });
-    this.rebuildBody();
-  }
-
-  public exitDrilldown() {
-    this.setState({
-      drilldownChassis: undefined,
-      isDrilldown: false,
-    });
     this.rebuildBody();
   }
 
@@ -1201,7 +1186,7 @@ interface DynamicChassisTemperatureSceneState extends DynamicChassisSceneState {
   isDrilldown?: boolean;
 }
 
-class DynamicChassisTemperatureScene extends DynamicChassisScene<DynamicChassisTemperatureSceneState> {
+class DynamicChassisTemperatureScene extends ChassisDrilldownScene<DynamicChassisTemperatureSceneState> {
   public static Component = DynamicChassisSceneRenderer;
 
   protected onChassisVariableChanged(): void {
@@ -1209,22 +1194,6 @@ class DynamicChassisTemperatureScene extends DynamicChassisScene<DynamicChassisT
     if (this.state.isDrilldown) {
       this.exitDrilldown();
     }
-    this.rebuildBody();
-  }
-
-  public drillToChassis(chassisName: string) {
-    this.setState({
-      drilldownChassis: chassisName,
-      isDrilldown: true,
-    });
-    this.rebuildBody();
-  }
-
-  public exitDrilldown() {
-    this.setState({
-      drilldownChassis: undefined,
-      isDrilldown: false,
-    });
     this.rebuildBody();
   }
 
@@ -1744,32 +1713,13 @@ interface DynamicHostTemperatureSceneState extends DynamicChassisSceneState {
   isDrilldown?: boolean;
 }
 
-class DynamicHostTemperatureScene extends DynamicChassisScene<DynamicHostTemperatureSceneState> {
+class DynamicHostTemperatureScene extends HostDrilldownScene<DynamicHostTemperatureSceneState> {
   public static Component = DynamicChassisSceneRenderer;
 
   protected onChassisVariableChanged(): void {
     if (this.state.isDrilldown) {
       this.exitDrilldown();
     }
-    this.rebuildBody();
-  }
-
-  public drillToHost(hostName: string) {
-    if (!hostName || !hostName.trim()) {
-      return;
-    }
-    this.setState({
-      drilldownHost: hostName,
-      isDrilldown: true,
-    });
-    this.rebuildBody();
-  }
-
-  public exitDrilldown() {
-    this.setState({
-      drilldownHost: undefined,
-      isDrilldown: false,
-    });
     this.rebuildBody();
   }
 
