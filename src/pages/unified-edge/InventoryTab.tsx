@@ -10,92 +10,43 @@ import {
   SceneFlexLayout,
   SceneFlexItem,
   PanelBuilders,
-  SceneObjectBase,
   SceneComponentProps,
-  SceneObjectState,
-  VariableDependencyConfig,
-  sceneGraph,
 } from '@grafana/scenes';
 import { LoggingQueryRunner } from '../../utils/LoggingQueryRunner';
 import { LoggingDataTransformer } from '../../utils/LoggingDataTransformer';
 import { PaginatedDataProvider } from '../../utils/PaginatedDataProvider';
-import { EmptyStateScene } from '../../components/EmptyStateScene';
-import { getEmptyStateScenario, getSelectedValues } from '../../utils/emptyStateHelpers';
+import { DynamicVariableScene } from '../../utils/DynamicVariableScene';
+import { getSelectedValues } from '../../utils/emptyStateHelpers';
 import { API_ENDPOINTS, COLUMN_WIDTHS } from './constants';
 
 // ============================================================================
 // DYNAMIC INVENTORY SCENE - Shows chassis and host inventory tables
 // ============================================================================
 
-interface DynamicInventorySceneState extends SceneObjectState {
-  body: any;
-}
-
 /**
  * DynamicInventoryScene - Custom scene that reads the ChassisName variable
  * and shows chassis and host inventory in tables.
  */
-class DynamicInventoryScene extends SceneObjectBase<DynamicInventorySceneState> {
+class DynamicInventoryScene extends DynamicVariableScene {
   public static Component = DynamicInventorySceneRenderer;
 
-  // @ts-ignore
-  protected _variableDependency = new VariableDependencyConfig(this, {
-    variableNames: ['ChassisName'],
-    onReferencedVariableValueChanged: () => {
-      // Only rebuild if the scene is still active
-      if (this.isActive) {
-        this.rebuildBody();
-      }
-    },
-  });
-
-  public constructor(state: Partial<DynamicInventorySceneState>) {
-    super({
-      body: new SceneFlexLayout({ children: [] }),
-      ...state,
-    });
+  public constructor() {
+    super(
+      ['ChassisName'],
+      'chassis',
+      new SceneFlexLayout({ children: [] })
+    );
   }
 
-  // @ts-ignore
-  public activate() {
-    super.activate();
-    this.rebuildBody();
-  }
-
-  private rebuildBody() {
-    // Skip if scene is not active (prevents race conditions during deactivation)
-    if (!this.isActive) {
-      return;
-    }
-
-    // Get the ChassisName variable from the scene's variable set
+  protected buildContent() {
+    // Get the ChassisName variable
     const variable = this.getVariable('ChassisName');
-
-    if (!variable || variable.state.type !== 'query') {
-      console.warn('ChassisName variable not found or not a query variable');
-      return;
-    }
-
-    // Check for empty state scenarios
-    const emptyStateScenario = getEmptyStateScenario(variable);
-    if (emptyStateScenario) {
-      this.setState({ body: new EmptyStateScene({ scenario: emptyStateScenario, entityType: 'chassis' }) });
-      return;
-    }
 
     // Get selected chassis names
     const chassisNames = getSelectedValues(variable);
 
     // Create the inventory tables with chassis names for dynamic filtering
-    const newBody = createInventoryBody(chassisNames, chassisNames.length > 1);
-
-    this.setState({ body: newBody });
-  }
-
-  private getVariable(name: string): any {
-    // Use sceneGraph to lookup variable in parent scope
-    // @ts-ignore
-    return sceneGraph.lookupVariable(name, this);
+    return createInventoryBody(chassisNames, chassisNames.length > 1);
   }
 }
 
@@ -560,6 +511,5 @@ function createInventoryBody(chassisNames: string[], showChassisColumn: boolean)
  * Returns a DynamicInventoryScene that shows chassis and host inventory tables.
  */
 export function getInventoryTab() {
-  // Return the dynamic inventory scene that shows chassis and host inventory tables
-  return new DynamicInventoryScene({});
+  return new DynamicInventoryScene();
 }

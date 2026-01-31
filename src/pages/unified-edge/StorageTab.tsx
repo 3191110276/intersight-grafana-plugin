@@ -2,11 +2,7 @@ import {
   SceneFlexLayout,
   SceneFlexItem,
   PanelBuilders,
-  SceneObjectBase,
   SceneComponentProps,
-  SceneObjectState,
-  VariableDependencyConfig,
-  sceneGraph,
 } from '@grafana/scenes';
 import { LoggingQueryRunner } from '../../utils/LoggingQueryRunner';
 import { LoggingDataTransformer } from '../../utils/LoggingDataTransformer';
@@ -14,47 +10,51 @@ import { PaginatedDataProvider } from '../../utils/PaginatedDataProvider';
 import React from 'react';
 import { TabbedScene } from '../../components/TabbedScene';
 import { EmptyStateScene } from '../../components/EmptyStateScene';
-import { getEmptyStateScenario } from '../../utils/emptyStateHelpers';
+import { DynamicVariableScene } from '../../utils/DynamicVariableScene';
 import { API_ENDPOINTS, COLORS, COLUMN_WIDTHS } from './constants';
 
 // DynamicStorageScene class to handle variable dependencies
-interface DynamicStorageSceneState extends SceneObjectState {
-  body: TabbedScene;
-}
-
-class DynamicStorageScene extends SceneObjectBase<DynamicStorageSceneState> {
-  // @ts-ignore
-  protected _variableDependency = new VariableDependencyConfig(this, {
-    variableNames: ['ChassisName', 'RegisteredDevices'],
-    onReferencedVariableValueChanged: () => {
-      this.rebuildBody();
-    },
-  });
-
+class DynamicStorageScene extends DynamicVariableScene {
   public static Component = ({ model }: SceneComponentProps<DynamicStorageScene>) => {
     const { body } = model.useState();
     return <body.Component model={body} />;
   };
 
-  // @ts-ignore
-  public activate() {
-    super.activate();
-    // Trigger initial rebuild once the scene is connected to the parent
-    this.rebuildBody();
+  public constructor() {
+    const storageControllerTab = getStorageControllersPanel(false, '');
+    const ssdDisksTab = getSSDDisksPanel(false, '');
+    const virtualDrivesTab = getVirtualDrivesPanel(false, '');
+
+    const initialBody = new TabbedScene({
+      tabs: [
+        { id: 'storage-controllers', label: 'Storage Controllers', getBody: () => storageControllerTab },
+        { id: 'ssd-disks', label: 'SSD Disks', getBody: () => ssdDisksTab },
+        { id: 'virtual-drives', label: 'Virtual Drives', getBody: () => virtualDrivesTab },
+      ],
+      activeTab: 'storage-controllers',
+      body: storageControllerTab,
+    });
+
+    super(['ChassisName', 'RegisteredDevices'], 'chassis', initialBody);
   }
 
-  private rebuildBody() {
-    // Access ChassisName variable using `this` instead of getRoot()
-  // @ts-ignore
-    const chassisNameVariable = sceneGraph.lookupVariable('ChassisName', this);
-    if (!chassisNameVariable) {
-      // Variable not found, use default (no hiding)
-      this.buildBodyWithDefaults();
+  // Override to create TabbedScene with empty state tabs instead of single EmptyStateScene
+  protected rebuildBody() {
+    if (!this.isActive) {
       return;
     }
 
-    // Check for empty state scenarios
+    const chassisNameVariable = this.getVariable('ChassisName');
+
+    if (!chassisNameVariable || chassisNameVariable.state.type !== 'query') {
+      console.warn('ChassisName variable not found or not a query variable');
+      return;
+    }
+
+    // Check for empty state scenarios - import getEmptyStateScenario
+    const { getEmptyStateScenario } = require('../../utils/emptyStateHelpers');
     const emptyStateScenario = getEmptyStateScenario(chassisNameVariable);
+
     if (emptyStateScenario) {
       const emptyStateBody = new TabbedScene({
         tabs: [
@@ -62,12 +62,20 @@ class DynamicStorageScene extends SceneObjectBase<DynamicStorageSceneState> {
           { id: 'ssd-disks', label: 'SSD Disks', getBody: () => new EmptyStateScene({ scenario: emptyStateScenario, entityType: 'chassis' }) },
           { id: 'virtual-drives', label: 'Virtual Drives', getBody: () => new EmptyStateScene({ scenario: emptyStateScenario, entityType: 'chassis' }) },
         ],
-        activeTab: this.state.body?.state?.activeTab || 'storage-controllers',
+        activeTab: (this.state.body as any)?.state?.activeTab || 'storage-controllers',
         body: new EmptyStateScene({ scenario: emptyStateScenario, entityType: 'chassis' }),
       });
-      this.setState({ body: emptyStateBody });
+      this.setState({ body: emptyStateBody } as any);
       return;
     }
+
+    // Build actual content
+    const content = this.buildContent();
+    this.setState({ body: content } as any);
+  }
+
+  protected buildContent() {
+    const chassisNameVariable = this.getVariable('ChassisName');
 
     // Check if single chassis is selected
     const chassisNameValue = chassisNameVariable.getValue();
@@ -75,10 +83,8 @@ class DynamicStorageScene extends SceneObjectBase<DynamicStorageSceneState> {
     const shouldHideChassisColumn = false; // Always show Server column
     const chassisName = isSingleChassis ? String(chassisNameValue[0]) : '';
 
-    // APPROACH B: Extract Moid values from RegisteredDevices variable
-    // Access the variable's query results directly, not the selected value
-  // @ts-ignore
-    const registeredDevicesVariable = sceneGraph.lookupVariable('RegisteredDevices', this);
+    // Extract Moid values from RegisteredDevices variable
+    const registeredDevicesVariable = this.getVariable('RegisteredDevices');
     let moidFilter: string | undefined = undefined;
 
     if (registeredDevicesVariable && 'state' in registeredDevicesVariable) {
@@ -107,36 +113,15 @@ class DynamicStorageScene extends SceneObjectBase<DynamicStorageSceneState> {
     const virtualDrivesTab = getVirtualDrivesPanel(shouldHideChassisColumn, chassisName, moidFilter);
 
     // Create new TabbedScene with updated panels
-    const newBody = new TabbedScene({
+    return new TabbedScene({
       tabs: [
         { id: 'storage-controllers', label: 'Storage Controllers', getBody: () => storageControllerTab },
         { id: 'ssd-disks', label: 'SSD Disks', getBody: () => ssdDisksTab },
         { id: 'virtual-drives', label: 'Virtual Drives', getBody: () => virtualDrivesTab },
       ],
-      activeTab: this.state.body.state.activeTab || 'storage-controllers',
+      activeTab: (this.state.body as any)?.state?.activeTab || 'storage-controllers',
       body: storageControllerTab,
     });
-
-    this.setState({ body: newBody });
-  }
-
-  private buildBodyWithDefaults() {
-    // Build with default settings (no column hiding)
-    const storageControllerTab = getStorageControllersPanel(false, '');
-    const ssdDisksTab = getSSDDisksPanel(false, '');
-    const virtualDrivesTab = getVirtualDrivesPanel(false, '');
-
-    const newBody = new TabbedScene({
-      tabs: [
-        { id: 'storage-controllers', label: 'Storage Controllers', getBody: () => storageControllerTab },
-        { id: 'ssd-disks', label: 'SSD Disks', getBody: () => ssdDisksTab },
-        { id: 'virtual-drives', label: 'Virtual Drives', getBody: () => virtualDrivesTab },
-      ],
-      activeTab: this.state.body.state.activeTab || 'storage-controllers',
-      body: storageControllerTab,
-    });
-
-    this.setState({ body: newBody });
   }
 }
 
@@ -978,22 +963,5 @@ export function getVirtualDrivesPanel(hideChassisColumn: boolean = false, chassi
 }
 
 export function getStorageTab() {
-  // Initialize with default panels (no column hiding, no chassis name)
-  const storageControllerTab = getStorageControllersPanel(false, '');
-  const ssdDisksTab = getSSDDisksPanel(false, '');
-  const virtualDrivesTab = getVirtualDrivesPanel(false, '');
-
-  const initialBody = new TabbedScene({
-    tabs: [
-      { id: 'storage-controllers', label: 'Storage Controllers', getBody: () => storageControllerTab },
-      { id: 'ssd-disks', label: 'SSD Disks', getBody: () => ssdDisksTab },
-      { id: 'virtual-drives', label: 'Virtual Drives', getBody: () => virtualDrivesTab },
-    ],
-    activeTab: 'storage-controllers',
-    body: storageControllerTab,
-  });
-
-  return new DynamicStorageScene({
-    body: initialBody,
-  });
+  return new DynamicStorageScene();
 }

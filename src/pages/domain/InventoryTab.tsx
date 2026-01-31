@@ -9,76 +9,28 @@ import {
   SceneFlexLayout,
   SceneFlexItem,
   PanelBuilders,
-  SceneObjectBase,
   SceneComponentProps,
-  SceneObjectState,
-  VariableDependencyConfig,
-  sceneGraph,
 } from '@grafana/scenes';
-import { EmptyStateScene } from '../../components/EmptyStateScene';
-import { getEmptyStateScenario } from '../../utils/emptyStateHelpers';
+import { DynamicVariableScene } from '../../utils/DynamicVariableScene';
 
 // ============================================================================
 // DYNAMIC INVENTORY SCENE
 // ============================================================================
 
-interface DynamicInventorySceneState extends SceneObjectState {
-  body: any;
-}
-
-class DynamicInventoryScene extends SceneObjectBase<DynamicInventorySceneState> {
+class DynamicInventoryScene extends DynamicVariableScene {
   public static Component = DynamicInventorySceneRenderer;
 
-  protected _variableDependency = new VariableDependencyConfig(this, {
-    variableNames: ['DomainName'],
-    onReferencedVariableValueChanged: () => {
-      if (this.isActive) {
-        this.rebuildBody();
-      }
-    },
-  });
-
-  public constructor(state: Partial<DynamicInventorySceneState>) {
-    super({
-      body: new SceneFlexLayout({ children: [] }),
-      ...state,
-    });
+  public constructor() {
+    super(
+      ['DomainName'],
+      'domain',
+      new SceneFlexLayout({ children: [] })
+    );
   }
 
-  public activate() {
-    const result = super.activate();
-    this.rebuildBody();
-    return result;
-  }
-
-  private rebuildBody() {
-    if (!this.isActive) {
-      return;
-    }
-
-    const variable = this.getVariable('DomainName');
-
-    if (!variable || variable.state.type !== 'query') {
-      console.warn('DomainName variable not found or not a query variable');
-      return;
-    }
-
-    // Check for empty state scenarios
-    const emptyStateScenario = getEmptyStateScenario(variable);
-    if (emptyStateScenario) {
-      this.setState({
-        body: new EmptyStateScene({ scenario: emptyStateScenario, entityType: 'domain' })
-      });
-      return;
-    }
-
+  protected buildContent() {
     // Create TODO placeholder content
-    const newBody = createTodoPlaceholder();
-    this.setState({ body: newBody });
-  }
-
-  private getVariable(name: string): any {
-    return sceneGraph.lookupVariable(name, this);
+    return createTodoPlaceholder();
   }
 }
 
@@ -111,5 +63,5 @@ function createTodoPlaceholder() {
 }
 
 export function getInventoryTab() {
-  return new DynamicInventoryScene({});
+  return new DynamicInventoryScene();
 }

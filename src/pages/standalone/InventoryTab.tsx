@@ -10,88 +10,35 @@ import {
   SceneFlexLayout,
   SceneFlexItem,
   PanelBuilders,
-  SceneObjectBase,
   SceneComponentProps,
-  SceneObjectState,
-  VariableDependencyConfig,
-  sceneGraph,
 } from '@grafana/scenes';
 import { LoggingQueryRunner } from '../../utils/LoggingQueryRunner';
 import { LoggingDataTransformer } from '../../utils/LoggingDataTransformer';
 import { PaginatedDataProvider } from '../../utils/PaginatedDataProvider';
-import { EmptyStateScene } from '../../components/EmptyStateScene';
-import { getEmptyStateScenario } from '../../utils/emptyStateHelpers';
+import { DynamicVariableScene } from '../../utils/DynamicVariableScene';
 
 // ============================================================================
 // DYNAMIC INVENTORY SCENE - Shows server inventory table
 // ============================================================================
 
-interface DynamicInventorySceneState extends SceneObjectState {
-  body: any;
-}
-
 /**
  * DynamicInventoryScene - Custom scene that reads the ServerName variable
  * and shows server inventory in a table.
  */
-class DynamicInventoryScene extends SceneObjectBase<DynamicInventorySceneState> {
+class DynamicInventoryScene extends DynamicVariableScene {
   public static Component = DynamicInventorySceneRenderer;
 
-  // @ts-ignore
-  protected _variableDependency = new VariableDependencyConfig(this, {
-    variableNames: ['ServerName'],
-    onReferencedVariableValueChanged: () => {
-      // Only rebuild if the scene is still active
-      if (this.isActive) {
-        this.rebuildBody();
-      }
-    },
-  });
-
-  public constructor(state: Partial<DynamicInventorySceneState>) {
-    super({
-      body: new SceneFlexLayout({ children: [] }),
-      ...state,
-    });
+  public constructor() {
+    super(
+      ['ServerName'],
+      'server',
+      new SceneFlexLayout({ children: [] })
+    );
   }
 
-  // @ts-ignore
-  public activate() {
-    super.activate();
-    this.rebuildBody();
-  }
-
-  private rebuildBody() {
-    // Skip if scene is not active (prevents race conditions during deactivation)
-    if (!this.isActive) {
-      return;
-    }
-
-    // Get the ServerName variable from the scene's variable set
-    const variable = this.getVariable('ServerName');
-
-    if (!variable || variable.state.type !== 'query') {
-      console.warn('ServerName variable not found or not a query variable');
-      return;
-    }
-
-    // Check for empty state scenarios
-    const emptyStateScenario = getEmptyStateScenario(variable);
-    if (emptyStateScenario) {
-      this.setState({ body: new EmptyStateScene({ scenario: emptyStateScenario, entityType: 'server' }) });
-      return;
-    }
-
+  protected buildContent() {
     // Create the server inventory table
-    const newBody = createInventoryBody();
-
-    this.setState({ body: newBody });
-  }
-
-  private getVariable(name: string): any {
-    // Use sceneGraph to lookup variable in parent scope
-    // @ts-ignore
-    return sceneGraph.lookupVariable(name, this);
+    return createInventoryBody();
   }
 }
 
@@ -366,6 +313,5 @@ function createInventoryBody(): SceneFlexLayout {
  * Returns a DynamicInventoryScene that shows server inventory table.
  */
 export function getInventoryTab() {
-  // Return the dynamic inventory scene that shows server inventory table
-  return new DynamicInventoryScene({});
+  return new DynamicInventoryScene();
 }
