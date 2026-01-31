@@ -6,6 +6,7 @@ import {
   SceneGridLayout,
   SceneGridRow,
   SceneGridItem,
+  SceneObjectBase,
   behaviors,
 } from '@grafana/scenes';
 import { DashboardCursorSync } from '@grafana/data';

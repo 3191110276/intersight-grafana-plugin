@@ -3,13 +3,10 @@ import {
   SceneFlexLayout,
   SceneFlexItem,
   PanelBuilders,
-  SceneObjectBase,
-  SceneComponentProps,
-  SceneObjectState,
-  VariableDependencyConfig,
   sceneGraph,
   behaviors,
 } from '@grafana/scenes';
+import { DynamicChassisScene, DynamicChassisSceneState, DynamicChassisSceneRenderer } from '../../utils/DynamicChassisScene';
 import { DashboardCursorSync } from '@grafana/data';
 import { LoggingQueryRunner } from '../../utils/LoggingQueryRunner';
 import { LoggingDataTransformer } from '../../utils/LoggingDataTransformer';
@@ -237,8 +234,7 @@ function createCPUTemperaturePanel(queryRunner: any) {
 // DYNAMIC CPU UTILIZATION SCENE - Conditional rendering based on ChassisName
 // ============================================================================
 
-interface DynamicCPUUtilizationSceneState extends SceneObjectState {
-  body: any;
+interface DynamicCPUUtilizationSceneState extends DynamicChassisSceneState {
   drilldownHost?: string;     // Host name when in drilldown mode
   isDrilldown?: boolean;      // True when viewing drilldown (from table click)
 }
@@ -250,32 +246,8 @@ interface DynamicCPUUtilizationSceneState extends SceneObjectState {
  * - 1-2 chassis: 2 timeseries graphs (CPU Utilization + Combined CPU Temperature)
  * - 3+ chassis: Table with sparklines (matching IMM Domain style)
  */
-class DynamicCPUUtilizationScene extends SceneObjectBase<DynamicCPUUtilizationSceneState> {
-  public static Component = DynamicCPUUtilizationSceneRenderer;
-
-  // @ts-ignore
-  protected _variableDependency = new VariableDependencyConfig(this, {
-    variableNames: ['ChassisName'],
-    onReferencedVariableValueChanged: () => {
-      // Only rebuild if the scene is still active
-      if (this.isActive) {
-        this.rebuildBody();
-      }
-    },
-  });
-
-  public constructor(state: Partial<DynamicCPUUtilizationSceneState>) {
-    super({
-      body: new SceneFlexLayout({ children: [] }),
-      ...state,
-    });
-  }
-
-  // @ts-ignore
-  public activate() {
-    super.activate();
-    this.rebuildBody();
-  }
+class DynamicCPUUtilizationScene extends DynamicChassisScene<DynamicCPUUtilizationSceneState> {
+  public static Component = DynamicChassisSceneRenderer;
 
   /**
    * Drills down to a specific host's detailed view
@@ -299,7 +271,7 @@ class DynamicCPUUtilizationScene extends SceneObjectBase<DynamicCPUUtilizationSc
     this.rebuildBody();
   }
 
-  private rebuildBody() {
+  protected rebuildBody() {
     // Skip if scene is not active (prevents race conditions during deactivation)
     if (!this.isActive) {
       return;
@@ -352,18 +324,6 @@ class DynamicCPUUtilizationScene extends SceneObjectBase<DynamicCPUUtilizationSc
 /**
  * Renderer component for DynamicCPUUtilizationScene
  */
-function DynamicCPUUtilizationSceneRenderer({
-  model,
-}: SceneComponentProps<DynamicCPUUtilizationScene>) {
-  const { body } = model.useState();
-
-  return (
-    <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column' }}>
-      {body && body.Component && <body.Component model={body} />}
-    </div>
-  );
-}
-
 // ============================================================================
 // DUAL GRAPHS VIEW - CPU Utilization + Combined CPU Temperature graphs
 // ============================================================================

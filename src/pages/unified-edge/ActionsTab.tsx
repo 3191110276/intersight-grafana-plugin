@@ -11,13 +11,11 @@ import {
   SceneFlexItem,
   PanelBuilders,
   SceneObjectBase,
-  SceneComponentProps,
-  SceneObjectState,
-  VariableDependencyConfig,
   sceneGraph,
   SceneDataProvider,
   SceneDataState,
 } from '@grafana/scenes';
+import { DynamicChassisScene, DynamicChassisSceneState, DynamicChassisSceneRenderer } from '../../utils/DynamicChassisScene';
 import { LoggingQueryRunner } from '../../utils/LoggingQueryRunner';
 import { LoggingDataTransformer } from '../../utils/LoggingDataTransformer';
 import { PaginatedDataProvider } from '../../utils/PaginatedDataProvider';
@@ -113,46 +111,16 @@ class FilterColumnsDataProvider extends SceneObjectBase<FilterColumnsDataProvide
 // DYNAMIC ACTIONS SCENE - Shows all actions in a single table for all selected chassis
 // ============================================================================
 
-interface DynamicActionsSceneState extends SceneObjectState {
-  body: any;
-}
+interface DynamicActionsSceneState extends DynamicChassisSceneState {}
 
 /**
  * DynamicActionsScene - Custom scene that reads the ChassisName variable
  * and shows all actions in a single table with conditional chassis column visibility.
  */
-class DynamicActionsScene extends SceneObjectBase<DynamicActionsSceneState> {
-  public static Component = DynamicActionsSceneRenderer;
+class DynamicActionsScene extends DynamicChassisScene<DynamicActionsSceneState> {
+  public static Component = DynamicChassisSceneRenderer;
 
-  // @ts-ignore
-  protected _variableDependency = new VariableDependencyConfig(this, {
-    variableNames: ['ChassisName'],
-    onReferencedVariableValueChanged: () => {
-      // Only rebuild if the scene is still active
-      if (this.isActive) {
-        this.rebuildBody();
-      }
-    },
-  });
-
-  public constructor(state: Partial<DynamicActionsSceneState>) {
-    super({
-      body: new SceneFlexLayout({ children: [] }),
-      ...state,
-    });
-  }
-
-  // @ts-ignore
-  public activate() {
-    const deactivate = super.activate();
-    this.rebuildBody();
-
-    return () => {
-      deactivate();
-    };
-  }
-
-  private rebuildBody() {
+  protected rebuildBody() {
     // Skip if scene is not active (prevents race conditions during deactivation)
     if (!this.isActive) {
       return;
@@ -195,16 +163,6 @@ class DynamicActionsScene extends SceneObjectBase<DynamicActionsSceneState> {
 /**
  * Renderer component for DynamicActionsScene
  */
-function DynamicActionsSceneRenderer({ model }: SceneComponentProps<DynamicActionsScene>) {
-  const { body } = model.useState();
-
-  return (
-    <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column' }}>
-      {body && body.Component && <body.Component model={body} />}
-    </div>
-  );
-}
-
 /**
  * Builds the actions body while reusing an existing query runner
  * Used when we need to update column visibility without recreating queries

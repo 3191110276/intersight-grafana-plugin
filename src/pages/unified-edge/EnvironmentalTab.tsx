@@ -7,12 +7,13 @@ import {
   SceneFlexItem,
   PanelBuilders,
   SceneObjectBase,
-  SceneComponentProps,
   SceneObjectState,
+  SceneComponentProps,
   VariableDependencyConfig,
   sceneGraph,
   behaviors,
 } from '@grafana/scenes';
+import { DynamicChassisScene, DynamicChassisSceneState, DynamicChassisSceneRenderer } from '../../utils/DynamicChassisScene';
 import { DashboardCursorSync } from '@grafana/data';
 import { LoggingQueryRunner } from '../../utils/LoggingQueryRunner';
 import { LoggingDataTransformer } from '../../utils/LoggingDataTransformer';
@@ -803,41 +804,20 @@ const chassisFanSpeedQuery = createTimeseriesQuery({
 // DYNAMIC CHASSIS FAN SPEED SCENE - Conditional rendering based on chassis count
 // ============================================================================
 
-interface DynamicChassisFanSpeedSceneState extends SceneObjectState {
-  body: any;
+interface DynamicChassisFanSpeedSceneState extends DynamicChassisSceneState {
   drilldownChassis?: string;
   isDrilldown?: boolean;
 }
 
-class DynamicChassisFanSpeedScene extends SceneObjectBase<DynamicChassisFanSpeedSceneState> {
-  public static Component = DynamicChassisFanSpeedSceneRenderer;
+class DynamicChassisFanSpeedScene extends DynamicChassisScene<DynamicChassisFanSpeedSceneState> {
+  public static Component = DynamicChassisSceneRenderer;
 
-  // @ts-ignore
-  protected _variableDependency = new VariableDependencyConfig(this, {
-    variableNames: ['ChassisName'],
-    onReferencedVariableValueChanged: () => {
-      if (this.isActive) {
-        // Reset drilldown if variable changes
-        if (this.state.isDrilldown) {
-          this.exitDrilldown();
-        }
-        this.rebuildBody();
-      }
-    },
-  });
-
-  public constructor(state: Partial<DynamicChassisFanSpeedSceneState>) {
-    super({
-      body: new SceneFlexLayout({ children: [] }),
-      ...state,
-    });
-  }
-
-  // @ts-ignore
-  public activate() {
-    const deactivate = super.activate();
+  protected onChassisVariableChanged(): void {
+    // Reset drilldown if variable changes
+    if (this.state.isDrilldown) {
+      this.exitDrilldown();
+    }
     this.rebuildBody();
-    return deactivate;
   }
 
   public drillToChassis(chassisName: string) {
@@ -856,7 +836,7 @@ class DynamicChassisFanSpeedScene extends SceneObjectBase<DynamicChassisFanSpeed
     this.rebuildBody();
   }
 
-  private rebuildBody() {
+  protected rebuildBody() {
     if (!this.isActive) {
       return;
     }
@@ -882,15 +862,6 @@ class DynamicChassisFanSpeedScene extends SceneObjectBase<DynamicChassisFanSpeed
     const tableBody = createChassisFanSpeedTableView(this);
     this.setState({ body: tableBody });
   }
-}
-
-function DynamicChassisFanSpeedSceneRenderer({ model }: SceneComponentProps<DynamicChassisFanSpeedScene>) {
-  const { body } = model.useState();
-  return (
-    <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column' }}>
-      {body && body.Component && <body.Component model={body} />}
-    </div>
-  );
 }
 
 // ============================================================================
@@ -1225,41 +1196,20 @@ const chassisExhaustTemperatureQuery = createTimeseriesQuery({
 // DYNAMIC CHASSIS TEMPERATURE SCENE - Conditional rendering based on chassis count
 // ============================================================================
 
-interface DynamicChassisTemperatureSceneState extends SceneObjectState {
-  body: any;
+interface DynamicChassisTemperatureSceneState extends DynamicChassisSceneState {
   drilldownChassis?: string;
   isDrilldown?: boolean;
 }
 
-class DynamicChassisTemperatureScene extends SceneObjectBase<DynamicChassisTemperatureSceneState> {
-  public static Component = DynamicChassisTemperatureSceneRenderer;
+class DynamicChassisTemperatureScene extends DynamicChassisScene<DynamicChassisTemperatureSceneState> {
+  public static Component = DynamicChassisSceneRenderer;
 
-  // @ts-ignore
-  protected _variableDependency = new VariableDependencyConfig(this, {
-    variableNames: ['ChassisName'],
-    onReferencedVariableValueChanged: () => {
-      if (this.isActive) {
-        // Reset drilldown if variable changes
-        if (this.state.isDrilldown) {
-          this.exitDrilldown();
-        }
-        this.rebuildBody();
-      }
-    },
-  });
-
-  public constructor(state: Partial<DynamicChassisTemperatureSceneState>) {
-    super({
-      body: new SceneFlexLayout({ children: [] }),
-      ...state,
-    });
-  }
-
-  // @ts-ignore
-  public activate() {
-    const deactivate = super.activate();
+  protected onChassisVariableChanged(): void {
+    // Reset drilldown if variable changes
+    if (this.state.isDrilldown) {
+      this.exitDrilldown();
+    }
     this.rebuildBody();
-    return deactivate;
   }
 
   public drillToChassis(chassisName: string) {
@@ -1278,7 +1228,7 @@ class DynamicChassisTemperatureScene extends SceneObjectBase<DynamicChassisTempe
     this.rebuildBody();
   }
 
-  private rebuildBody() {
+  protected rebuildBody() {
     if (!this.isActive) {
       return;
     }
@@ -1304,15 +1254,6 @@ class DynamicChassisTemperatureScene extends SceneObjectBase<DynamicChassisTempe
     const tableBody = createChassisTemperatureTableView(this);
     this.setState({ body: tableBody });
   }
-}
-
-function DynamicChassisTemperatureSceneRenderer({ model }: SceneComponentProps<DynamicChassisTemperatureScene>) {
-  const { body } = model.useState();
-  return (
-    <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column' }}>
-      {body && body.Component && <body.Component model={body} />}
-    </div>
-  );
 }
 
 // ============================================================================
@@ -1798,40 +1739,19 @@ const exhaustTemperatureQuery = createTimeseriesQuery({
 // DYNAMIC HOST TEMPERATURE SCENE
 // ============================================================================
 
-interface DynamicHostTemperatureSceneState extends SceneObjectState {
-  body: any;
+interface DynamicHostTemperatureSceneState extends DynamicChassisSceneState {
   drilldownHost?: string;
   isDrilldown?: boolean;
 }
 
-class DynamicHostTemperatureScene extends SceneObjectBase<DynamicHostTemperatureSceneState> {
-  public static Component = DynamicHostTemperatureSceneRenderer;
+class DynamicHostTemperatureScene extends DynamicChassisScene<DynamicHostTemperatureSceneState> {
+  public static Component = DynamicChassisSceneRenderer;
 
-  // @ts-ignore
-  protected _variableDependency = new VariableDependencyConfig(this, {
-    variableNames: ['ChassisName'],
-    onReferencedVariableValueChanged: () => {
-      if (this.isActive) {
-        if (this.state.isDrilldown) {
-          this.exitDrilldown();
-        }
-        this.rebuildBody();
-      }
-    },
-  });
-
-  public constructor(state: Partial<DynamicHostTemperatureSceneState>) {
-    super({
-      body: new SceneFlexLayout({ children: [] }),
-      ...state,
-    });
-  }
-
-  // @ts-ignore
-  public activate() {
-    const deactivate = super.activate();
+  protected onChassisVariableChanged(): void {
+    if (this.state.isDrilldown) {
+      this.exitDrilldown();
+    }
     this.rebuildBody();
-    return deactivate;
   }
 
   public drillToHost(hostName: string) {
@@ -1853,7 +1773,7 @@ class DynamicHostTemperatureScene extends SceneObjectBase<DynamicHostTemperature
     this.rebuildBody();
   }
 
-  private rebuildBody() {
+  protected rebuildBody() {
     if (!this.isActive) {
       return;
     }
@@ -1880,15 +1800,6 @@ class DynamicHostTemperatureScene extends SceneObjectBase<DynamicHostTemperature
     const tableBody = createHostTemperatureTableWithDrilldown(this);
     this.setState({ body: tableBody });
   }
-}
-
-function DynamicHostTemperatureSceneRenderer({ model }: SceneComponentProps<DynamicHostTemperatureScene>) {
-  const { body } = model.useState();
-  return (
-    <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column' }}>
-      {body && body.Component && <body.Component model={body} />}
-    </div>
-  );
 }
 
 // Line chart view for single chassis - Three panels side by side
@@ -2481,41 +2392,15 @@ function createEnvironmentalTabContent() {
 // TOP-LEVEL DYNAMIC ENVIRONMENTAL SCENE
 // ============================================================================
 
-interface DynamicEnvironmentalSceneState extends SceneObjectState {
-  body: any;
-}
+interface DynamicEnvironmentalSceneState extends DynamicChassisSceneState {}
 
 /**
  * Top-level scene that checks for empty state before rendering environmental tab
  */
-class DynamicEnvironmentalScene extends SceneObjectBase<DynamicEnvironmentalSceneState> {
-  public static Component = DynamicEnvironmentalSceneRenderer;
+class DynamicEnvironmentalScene extends DynamicChassisScene<DynamicEnvironmentalSceneState> {
+  public static Component = DynamicChassisSceneRenderer;
 
-  // @ts-ignore
-  protected _variableDependency = new VariableDependencyConfig(this, {
-    variableNames: ['ChassisName'],
-    onReferencedVariableValueChanged: () => {
-      if (this.isActive) {
-        this.rebuildBody();
-      }
-    },
-  });
-
-  public constructor(state: Partial<DynamicEnvironmentalSceneState>) {
-    super({
-      body: new SceneFlexLayout({ children: [] }),
-      ...state,
-    });
-  }
-
-  // @ts-ignore
-  public activate() {
-    const deactivate = super.activate();
-    this.rebuildBody();
-    return deactivate;
-  }
-
-  private rebuildBody() {
+  protected rebuildBody() {
     if (!this.isActive) {
       return;
     }
@@ -2536,15 +2421,6 @@ class DynamicEnvironmentalScene extends SceneObjectBase<DynamicEnvironmentalScen
     const fullContent = createEnvironmentalTabContent();
     this.setState({ body: fullContent });
   }
-}
-
-function DynamicEnvironmentalSceneRenderer({ model }: SceneComponentProps<DynamicEnvironmentalScene>) {
-  const { body } = model.useState();
-  return (
-    <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column' }}>
-      {body && body.Component && <body.Component model={body} />}
-    </div>
-  );
 }
 
 /**

@@ -13,8 +13,6 @@ import {
   SceneFlexItem,
   PanelBuilders,
   SceneObjectBase,
-  SceneComponentProps,
-  SceneObjectState,
   VariableDependencyConfig,
   sceneGraph,
   SceneQueryRunner,
@@ -22,6 +20,7 @@ import {
   SceneDataProvider,
   SceneDataState,
 } from '@grafana/scenes';
+import { DynamicChassisScene, DynamicChassisSceneState, DynamicChassisSceneRenderer } from '../../utils/DynamicChassisScene';
 import { DataFrame, FieldType, LoadingState, MutableDataFrame, PanelData } from '@grafana/data';
 import { Observable } from 'rxjs';
 import { EmptyStateScene } from '../../components/EmptyStateScene';
@@ -726,15 +725,15 @@ function createDrilldownView(chassisName: string, scene: DynamicPortsScene): Sce
 // DYNAMIC PORTS SCENE
 // ============================================================================
 
-interface DynamicPortsSceneState extends SceneObjectState {
-  body: any;
+interface DynamicPortsSceneState extends DynamicChassisSceneState {
   drilldownChassis?: string;
   isDrilldown?: boolean;
 }
 
-class DynamicPortsScene extends SceneObjectBase<DynamicPortsSceneState> {
-  public static Component = DynamicPortsSceneRenderer;
+class DynamicPortsScene extends DynamicChassisScene<DynamicPortsSceneState> {
+  public static Component = DynamicChassisSceneRenderer;
 
+  // Override to watch both ChassisName and RegisteredDevices
   // @ts-ignore
   protected _variableDependency = new VariableDependencyConfig(this, {
     variableNames: ['ChassisName', 'RegisteredDevices'],
@@ -748,20 +747,6 @@ class DynamicPortsScene extends SceneObjectBase<DynamicPortsSceneState> {
       }
     },
   });
-
-  public constructor(state: Partial<DynamicPortsSceneState>) {
-    super({
-      body: new SceneFlexLayout({ children: [] }),
-      ...state,
-    });
-  }
-
-  // @ts-ignore
-  public activate() {
-    const deactivate = super.activate();
-    this.rebuildBody();
-    return deactivate;
-  }
 
   public drillToChassis(chassisName: string) {
     this.setState({
@@ -779,7 +764,7 @@ class DynamicPortsScene extends SceneObjectBase<DynamicPortsSceneState> {
     this.rebuildBody();
   }
 
-  private rebuildBody() {
+  protected rebuildBody() {
     if (!this.isActive) {
       return;
     }
@@ -838,15 +823,6 @@ class DynamicPortsScene extends SceneObjectBase<DynamicPortsSceneState> {
     const summaryView = createPortsSummaryView(this, moidFilter);
     this.setState({ body: summaryView });
   }
-}
-
-function DynamicPortsSceneRenderer({ model }: SceneComponentProps<DynamicPortsScene>) {
-  const { body } = model.useState();
-  return (
-    <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column' }}>
-      {body && body.Component && <body.Component model={body} />}
-    </div>
-  );
 }
 
 // ============================================================================

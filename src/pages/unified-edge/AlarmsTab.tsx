@@ -12,13 +12,11 @@ import {
   SceneFlexItem,
   PanelBuilders,
   SceneObjectBase,
-  SceneComponentProps,
-  SceneObjectState,
-  VariableDependencyConfig,
   sceneGraph,
   SceneDataProvider,
   SceneDataState,
 } from '@grafana/scenes';
+import { DynamicChassisScene, DynamicChassisSceneState, DynamicChassisSceneRenderer } from '../../utils/DynamicChassisScene';
 import { LoggingQueryRunner } from '../../utils/LoggingQueryRunner';
 import { LoggingDataTransformer } from '../../utils/LoggingDataTransformer';
 import { PaginatedDataProvider } from '../../utils/PaginatedDataProvider';
@@ -159,42 +157,16 @@ class FilterColumnsDataProvider extends SceneObjectBase<FilterColumnsDataProvide
 // DYNAMIC UNIFIED EDGE ALARMS SCENE - Shows all alarms with stat widgets
 // ============================================================================
 
-interface DynamicUnifiedEdgeAlarmsSceneState extends SceneObjectState {
-  body: any;
-}
+interface DynamicUnifiedEdgeAlarmsSceneState extends DynamicChassisSceneState {}
 
 /**
  * DynamicUnifiedEdgeAlarmsScene - Custom scene that reads the ChassisName variable
  * and shows alarm stats + table for selected chassis.
  */
-class DynamicUnifiedEdgeAlarmsScene extends SceneObjectBase<DynamicUnifiedEdgeAlarmsSceneState> {
-  public static Component = DynamicUnifiedEdgeAlarmsSceneRenderer;
+class DynamicUnifiedEdgeAlarmsScene extends DynamicChassisScene<DynamicUnifiedEdgeAlarmsSceneState> {
+  public static Component = DynamicChassisSceneRenderer;
 
-  // @ts-ignore
-  protected _variableDependency = new VariableDependencyConfig(this, {
-    variableNames: ['ChassisName'],
-    onReferencedVariableValueChanged: () => {
-      // Only rebuild if the scene is still active
-      if (this.isActive) {
-        this.rebuildBody();
-      }
-    },
-  });
-
-  public constructor(state: Partial<DynamicUnifiedEdgeAlarmsSceneState>) {
-    super({
-      body: new SceneFlexLayout({ children: [] }),
-      ...state,
-    });
-  }
-
-  // @ts-ignore
-  public activate() {
-    super.activate();
-    this.rebuildBody();
-  }
-
-  private rebuildBody() {
+  protected rebuildBody() {
     // Skip if scene is not active (prevents race conditions during deactivation)
     if (!this.isActive) {
       return;
@@ -237,16 +209,6 @@ class DynamicUnifiedEdgeAlarmsScene extends SceneObjectBase<DynamicUnifiedEdgeAl
 /**
  * Renderer component for DynamicUnifiedEdgeAlarmsScene
  */
-function DynamicUnifiedEdgeAlarmsSceneRenderer({ model }: SceneComponentProps<DynamicUnifiedEdgeAlarmsScene>) {
-  const { body } = model.useState();
-
-  return (
-    <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column' }}>
-      {body && body.Component && <body.Component model={body} />}
-    </div>
-  );
-}
-
 /**
  * Helper function to create Alarms panel with stats and table for selected chassis
  * @param chassisNames - Array of selected chassis names (used for display purposes)
