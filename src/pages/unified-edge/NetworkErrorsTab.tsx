@@ -40,30 +40,167 @@ import { API_ENDPOINTS, COLUMN_WIDTHS } from './constants';
 // Using shared drilldown state from utils/drilldownState.ts
 
 // ============================================================================
-// BASE QUERIES - eCMC DOWNLINKS
+// NETWORK ERROR QUERY CONFIGURATION
 // ============================================================================
 
 /**
- * Base query for downlink port network errors
- * Filters: backplane_port + host_port
+ * Configuration for network error aggregations
  */
-function createDownlinkPortsQuery() {
+interface NetworkErrorAggregation {
+  name: string;
+  fieldName: string;
+}
+
+/**
+ * Column definition for network error queries
+ */
+interface NetworkErrorColumn {
+  selector: string;
+  text: string;
+  type: 'string' | 'number' | 'timestamp';
+}
+
+/**
+ * Configuration for a network error port type (downlinks, uplinks, port channels)
+ */
+interface NetworkErrorConfig {
+  portType: string;
+  portRole: string;
+  aggregations: NetworkErrorAggregation[];
+  rxSumExpression: string;
+  txSumExpression: string;
+  timeseriesDetailColumns: NetworkErrorColumn[];
+  tableDetailColumns: NetworkErrorColumn[];
+}
+
+// Downlink ports configuration (backplane_port + host_port)
+const DOWNLINK_CONFIG: NetworkErrorConfig = {
+  portType: 'backplane_port',
+  portRole: 'host_port',
+  aggregations: [
+    { name: 'too_long', fieldName: 'hw.errors_network_receive_too_long' },
+    { name: 'crc', fieldName: 'hw.errors_network_receive_crc' },
+    { name: 'too_short', fieldName: 'hw.errors_network_receive_too_short' },
+    { name: 'late_collisions', fieldName: 'hw.errors_network_late_collisions' },
+    { name: 'jabber', fieldName: 'hw.errors_network_transmit_jabber' },
+  ],
+  rxSumExpression: '"too_short" + "crc" + "too_long"',
+  txSumExpression: '"jabber" + "late_collisions"',
+  timeseriesDetailColumns: [
+    { selector: 'event.too_short', text: 'too_short', type: 'number' },
+    { selector: 'event.crc', text: 'crc', type: 'number' },
+    { selector: 'event.too_long', text: 'too_long', type: 'number' },
+    { selector: 'event.jabber', text: 'jabber', type: 'number' },
+    { selector: 'event.late_collisions', text: 'late_collisions', type: 'number' },
+  ],
+  tableDetailColumns: [
+    { selector: 'event.too_long', text: 'Too Long', type: 'number' },
+    { selector: 'event.crc', text: 'CRC', type: 'number' },
+    { selector: 'event.too_short', text: 'Too Short', type: 'number' },
+    { selector: 'event.late_collisions', text: 'Late Collisions', type: 'number' },
+    { selector: 'event.jabber', text: 'Jabber', type: 'number' },
+  ],
+};
+
+// Uplink ports configuration (ethernet + eth_uplink)
+const UPLINK_PORTS_CONFIG: NetworkErrorConfig = {
+  portType: 'ethernet',
+  portRole: 'eth_uplink',
+  aggregations: [
+    { name: 'runt', fieldName: 'hw.errors_network_receive_runt' },
+    { name: 'too_long', fieldName: 'hw.errors_network_receive_too_long' },
+    { name: 'crc', fieldName: 'hw.errors_network_receive_crc' },
+    { name: 'no_buffer', fieldName: 'hw.errors_network_receive_no_buffer' },
+    { name: 'too_short', fieldName: 'hw.errors_network_receive_too_short' },
+    { name: 'rx_discard', fieldName: 'hw.errors_network_receive_discard' },
+    { name: 'deferred', fieldName: 'hw.errors_network_transmit_deferred' },
+    { name: 'late_collisions', fieldName: 'hw.errors_network_late_collisions' },
+    { name: 'carrier_sense', fieldName: 'hw.errors_network_carrier_sense' },
+    { name: 'tx_discard', fieldName: 'hw.errors_network_transmit_discard' },
+    { name: 'jabber', fieldName: 'hw.errors_network_transmit_jabber' },
+  ],
+  rxSumExpression: '"too_short" + "crc" + "too_long"',
+  txSumExpression: '"jabber" + "late_collisions"',
+  timeseriesDetailColumns: [
+    { selector: 'event.too_short', text: 'too_short', type: 'number' },
+    { selector: 'event.crc', text: 'crc', type: 'number' },
+    { selector: 'event.too_long', text: 'too_long', type: 'number' },
+    { selector: 'event.jabber', text: 'jabber', type: 'number' },
+    { selector: 'event.late_collisions', text: 'late_collisions', type: 'number' },
+  ],
+  tableDetailColumns: [
+    { selector: 'event.too_long', text: 'Too Long', type: 'number' },
+    { selector: 'event.crc', text: 'CRC', type: 'number' },
+    { selector: 'event.too_short', text: 'Too Short', type: 'number' },
+    { selector: 'event.late_collisions', text: 'Late Collisions', type: 'number' },
+    { selector: 'event.jabber', text: 'Jabber', type: 'number' },
+  ],
+};
+
+// Uplink port channels configuration (ethernet_port_channel + eth_uplink_pc)
+const UPLINK_PORT_CHANNELS_CONFIG: NetworkErrorConfig = {
+  portType: 'ethernet_port_channel',
+  portRole: 'eth_uplink_pc',
+  aggregations: [
+    { name: 'runt', fieldName: 'hw.errors_network_receive_runt' },
+    { name: 'too_long', fieldName: 'hw.errors_network_receive_too_long' },
+    { name: 'crc', fieldName: 'hw.errors_network_receive_crc' },
+    { name: 'no_buffer', fieldName: 'hw.errors_network_receive_no_buffer' },
+    { name: 'too_short', fieldName: 'hw.errors_network_receive_too_short' },
+    { name: 'rx_discard', fieldName: 'hw.errors_network_receive_discard' },
+    { name: 'deferred', fieldName: 'hw.errors_network_transmit_deferred' },
+    { name: 'late_collisions', fieldName: 'hw.errors_network_late_collisions' },
+    { name: 'carrier_sense', fieldName: 'hw.errors_network_carrier_sense' },
+    { name: 'tx_discard', fieldName: 'hw.errors_network_transmit_discard' },
+    { name: 'jabber', fieldName: 'hw.errors_network_transmit_jabber' },
+  ],
+  rxSumExpression: '"rx_discard" + "too_short" + "no_buffer" + "crc" + "too_long" + "runt"',
+  txSumExpression: '"jabber" + "tx_discard" + "carrier_sense" + "late_collisions" + "deferred"',
+  timeseriesDetailColumns: [
+    { selector: 'event.runt', text: 'runt', type: 'number' },
+    { selector: 'event.too_long', text: 'too_long', type: 'number' },
+    { selector: 'event.crc', text: 'crc', type: 'number' },
+    { selector: 'event.no_buffer', text: 'no_buffer', type: 'number' },
+    { selector: 'event.too_short', text: 'too_short', type: 'number' },
+    { selector: 'event.rx_discard', text: 'rx_discard', type: 'number' },
+    { selector: 'event.deferred', text: 'deferred', type: 'number' },
+    { selector: 'event.late_collisions', text: 'late_collisions', type: 'number' },
+    { selector: 'event.carrier_sense', text: 'carrier_sense', type: 'number' },
+    { selector: 'event.tx_discard', text: 'tx_discard', type: 'number' },
+    { selector: 'event.jabber', text: 'jabber', type: 'number' },
+  ],
+  tableDetailColumns: [
+    { selector: 'event.too_long', text: 'Too Long', type: 'number' },
+    { selector: 'event.crc', text: 'CRC', type: 'number' },
+    { selector: 'event.too_short', text: 'Too Short', type: 'number' },
+    { selector: 'event.late_collisions', text: 'Late Collisions', type: 'number' },
+    { selector: 'event.jabber', text: 'Jabber', type: 'number' },
+  ],
+};
+
+// ============================================================================
+// NETWORK ERROR QUERY FACTORY
+// ============================================================================
+
+/**
+ * Creates a timeseries network error query based on the provided configuration
+ * @param config Network error configuration (downlink, uplink ports, or uplink port channels)
+ * @returns Timeseries query object
+ */
+function createNetworkErrorTimeseriesQuery(config: NetworkErrorConfig) {
   return createTimeseriesQuery({
     refId: 'A',
     format: 'table',
     dataSource: 'NetworkInterfaces',
-    dimensions: [
-      'name',
-      'host_name'
-    ],
+    dimensions: ['name', 'host_name'],
     virtualColumns: [
       {
         type: 'nested-field',
         columnName: 'host.name',
         outputName: 'host_name',
         expectedType: 'STRING',
-        path: '$'
-      }
+        path: '$',
+      },
     ],
     filter: {
       type: 'and',
@@ -71,790 +208,193 @@ function createDownlinkPortsQuery() {
         {
           type: 'in',
           dimension: 'intersight.domain.name',
-          values: ['${ChassisName:doublequote}']
+          values: ['${ChassisName:doublequote}'],
         },
         {
           type: 'selector',
           dimension: 'hw.network.port.type',
-          value: 'backplane_port'
+          value: config.portType,
         },
         {
           type: 'selector',
           dimension: 'hw.network.port.role',
-          value: 'host_port'
+          value: config.portRole,
         },
         {
           type: 'selector',
           dimension: 'instrument.name',
-          value: 'hw.network'
-        }
-      ]
+          value: 'hw.network',
+        },
+      ],
     },
-    aggregations: [
-      {
-        type: 'longSum',
-        name: 'too_long',
-        fieldName: 'hw.errors_network_receive_too_long'
-      },
-      {
-        type: 'longSum',
-        name: 'crc',
-        fieldName: 'hw.errors_network_receive_crc'
-      },
-      {
-        type: 'longSum',
-        name: 'too_short',
-        fieldName: 'hw.errors_network_receive_too_short'
-      },
-      {
-        type: 'longSum',
-        name: 'late_collisions',
-        fieldName: 'hw.errors_network_late_collisions'
-      },
-      {
-        type: 'longSum',
-        name: 'jabber',
-        fieldName: 'hw.errors_network_transmit_jabber'
-      }
-    ],
+    aggregations: config.aggregations.map(agg => ({
+      type: 'longSum',
+      name: agg.name,
+      fieldName: agg.fieldName,
+    })),
     postAggregations: [
       {
         type: 'expression',
         name: 'rx_sum',
-        expression: '"too_short" + "crc" + "too_long"'
+        expression: config.rxSumExpression,
       },
       {
         type: 'expression',
         name: 'tx_sum',
-        expression: '"jabber" + "late_collisions"'
+        expression: config.txSumExpression,
       },
       {
         type: 'expression',
         name: 'total',
-        expression: '"tx_sum" + "rx_sum"'
-      }
+        expression: '"tx_sum" + "rx_sum"',
+      },
     ],
     columns: [
       { selector: 'timestamp', text: 'Time', type: 'timestamp' },
       { selector: 'event.name', text: 'PortName', type: 'string' },
       { selector: 'event.host_name', text: 'Hostname', type: 'string' },
-      // Individual RX error columns
-      { selector: 'event.too_short', text: 'too_short', type: 'number' },
-      { selector: 'event.crc', text: 'crc', type: 'number' },
-      { selector: 'event.too_long', text: 'too_long', type: 'number' },
-      // Individual TX error columns
-      { selector: 'event.jabber', text: 'jabber', type: 'number' },
-      { selector: 'event.late_collisions', text: 'late_collisions', type: 'number' },
-      // Aggregate sums (for summary table)
+      ...config.timeseriesDetailColumns,
       { selector: 'event.tx_sum', text: 'TX', type: 'number' },
       { selector: 'event.rx_sum', text: 'RX', type: 'number' },
     ],
   });
+}
+
+/**
+ * Creates a table (aggregate) network error query based on the provided configuration
+ * @param config Network error configuration (downlink, uplink ports, or uplink port channels)
+ * @returns Table query object with granularity set to 'all'
+ */
+function createNetworkErrorTableQuery(config: NetworkErrorConfig) {
+  return createTimeseriesQuery({
+    refId: 'A',
+    format: 'table',
+    granularity: { type: 'all' },
+    dataSource: 'NetworkInterfaces',
+    dimensions: ['domain_name'],
+    virtualColumns: [
+      {
+        type: 'nested-field',
+        columnName: 'intersight.domain.name',
+        outputName: 'domain_name',
+        expectedType: 'STRING',
+        path: '$',
+      },
+      {
+        type: 'expression',
+        name: 'Identifier',
+        expression: "concat(domain_name + ' (' + name + ')')",
+      },
+      {
+        type: 'nested-field',
+        columnName: 'host.name',
+        outputName: 'host_name',
+        expectedType: 'STRING',
+        path: '$',
+      },
+    ],
+    filter: {
+      type: 'and',
+      fields: [
+        {
+          type: 'in',
+          dimension: 'intersight.domain.name',
+          values: ['${ChassisName:doublequote}'],
+        },
+        {
+          type: 'selector',
+          dimension: 'hw.network.port.type',
+          value: config.portType,
+        },
+        {
+          type: 'selector',
+          dimension: 'hw.network.port.role',
+          value: config.portRole,
+        },
+        {
+          type: 'selector',
+          dimension: 'instrument.name',
+          value: 'hw.network',
+        },
+      ],
+    },
+    aggregations: config.aggregations.map(agg => ({
+      type: 'longSum',
+      name: agg.name,
+      fieldName: agg.fieldName,
+    })),
+    postAggregations: [
+      {
+        type: 'expression',
+        name: 'rx_sum',
+        expression: config.rxSumExpression,
+      },
+      {
+        type: 'expression',
+        name: 'tx_sum',
+        expression: config.txSumExpression,
+      },
+      {
+        type: 'expression',
+        name: 'total',
+        expression: '"tx_sum" + "rx_sum"',
+      },
+    ],
+    columns: [
+      { selector: 'timestamp', text: 'Time', type: 'timestamp' },
+      { selector: 'event.domain_name', text: 'Chassis', type: 'string' },
+      ...config.tableDetailColumns,
+      { selector: 'event.rx_sum', text: 'RX Sum', type: 'number' },
+      { selector: 'event.tx_sum', text: 'TX Sum', type: 'number' },
+      { selector: 'event.total', text: 'Total', type: 'number' },
+    ],
+  });
+}
+
+// ============================================================================
+// BASE QUERIES - PUBLIC API (maintained for backward compatibility)
+// ============================================================================
+
+/**
+ * Base query for downlink port network errors (backplane_port + host_port)
+ */
+function createDownlinkPortsQuery() {
+  return createNetworkErrorTimeseriesQuery(DOWNLINK_CONFIG);
 }
 
 /**
  * Table-specific query for downlink port network errors
- * Uses "all" granularity for aggregate table view
  */
 function createDownlinkPortsTableQuery() {
-  return createTimeseriesQuery({
-    refId: 'A',
-    format: 'table',
-    granularity: { type: 'all' },
-    dataSource: 'NetworkInterfaces',
-    dimensions: ['domain_name'],
-    virtualColumns: [
-      {
-        type: 'nested-field',
-        columnName: 'intersight.domain.name',
-        outputName: 'domain_name',
-        expectedType: 'STRING',
-        path: '$'
-      },
-      {
-        type: 'expression',
-        name: 'Identifier',
-        expression: "concat(domain_name + ' (' + name + ')')"
-      },
-      {
-        type: 'nested-field',
-        columnName: 'host.name',
-        outputName: 'host_name',
-        expectedType: 'STRING',
-        path: '$'
-      }
-    ],
-    filter: {
-      type: 'and',
-      fields: [
-        {
-          type: 'in',
-          dimension: 'intersight.domain.name',
-          values: ['${ChassisName:doublequote}']
-        },
-        {
-          type: 'selector',
-          dimension: 'hw.network.port.type',
-          value: 'backplane_port'
-        },
-        {
-          type: 'selector',
-          dimension: 'hw.network.port.role',
-          value: 'host_port'
-        },
-        {
-          type: 'selector',
-          dimension: 'instrument.name',
-          value: 'hw.network'
-        }
-      ]
-    },
-    aggregations: [
-      {
-        type: 'longSum',
-        name: 'too_long',
-        fieldName: 'hw.errors_network_receive_too_long'
-      },
-      {
-        type: 'longSum',
-        name: 'crc',
-        fieldName: 'hw.errors_network_receive_crc'
-      },
-      {
-        type: 'longSum',
-        name: 'too_short',
-        fieldName: 'hw.errors_network_receive_too_short'
-      },
-      {
-        type: 'longSum',
-        name: 'late_collisions',
-        fieldName: 'hw.errors_network_late_collisions'
-      },
-      {
-        type: 'longSum',
-        name: 'jabber',
-        fieldName: 'hw.errors_network_transmit_jabber'
-      }
-    ],
-    postAggregations: [
-      {
-        type: 'expression',
-        name: 'rx_sum',
-        expression: '"too_short" + "crc" + "too_long"'
-      },
-      {
-        type: 'expression',
-        name: 'tx_sum',
-        expression: '"jabber" + "late_collisions"'
-      },
-      {
-        type: 'expression',
-        name: 'total',
-        expression: '"tx_sum" + "rx_sum"'
-      }
-    ],
-    columns: [
-      { selector: 'timestamp', text: 'Time', type: 'timestamp' },
-      { selector: 'event.domain_name', text: 'Chassis', type: 'string' },
-      // Individual aggregations (RX errors)
-      { selector: 'event.too_long', text: 'Too Long', type: 'number' },
-      { selector: 'event.crc', text: 'CRC', type: 'number' },
-      { selector: 'event.too_short', text: 'Too Short', type: 'number' },
-      // Individual aggregations (TX errors)
-      { selector: 'event.late_collisions', text: 'Late Collisions', type: 'number' },
-      { selector: 'event.jabber', text: 'Jabber', type: 'number' },
-      // Post-aggregations (computed sums)
-      { selector: 'event.rx_sum', text: 'RX Sum', type: 'number' },
-      { selector: 'event.tx_sum', text: 'TX Sum', type: 'number' },
-      { selector: 'event.total', text: 'Total', type: 'number' },
-    ],
-  });
+  return createNetworkErrorTableQuery(DOWNLINK_CONFIG);
 }
 
-// ============================================================================
-// BASE QUERIES - eCMC UPLINKS (PORTS)
-// ============================================================================
-
 /**
- * Base query for uplink port network errors
- * Filters: ethernet + eth_uplink
+ * Base query for uplink port network errors (ethernet + eth_uplink)
  */
 function createUplinkPortsQuery() {
-  return createTimeseriesQuery({
-    refId: 'A',
-    format: 'table',
-    dataSource: 'NetworkInterfaces',
-    dimensions: [
-      'name',
-      'host_name'
-    ],
-    virtualColumns: [
-      {
-        type: 'nested-field',
-        columnName: 'host.name',
-        outputName: 'host_name',
-        expectedType: 'STRING',
-        path: '$'
-      }
-    ],
-    filter: {
-      type: 'and',
-      fields: [
-        {
-          type: 'in',
-          dimension: 'intersight.domain.name',
-          values: ['${ChassisName:doublequote}']
-        },
-        {
-          type: 'selector',
-          dimension: 'hw.network.port.type',
-          value: 'ethernet'
-        },
-        {
-          type: 'selector',
-          dimension: 'hw.network.port.role',
-          value: 'eth_uplink'
-        },
-        {
-          type: 'selector',
-          dimension: 'instrument.name',
-          value: 'hw.network'
-        }
-      ]
-    },
-    aggregations: [
-      {
-        type: 'longSum',
-        name: 'runt',
-        fieldName: 'hw.errors_network_receive_runt'
-      },
-      {
-        type: 'longSum',
-        name: 'too_long',
-        fieldName: 'hw.errors_network_receive_too_long'
-      },
-      {
-        type: 'longSum',
-        name: 'crc',
-        fieldName: 'hw.errors_network_receive_crc'
-      },
-      {
-        type: 'longSum',
-        name: 'no_buffer',
-        fieldName: 'hw.errors_network_receive_no_buffer'
-      },
-      {
-        type: 'longSum',
-        name: 'too_short',
-        fieldName: 'hw.errors_network_receive_too_short'
-      },
-      {
-        type: 'longSum',
-        name: 'rx_discard',
-        fieldName: 'hw.errors_network_receive_discard'
-      },
-      {
-        type: 'longSum',
-        name: 'deferred',
-        fieldName: 'hw.errors_network_transmit_deferred'
-      },
-      {
-        type: 'longSum',
-        name: 'late_collisions',
-        fieldName: 'hw.errors_network_late_collisions'
-      },
-      {
-        type: 'longSum',
-        name: 'carrier_sense',
-        fieldName: 'hw.errors_network_carrier_sense'
-      },
-      {
-        type: 'longSum',
-        name: 'tx_discard',
-        fieldName: 'hw.errors_network_transmit_discard'
-      },
-      {
-        type: 'longSum',
-        name: 'jabber',
-        fieldName: 'hw.errors_network_transmit_jabber'
-      }
-    ],
-    postAggregations: [
-      {
-        type: 'expression',
-        name: 'rx_sum',
-        expression: '"too_short" + "crc" + "too_long"'
-      },
-      {
-        type: 'expression',
-        name: 'tx_sum',
-        expression: '"jabber" + "late_collisions"'
-      },
-      {
-        type: 'expression',
-        name: 'total',
-        expression: '"tx_sum" + "rx_sum"'
-      }
-    ],
-    columns: [
-      { selector: 'timestamp', text: 'Time', type: 'timestamp' },
-      { selector: 'event.name', text: 'PortName', type: 'string' },
-      { selector: 'event.host_name', text: 'Hostname', type: 'string' },
-      // Individual RX error columns
-      { selector: 'event.too_short', text: 'too_short', type: 'number' },
-      { selector: 'event.crc', text: 'crc', type: 'number' },
-      { selector: 'event.too_long', text: 'too_long', type: 'number' },
-      // Individual TX error columns
-      { selector: 'event.jabber', text: 'jabber', type: 'number' },
-      { selector: 'event.late_collisions', text: 'late_collisions', type: 'number' },
-      // Aggregate sums (for summary table)
-      { selector: 'event.tx_sum', text: 'TX', type: 'number' },
-      { selector: 'event.rx_sum', text: 'RX', type: 'number' },
-    ],
-  });
-}
-
-/**
- * Base query for uplink port channel network errors
- * Filters: ethernet_port_channel + eth_uplink_pc
- */
-function createUplinkPortChannelsQuery() {
-  return createTimeseriesQuery({
-    refId: 'A',
-    format: 'table',
-    dataSource: 'NetworkInterfaces',
-    dimensions: [
-      'name',
-      'host_name'
-    ],
-    virtualColumns: [
-      {
-        type: 'nested-field',
-        columnName: 'host.name',
-        outputName: 'host_name',
-        expectedType: 'STRING',
-        path: '$'
-      }
-    ],
-    filter: {
-      type: 'and',
-      fields: [
-        {
-          type: 'in',
-          dimension: 'intersight.domain.name',
-          values: ['${ChassisName:doublequote}']
-        },
-        {
-          type: 'selector',
-          dimension: 'hw.network.port.type',
-          value: 'ethernet_port_channel'
-        },
-        {
-          type: 'selector',
-          dimension: 'hw.network.port.role',
-          value: 'eth_uplink_pc'
-        },
-        {
-          type: 'selector',
-          dimension: 'instrument.name',
-          value: 'hw.network'
-        }
-      ]
-    },
-    aggregations: [
-      {
-        type: 'longSum',
-        name: 'runt',
-        fieldName: 'hw.errors_network_receive_runt'
-      },
-      {
-        type: 'longSum',
-        name: 'too_long',
-        fieldName: 'hw.errors_network_receive_too_long'
-      },
-      {
-        type: 'longSum',
-        name: 'crc',
-        fieldName: 'hw.errors_network_receive_crc'
-      },
-      {
-        type: 'longSum',
-        name: 'no_buffer',
-        fieldName: 'hw.errors_network_receive_no_buffer'
-      },
-      {
-        type: 'longSum',
-        name: 'too_short',
-        fieldName: 'hw.errors_network_receive_too_short'
-      },
-      {
-        type: 'longSum',
-        name: 'rx_discard',
-        fieldName: 'hw.errors_network_receive_discard'
-      },
-      {
-        type: 'longSum',
-        name: 'deferred',
-        fieldName: 'hw.errors_network_transmit_deferred'
-      },
-      {
-        type: 'longSum',
-        name: 'late_collisions',
-        fieldName: 'hw.errors_network_late_collisions'
-      },
-      {
-        type: 'longSum',
-        name: 'carrier_sense',
-        fieldName: 'hw.errors_network_carrier_sense'
-      },
-      {
-        type: 'longSum',
-        name: 'tx_discard',
-        fieldName: 'hw.errors_network_transmit_discard'
-      },
-      {
-        type: 'longSum',
-        name: 'jabber',
-        fieldName: 'hw.errors_network_transmit_jabber'
-      }
-    ],
-    postAggregations: [
-      {
-        type: 'expression',
-        name: 'rx_sum',
-        expression: '"rx_discard" + "too_short" + "no_buffer" + "crc" + "too_long" + "runt"'
-      },
-      {
-        type: 'expression',
-        name: 'tx_sum',
-        expression: '"jabber" + "tx_discard" + "carrier_sense" + "late_collisions" + "deferred"'
-      },
-      {
-        type: 'expression',
-        name: 'total',
-        expression: '"tx_sum" + "rx_sum"'
-      }
-    ],
-    columns: [
-      { selector: 'timestamp', text: 'Time', type: 'timestamp' },
-      { selector: 'event.name', text: 'PortName', type: 'string' },
-      { selector: 'event.host_name', text: 'Hostname', type: 'string' },
-      // Individual RX error columns (port channels have more RX errors than ports)
-      { selector: 'event.runt', text: 'runt', type: 'number' },
-      { selector: 'event.too_long', text: 'too_long', type: 'number' },
-      { selector: 'event.crc', text: 'crc', type: 'number' },
-      { selector: 'event.no_buffer', text: 'no_buffer', type: 'number' },
-      { selector: 'event.too_short', text: 'too_short', type: 'number' },
-      { selector: 'event.rx_discard', text: 'rx_discard', type: 'number' },
-      // Individual TX error columns (port channels have more TX errors than ports)
-      { selector: 'event.deferred', text: 'deferred', type: 'number' },
-      { selector: 'event.late_collisions', text: 'late_collisions', type: 'number' },
-      { selector: 'event.carrier_sense', text: 'carrier_sense', type: 'number' },
-      { selector: 'event.tx_discard', text: 'tx_discard', type: 'number' },
-      { selector: 'event.jabber', text: 'jabber', type: 'number' },
-      // Aggregate sums (for summary table)
-      { selector: 'event.tx_sum', text: 'TX', type: 'number' },
-      { selector: 'event.rx_sum', text: 'RX', type: 'number' },
-    ],
-  });
+  return createNetworkErrorTimeseriesQuery(UPLINK_PORTS_CONFIG);
 }
 
 /**
  * Table-specific query for uplink port network errors
- * Uses "all" granularity for aggregate table view
  */
 function createUplinkPortsTableQuery() {
-  return createTimeseriesQuery({
-    refId: 'A',
-    format: 'table',
-    granularity: { type: 'all' },
-    dataSource: 'NetworkInterfaces',
-    dimensions: ['domain_name'],
-    virtualColumns: [
-      {
-        type: 'nested-field',
-        columnName: 'intersight.domain.name',
-        outputName: 'domain_name',
-        expectedType: 'STRING',
-        path: '$'
-      },
-      {
-        type: 'expression',
-        name: 'Identifier',
-        expression: "concat(domain_name + ' (' + name + ')')"
-      },
-      {
-        type: 'nested-field',
-        columnName: 'host.name',
-        outputName: 'host_name',
-        expectedType: 'STRING',
-        path: '$'
-      }
-    ],
-    filter: {
-      type: 'and',
-      fields: [
-        {
-          type: 'in',
-          dimension: 'intersight.domain.name',
-          values: ['${ChassisName:doublequote}']
-        },
-        {
-          type: 'selector',
-          dimension: 'hw.network.port.type',
-          value: 'ethernet'
-        },
-        {
-          type: 'selector',
-          dimension: 'hw.network.port.role',
-          value: 'eth_uplink'
-        },
-        {
-          type: 'selector',
-          dimension: 'instrument.name',
-          value: 'hw.network'
-        }
-      ]
-    },
-    aggregations: [
-      {
-        type: 'longSum',
-        name: 'runt',
-        fieldName: 'hw.errors_network_receive_runt'
-      },
-      {
-        type: 'longSum',
-        name: 'too_long',
-        fieldName: 'hw.errors_network_receive_too_long'
-      },
-      {
-        type: 'longSum',
-        name: 'crc',
-        fieldName: 'hw.errors_network_receive_crc'
-      },
-      {
-        type: 'longSum',
-        name: 'no_buffer',
-        fieldName: 'hw.errors_network_receive_no_buffer'
-      },
-      {
-        type: 'longSum',
-        name: 'too_short',
-        fieldName: 'hw.errors_network_receive_too_short'
-      },
-      {
-        type: 'longSum',
-        name: 'rx_discard',
-        fieldName: 'hw.errors_network_receive_discard'
-      },
-      {
-        type: 'longSum',
-        name: 'deferred',
-        fieldName: 'hw.errors_network_transmit_deferred'
-      },
-      {
-        type: 'longSum',
-        name: 'late_collisions',
-        fieldName: 'hw.errors_network_late_collisions'
-      },
-      {
-        type: 'longSum',
-        name: 'carrier_sense',
-        fieldName: 'hw.errors_network_carrier_sense'
-      },
-      {
-        type: 'longSum',
-        name: 'tx_discard',
-        fieldName: 'hw.errors_network_transmit_discard'
-      },
-      {
-        type: 'longSum',
-        name: 'jabber',
-        fieldName: 'hw.errors_network_transmit_jabber'
-      }
-    ],
-    postAggregations: [
-      {
-        type: 'expression',
-        name: 'rx_sum',
-        expression: '"too_short" + "crc" + "too_long"'
-      },
-      {
-        type: 'expression',
-        name: 'tx_sum',
-        expression: '"jabber" + "late_collisions"'
-      },
-      {
-        type: 'expression',
-        name: 'total',
-        expression: '"tx_sum" + "rx_sum"'
-      }
-    ],
-    columns: [
-      { selector: 'timestamp', text: 'Time', type: 'timestamp' },
-      { selector: 'event.domain_name', text: 'Chassis', type: 'string' },
-      // Individual aggregations (RX errors)
-      { selector: 'event.too_long', text: 'Too Long', type: 'number' },
-      { selector: 'event.crc', text: 'CRC', type: 'number' },
-      { selector: 'event.too_short', text: 'Too Short', type: 'number' },
-      // Individual aggregations (TX errors)
-      { selector: 'event.late_collisions', text: 'Late Collisions', type: 'number' },
-      { selector: 'event.jabber', text: 'Jabber', type: 'number' },
-      // Post-aggregations (computed sums)
-      { selector: 'event.rx_sum', text: 'RX Sum', type: 'number' },
-      { selector: 'event.tx_sum', text: 'TX Sum', type: 'number' },
-      { selector: 'event.total', text: 'Total', type: 'number' },
-    ],
-  });
+  return createNetworkErrorTableQuery(UPLINK_PORTS_CONFIG);
+}
+
+/**
+ * Base query for uplink port channel network errors (ethernet_port_channel + eth_uplink_pc)
+ */
+function createUplinkPortChannelsQuery() {
+  return createNetworkErrorTimeseriesQuery(UPLINK_PORT_CHANNELS_CONFIG);
 }
 
 /**
  * Table-specific query for uplink port channel network errors
- * Uses "all" granularity for aggregate table view
  */
 function createUplinkPortChannelsTableQuery() {
-  return createTimeseriesQuery({
-    refId: 'A',
-    format: 'table',
-    granularity: { type: 'all' },
-    dataSource: 'NetworkInterfaces',
-    dimensions: ['domain_name'],
-    virtualColumns: [
-      {
-        type: 'nested-field',
-        columnName: 'intersight.domain.name',
-        outputName: 'domain_name',
-        expectedType: 'STRING',
-        path: '$'
-      },
-      {
-        type: 'expression',
-        name: 'Identifier',
-        expression: "concat(domain_name + ' (' + name + ')')"
-      },
-      {
-        type: 'nested-field',
-        columnName: 'host.name',
-        outputName: 'host_name',
-        expectedType: 'STRING',
-        path: '$'
-      }
-    ],
-    filter: {
-      type: 'and',
-      fields: [
-        {
-          type: 'in',
-          dimension: 'intersight.domain.name',
-          values: ['${ChassisName:doublequote}']
-        },
-        {
-          type: 'selector',
-          dimension: 'hw.network.port.type',
-          value: 'ethernet_port_channel'
-        },
-        {
-          type: 'selector',
-          dimension: 'hw.network.port.role',
-          value: 'eth_uplink_pc'
-        },
-        {
-          type: 'selector',
-          dimension: 'instrument.name',
-          value: 'hw.network'
-        }
-      ]
-    },
-    aggregations: [
-      {
-        type: 'longSum',
-        name: 'runt',
-        fieldName: 'hw.errors_network_receive_runt'
-      },
-      {
-        type: 'longSum',
-        name: 'too_long',
-        fieldName: 'hw.errors_network_receive_too_long'
-      },
-      {
-        type: 'longSum',
-        name: 'crc',
-        fieldName: 'hw.errors_network_receive_crc'
-      },
-      {
-        type: 'longSum',
-        name: 'no_buffer',
-        fieldName: 'hw.errors_network_receive_no_buffer'
-      },
-      {
-        type: 'longSum',
-        name: 'too_short',
-        fieldName: 'hw.errors_network_receive_too_short'
-      },
-      {
-        type: 'longSum',
-        name: 'rx_discard',
-        fieldName: 'hw.errors_network_receive_discard'
-      },
-      {
-        type: 'longSum',
-        name: 'deferred',
-        fieldName: 'hw.errors_network_transmit_deferred'
-      },
-      {
-        type: 'longSum',
-        name: 'late_collisions',
-        fieldName: 'hw.errors_network_late_collisions'
-      },
-      {
-        type: 'longSum',
-        name: 'carrier_sense',
-        fieldName: 'hw.errors_network_carrier_sense'
-      },
-      {
-        type: 'longSum',
-        name: 'tx_discard',
-        fieldName: 'hw.errors_network_transmit_discard'
-      },
-      {
-        type: 'longSum',
-        name: 'jabber',
-        fieldName: 'hw.errors_network_transmit_jabber'
-      }
-    ],
-    postAggregations: [
-      {
-        type: 'expression',
-        name: 'rx_sum',
-        expression: '"rx_discard" + "too_short" + "no_buffer" + "crc" + "too_long" + "runt"'
-      },
-      {
-        type: 'expression',
-        name: 'tx_sum',
-        expression: '"jabber" + "tx_discard" + "carrier_sense" + "late_collisions" + "deferred"'
-      },
-      {
-        type: 'expression',
-        name: 'total',
-        expression: '"tx_sum" + "rx_sum"'
-      }
-    ],
-    columns: [
-      { selector: 'timestamp', text: 'Time', type: 'timestamp' },
-      { selector: 'event.domain_name', text: 'Chassis', type: 'string' },
-      // Individual aggregations (RX errors)
-      { selector: 'event.too_long', text: 'Too Long', type: 'number' },
-      { selector: 'event.crc', text: 'CRC', type: 'number' },
-      { selector: 'event.too_short', text: 'Too Short', type: 'number' },
-      // Individual aggregations (TX errors)
-      { selector: 'event.late_collisions', text: 'Late Collisions', type: 'number' },
-      { selector: 'event.jabber', text: 'Jabber', type: 'number' },
-      // Post-aggregations (computed sums)
-      { selector: 'event.rx_sum', text: 'RX Sum', type: 'number' },
-      { selector: 'event.tx_sum', text: 'TX Sum', type: 'number' },
-      { selector: 'event.total', text: 'Total', type: 'number' },
-    ],
-  });
+  return createNetworkErrorTableQuery(UPLINK_PORT_CHANNELS_CONFIG);
 }
 
 // ============================================================================
