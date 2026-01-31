@@ -6,11 +6,6 @@ import {
   SceneGridLayout,
   SceneGridRow,
   SceneGridItem,
-  SceneObjectBase,
-  SceneComponentProps,
-  SceneObjectState,
-  VariableDependencyConfig,
-  sceneGraph,
   behaviors,
 } from '@grafana/scenes';
 import { DashboardCursorSync } from '@grafana/data';
@@ -18,7 +13,9 @@ import { LoggingQueryRunner } from '../../utils/LoggingQueryRunner';
 import { LoggingDataTransformer } from '../../utils/LoggingDataTransformer';
 import { DrilldownHeaderControl } from '../../components/DrilldownHeaderControl';
 import { ClickableTableWrapper } from '../../components/ClickableTableWrapper';
+import { SharedDrilldownState } from '../../utils/drilldownState';
 import { getChassisCount, createDrilldownQuery } from '../../utils/drilldownHelpers';
+import { DrilldownDetailsContainer, DrilldownDetailsContainerState, DrilldownDetailsContainerRenderer } from '../../utils/DrilldownDetailsContainer';
 import { createInfinityPostQuery, createTimeseriesQuery } from '../../utils/infinityQueryHelpers';
 import { API_ENDPOINTS, COLUMN_WIDTHS } from './constants';
 
@@ -26,91 +23,45 @@ import { API_ENDPOINTS, COLUMN_WIDTHS } from './constants';
 // TRAFFIC BALANCE DETAILS CONTAINER
 // ============================================================================
 
-interface TrafficBalanceDetailsContainerState extends SceneObjectState {
-  mode: 'overview' | 'drilldown';
-  chassisName?: string;
-  body: any;
-}
+interface TrafficBalanceDetailsContainerState extends DrilldownDetailsContainerState {}
 
 /**
  * Container scene that manages conditional rendering and drilldown for traffic balance details
+ * Extends DrilldownDetailsContainer to eliminate boilerplate code
  */
-class TrafficBalanceDetailsContainer extends SceneObjectBase<TrafficBalanceDetailsContainerState> {
-  public static Component = TrafficBalanceDetailsContainerRenderer;
-
-  // @ts-ignore
-  protected _variableDependency = new VariableDependencyConfig(this, {
-    variableNames: ['ChassisName'],
-    onReferencedVariableValueChanged: () => {
-      // Reset to overview when chassis variable changes
-      if (this.state.mode !== 'overview') {
-        this.exitDrilldown();
-      }
-      this.rebuildBody();
-    },
-  });
+class TrafficBalanceDetailsContainer extends DrilldownDetailsContainer<TrafficBalanceDetailsContainerState> {
+  public static Component = DrilldownDetailsContainerRenderer;
 
   public constructor() {
-    super({
-      mode: 'overview',
-      body: new SceneFlexLayout({ children: [] }),
-    });
+    super(
+      {
+        body: new SceneFlexLayout({ children: [] }),
+      },
+      {
+        multiViewThreshold: 15, // Show line charts for ≤15 chassis, tables for >15
+        emptyStateTitle: 'Traffic Balance Details',
+        emptyStateMessage: '### No Chassis Selected\n\nPlease select one or more chassis from the Chassis filter above.',
+      }
+    );
   }
 
-  // @ts-ignore
-  public activate() {
-    const result = super.activate();
-    // Build panels when scene becomes active (when it has access to variables)
-    this.rebuildBody();
-    return result;
+  // ============================================================================
+  // ABSTRACT METHOD IMPLEMENTATIONS
+  // ============================================================================
+
+  protected createDrilldownView(target: string): any {
+    return createDrilldownView(target, this);
   }
 
-  public drillToChassis(chassisName: string) {
-    this.setState({
-      mode: 'drilldown',
-      chassisName,
-    });
-    this.rebuildBody();
+  protected createSingleView(count: number): any {
+    return createLineChartView(this);
   }
 
-  public exitDrilldown() {
-    this.setState({
-      mode: 'overview',
-      chassisName: undefined,
-    });
-    this.rebuildBody();
+  protected createMultiView(count: number): any {
+    return createTableView(this);
   }
 
-  private rebuildBody() {
-    // Only rebuild if scene is active (has access to variables)
-    if (!this.isActive) {
-      return;
-    }
-
-    const { mode, chassisName } = this.state;
-
-    // Priority 1: Drilldown mode
-    if (mode === 'drilldown' && chassisName) {
-      this.setState({ body: createDrilldownView(chassisName, this) });
-      return;
-    }
-
-    // Priority 2: Get chassis count
-    const count = getChassisCount(this);
-
-    // Priority 3: Few chassis (≤15) - show line charts
-    if (count > 0 && count <= 15) {
-      this.setState({ body: createLineChartView(this) });
-      return;
-    }
-
-    // Priority 4: Many chassis (>15) - show tables
-    if (count > 15) {
-      this.setState({ body: createTableView(this) });
-      return;
-    }
-
-    // Priority 5: No chassis selected - show empty state
+  protected createEmptyState(): any {
     const emptyStatePanel = PanelBuilders.text()
       .setTitle('Traffic Balance Details')
       .setOption('content', '### No Chassis Selected\n\nPlease select one or more chassis from the Chassis filter above.')
@@ -118,24 +69,12 @@ class TrafficBalanceDetailsContainer extends SceneObjectBase<TrafficBalanceDetai
       .setDisplayMode('transparent')
       .build();
 
-    this.setState({
-      body: new SceneFlexLayout({
-        children: [
-          new SceneFlexItem({ ySizing: 'fill', body: emptyStatePanel })
-        ]
-      })
+    return new SceneFlexLayout({
+      children: [
+        new SceneFlexItem({ ySizing: 'fill', body: emptyStatePanel })
+      ]
     });
   }
-}
-
-function TrafficBalanceDetailsContainerRenderer({ model }: SceneComponentProps<TrafficBalanceDetailsContainer>) {
-  const { body } = model.useState();
-
-  return (
-    <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column' }}>
-      {body && body.Component && <body.Component model={body} />}
-    </div>
-  );
 }
 
 // ============================================================================
@@ -1170,6 +1109,12 @@ function createPanel192_Table(parent: TrafficBalanceDetailsContainer) {
 }
 
 export function getTrafficBalanceTab() {
+  // Create shared drilldown state
+  const sharedDrilldownState = new SharedDrilldownState({
+    variableName: 'ChassisName',
+    initialMode: 'overview',
+  });
+
   // Row 1: Overview
   const overviewRow = new SceneGridRow({
     title: 'Overview',
@@ -1201,9 +1146,10 @@ export function getTrafficBalanceTab() {
     ],
   });
 
-  // Main layout with collapsible rows
+  // Main layout with collapsible rows and shared drilldown state
   return new SceneFlexLayout({
     direction: 'column',
+    $behaviors: [sharedDrilldownState],
     children: [
       new SceneFlexItem({
         minHeight: 600,
