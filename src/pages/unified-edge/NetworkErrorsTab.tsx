@@ -381,6 +381,24 @@ function createUplinkPortChannelsTableQuery() {
 }
 
 // ============================================================================
+// PANEL CREATION HELPERS
+// ============================================================================
+
+/**
+ * Creates a network error timeseries panel with standard configuration
+ * Shared configuration: line chart with no fill, multi-series tooltip
+ */
+function createNetworkErrorTimeseriesPanel(title: string, data: any) {
+  return PanelBuilders.timeseries()
+    .setTitle(title)
+    .setData(data)
+    .setCustomFieldConfig('drawStyle', 'line' as any)
+    .setCustomFieldConfig('fillOpacity', 0)
+    .setOption('tooltip', { mode: 'multi' as any, sort: 'desc' as any })
+    .build();
+}
+
+// ============================================================================
 // NETWORK ERRORS DETAILS CONTAINER
 // ============================================================================
 
@@ -575,13 +593,7 @@ function createLineChartView(tabType: 'ports' | 'port-channels' | 'downlinks'): 
     ],
   });
 
-  const aTxPanel = PanelBuilders.timeseries()
-    .setTitle(`${hostA}: Transmit errors per ${titlePrefix}`)
-    .setData(aTxTransformer)
-    .setCustomFieldConfig('drawStyle', 'line' as any)
-    .setCustomFieldConfig('fillOpacity', 0)
-    .setOption('tooltip', { mode: 'multi' as any, sort: 'desc' as any })
-    .build();
+  const aTxPanel = createNetworkErrorTimeseriesPanel(`${hostA}: Transmit errors per ${titlePrefix}`, aTxTransformer);
 
   // A: Receive errors transformer
   const aRxTransformer = new LoggingDataTransformer({
@@ -687,13 +699,7 @@ function createLineChartView(tabType: 'ports' | 'port-channels' | 'downlinks'): 
     ],
   });
 
-  const aRxPanel = PanelBuilders.timeseries()
-    .setTitle(`${hostA}: Receive errors per ${titlePrefix}`)
-    .setData(aRxTransformer)
-    .setCustomFieldConfig('drawStyle', 'line' as any)
-    .setCustomFieldConfig('fillOpacity', 0)
-    .setOption('tooltip', { mode: 'multi' as any, sort: 'desc' as any })
-    .build();
+  const aRxPanel = createNetworkErrorTimeseriesPanel(`${hostA}: Receive errors per ${titlePrefix}`, aRxTransformer);
 
   // B: Transmit errors transformer
   const bTxTransformer = new LoggingDataTransformer({
@@ -792,13 +798,7 @@ function createLineChartView(tabType: 'ports' | 'port-channels' | 'downlinks'): 
     ],
   });
 
-  const bTxPanel = PanelBuilders.timeseries()
-    .setTitle(`${hostB}: Transmit errors per ${titlePrefix}`)
-    .setData(bTxTransformer)
-    .setCustomFieldConfig('drawStyle', 'line' as any)
-    .setCustomFieldConfig('fillOpacity', 0)
-    .setOption('tooltip', { mode: 'multi' as any, sort: 'desc' as any })
-    .build();
+  const bTxPanel = createNetworkErrorTimeseriesPanel(`${hostB}: Transmit errors per ${titlePrefix}`, bTxTransformer);
 
   // B: Receive errors transformer
   const bRxTransformer = new LoggingDataTransformer({
@@ -904,13 +904,7 @@ function createLineChartView(tabType: 'ports' | 'port-channels' | 'downlinks'): 
     ],
   });
 
-  const bRxPanel = PanelBuilders.timeseries()
-    .setTitle(`${hostB}: Receive errors per ${titlePrefix}`)
-    .setData(bRxTransformer)
-    .setCustomFieldConfig('drawStyle', 'line' as any)
-    .setCustomFieldConfig('fillOpacity', 0)
-    .setOption('tooltip', { mode: 'multi' as any, sort: 'desc' as any })
-    .build();
+  const bRxPanel = createNetworkErrorTimeseriesPanel(`${hostB}: Receive errors per ${titlePrefix}`, bRxTransformer);
 
   // 2x2 grid layout
   return new SceneFlexLayout({
@@ -1067,13 +1061,7 @@ function createSummaryView(
       ],
     });
 
-    const txPanel = PanelBuilders.timeseries()
-      .setTitle('Total TX Errors by Chassis')
-      .setData(txTransformer)
-      .setCustomFieldConfig('drawStyle', 'line' as any)
-      .setCustomFieldConfig('fillOpacity', 0)
-      .setOption('tooltip', { mode: 'multi' as any, sort: 'desc' as any })
-      .build();
+    const txPanel = createNetworkErrorTimeseriesPanel('Total TX Errors by Chassis', txTransformer);
 
     // RX aggregate chart
     const rxQueryRunner = new LoggingQueryRunner({
@@ -1108,13 +1096,7 @@ function createSummaryView(
       ],
     });
 
-    const rxPanel = PanelBuilders.timeseries()
-      .setTitle('Total RX Errors by Chassis')
-      .setData(rxTransformer)
-      .setCustomFieldConfig('drawStyle', 'line' as any)
-      .setCustomFieldConfig('fillOpacity', 0)
-      .setOption('tooltip', { mode: 'multi' as any, sort: 'desc' as any })
-      .build();
+    const rxPanel = createNetworkErrorTimeseriesPanel('Total RX Errors by Chassis', rxTransformer);
 
     // Add aggregate charts in a row
     children.push(
@@ -1285,13 +1267,7 @@ function createDrilldownView(
     ],
   });
 
-  const aTxPanel = PanelBuilders.timeseries()
-    .setTitle(`${hostA}: Transmit errors - ${chassisName}`)
-    .setData(aTxTransformer)
-    .setCustomFieldConfig('drawStyle', 'line' as any)
-    .setCustomFieldConfig('fillOpacity', 0)
-    .setOption('tooltip', { mode: 'multi' as any, sort: 'desc' as any })
-    .build();
+  const aTxPanel = createNetworkErrorTimeseriesPanel(`${hostA}: Transmit errors - ${chassisName}`, aTxTransformer);
 
   // A: Receive errors transformer
   const aRxTransformer = new LoggingDataTransformer({
@@ -1397,13 +1373,7 @@ function createDrilldownView(
     ],
   });
 
-  const aRxPanel = PanelBuilders.timeseries()
-    .setTitle(`${hostA}: Receive errors - ${chassisName}`)
-    .setData(aRxTransformer)
-    .setCustomFieldConfig('drawStyle', 'line' as any)
-    .setCustomFieldConfig('fillOpacity', 0)
-    .setOption('tooltip', { mode: 'multi' as any, sort: 'desc' as any })
-    .build();
+  const aRxPanel = createNetworkErrorTimeseriesPanel(`${hostA}: Receive errors - ${chassisName}`, aRxTransformer);
 
   // B: Transmit errors transformer
   const bTxTransformer = new LoggingDataTransformer({
@@ -1502,13 +1472,7 @@ function createDrilldownView(
     ],
   });
 
-  const bTxPanel = PanelBuilders.timeseries()
-    .setTitle(`${hostB}: Transmit errors - ${chassisName}`)
-    .setData(bTxTransformer)
-    .setCustomFieldConfig('drawStyle', 'line' as any)
-    .setCustomFieldConfig('fillOpacity', 0)
-    .setOption('tooltip', { mode: 'multi' as any, sort: 'desc' as any })
-    .build();
+  const bTxPanel = createNetworkErrorTimeseriesPanel(`${hostB}: Transmit errors - ${chassisName}`, bTxTransformer);
 
   // B: Receive errors transformer
   const bRxTransformer = new LoggingDataTransformer({
@@ -1614,13 +1578,7 @@ function createDrilldownView(
     ],
   });
 
-  const bRxPanel = PanelBuilders.timeseries()
-    .setTitle(`${hostB}: Receive errors - ${chassisName}`)
-    .setData(bRxTransformer)
-    .setCustomFieldConfig('drawStyle', 'line' as any)
-    .setCustomFieldConfig('fillOpacity', 0)
-    .setOption('tooltip', { mode: 'multi' as any, sort: 'desc' as any })
-    .build();
+  const bRxPanel = createNetworkErrorTimeseriesPanel(`${hostB}: Receive errors - ${chassisName}`, bRxTransformer);
 
   return new SceneFlexLayout({
     direction: 'column',
