@@ -25,6 +25,7 @@ import { ClickableTableWrapper } from '../../components/ClickableTableWrapper';
 import { getChassisCount, createDrilldownQuery, createRegexDrilldownQuery } from '../../utils/drilldownHelpers';
 import { createInfinityPostQuery, createTimeseriesQuery } from '../../utils/infinityQueryHelpers';
 import { createDomainNameVirtualColumn, createHostNameVirtualColumn, createHostnameVirtualColumn } from '../../utils/virtualColumnHelpers';
+import { createDrilldownTable, createDrilldownTableLayout, createDrilldownView } from '../../utils/drilldownTableHelpers';
 import { API_ENDPOINTS } from './constants';
 
 // ============================================================================
@@ -446,13 +447,10 @@ function createChassisTable(scene: SceneObjectBase, parent: SynchronizedPowerCon
     ],
   });
 
-  const queryRunner = new LoggingQueryRunner({
-    datasource: { uid: '${Account}' },
-    queries: [baseQuery as any],
-  });
-
-  const transformer = new LoggingDataTransformer({
-    $data: queryRunner,
+  return createDrilldownTable({
+    queries: baseQuery,
+    title: 'Chassis Power Consumption (Max) - Click row to drill down',
+    unit: 'watt',
     transformations: [
       {
         id: 'renameByRegex',
@@ -464,9 +462,7 @@ function createChassisTable(scene: SceneObjectBase, parent: SynchronizedPowerCon
       {
         id: 'timeSeriesTable',
         options: {
-          A: {
-            timeField: 'Time',
-          },
+          A: { timeField: 'Time' },
         },
       },
       {
@@ -481,28 +477,15 @@ function createChassisTable(scene: SceneObjectBase, parent: SynchronizedPowerCon
         },
       },
     ],
-  });
-
-  const tablePanel = PanelBuilders.table()
-    .setTitle('Chassis Power Consumption (Max) - Click row to drill down')
-    .setData(transformer)
-    .setUnit('watt')
-    .setOption('footer' as any, {
-      enablePagination: true,
-      show: false,
-    })
-    .setOverrides((builder) => {
+    onRowClick: (chassisName: string) => parent.drillToChassis(chassisName),
+    overrides: (builder) => {
       builder
         .matchFieldsWithName('Power')
         .overrideColor({ mode: 'fixed', fixedColor: 'semi-dark-blue' });
-
-      builder.matchFieldsWithName('Chassis Name').overrideCustomFieldConfig('width', 240);
-    })
-    .build();
-
-  return new ClickableTableWrapper({
-    tablePanel,
-    onRowClick: (chassisName: string) => parent.drillToChassis(chassisName),
+      builder
+        .matchFieldsWithName('Chassis Name')
+        .overrideCustomFieldConfig('width', 240);
+    },
   });
 }
 
@@ -648,20 +631,15 @@ function createHostTable(scene: SceneObjectBase, parent: SynchronizedPowerConsum
     ],
   });
 
-  const queryRunner = new LoggingQueryRunner({
-    datasource: { uid: '${Account}' },
-    queries: [baseQuery as any],
-  });
-
-  const transformer = new LoggingDataTransformer({
-    $data: queryRunner,
+  return createDrilldownTable({
+    queries: baseQuery,
+    title: 'Host Power Consumption (Max) - Click row to drill down',
+    unit: 'watt',
     transformations: [
       {
         id: 'timeSeriesTable',
         options: {
-          A: {
-            timeField: 'Time',
-          },
+          A: { timeField: 'Time' },
         },
       },
       {
@@ -676,32 +654,19 @@ function createHostTable(scene: SceneObjectBase, parent: SynchronizedPowerConsum
         },
       },
     ],
-  });
-
-  const tablePanel = PanelBuilders.table()
-    .setTitle('Host Power Consumption (Max) - Click row to drill down')
-    .setData(transformer)
-    .setUnit('watt')
-    .setOption('footer' as any, {
-      enablePagination: true,
-      show: false,
-    })
-    .setOverrides((builder) => {
-      builder
-        .matchFieldsWithName('Power')
-        .overrideColor({ mode: 'fixed', fixedColor: 'semi-dark-blue' });
-
-      builder.matchFieldsWithName('Hostname').overrideCustomFieldConfig('width', 240);
-    })
-    .build();
-
-  return new ClickableTableWrapper({
-    tablePanel,
     onRowClick: (hostName: string) => {
       const chassisName = extractChassisFromHost(hostName);
       if (chassisName) {
         parent.drillToHost(hostName, chassisName);
       }
+    },
+    overrides: (builder) => {
+      builder
+        .matchFieldsWithName('Power')
+        .overrideColor({ mode: 'fixed', fixedColor: 'semi-dark-blue' });
+      builder
+        .matchFieldsWithName('Hostname')
+        .overrideCustomFieldConfig('width', 240);
     },
   });
 }
@@ -869,13 +834,10 @@ function createChassisFanSpeedLineChartView() {
 
 // Table view for > 15 chassis
 function createChassisFanSpeedTableView(scene: DynamicChassisFanSpeedScene) {
-  const queryRunner = new LoggingQueryRunner({
-    datasource: { uid: '${Account}' },
-    queries: [chassisFanSpeedQuery],
-  });
-
-  const dataTransformer = new LoggingDataTransformer({
-    $data: queryRunner,
+  return createDrilldownTableLayout({
+    queries: chassisFanSpeedQuery,
+    title: 'Fan speed per Chassis (Avg) - Click row to drill down',
+    unit: 'rotrpm',
     transformations: [
       {
         id: 'renameByRegex',
@@ -902,17 +864,10 @@ function createChassisFanSpeedTableView(scene: DynamicChassisFanSpeedScene) {
         },
       },
     ],
-  });
-
-  const tablePanel = PanelBuilders.table()
-    .setTitle('Fan speed per Chassis (Avg) - Click row to drill down')
-    .setData(dataTransformer)
-    .setUnit('rotrpm')
-    .setOption('footer' as any, {
-      enablePagination: true,
-      show: false,
-    })
-    .setOverrides((builder) => {
+    onRowClick: (chassisName: string) => {
+      scene.drillToChassis(chassisName);
+    },
+    overrides: (builder) => {
       builder
         .matchFieldsWithName('Fan Speed')
         .overrideColor({
@@ -922,36 +877,12 @@ function createChassisFanSpeedTableView(scene: DynamicChassisFanSpeedScene) {
       builder
         .matchFieldsByType('string' as any)
         .overrideCustomFieldConfig('width', 240);
-    })
-    .build();
-
-  const clickableTable = new ClickableTableWrapper({
-    tablePanel: tablePanel,
-    onRowClick: (chassisName: string) => {
-      scene.drillToChassis(chassisName);
     },
-  });
-
-  return new SceneFlexLayout({
-    direction: 'column',
-    children: [
-      new SceneFlexItem({
-        ySizing: 'fill',
-        body: clickableTable,
-      }),
-    ],
   });
 }
 
 // Drilldown view with back button
 function createChassisFanSpeedDrilldownView(chassisName: string, scene: DynamicChassisFanSpeedScene) {
-  const drilldownHeader = new DrilldownHeaderControl({
-    itemName: chassisName,
-    itemLabel: 'Chassis',
-    backButtonText: 'Back to Overview',
-    onBack: () => scene.exitDrilldown(),
-  });
-
   const drilldownQuery = createDrilldownQuery(chassisFanSpeedQuery, chassisName);
 
   const queryRunner = new LoggingQueryRunner({
@@ -983,16 +914,12 @@ function createChassisFanSpeedDrilldownView(chassisName: string, scene: DynamicC
     })
     .build();
 
-  return new SceneFlexLayout({
-    direction: 'column',
-    children: [
-      new SceneFlexItem({ height: 50, body: drilldownHeader }),
-      new SceneFlexItem({
-        ySizing: 'fill',
-        body: panel,
-      }),
-    ],
-    $behaviors: [
+  return createDrilldownView({
+    itemName: chassisName,
+    itemLabel: 'Chassis',
+    onBack: () => scene.exitDrilldown(),
+    body: panel,
+    behaviors: [
       new behaviors.CursorSync({ key: 'fan-speed-no-sync', sync: DashboardCursorSync.Off }),
     ],
   });
@@ -1286,13 +1213,10 @@ function createChassisTemperatureLineChartView() {
 
 // Table view for > 15 chassis
 function createChassisTemperatureTableView(scene: DynamicChassisTemperatureScene) {
-  const queryRunner = new LoggingQueryRunner({
-    datasource: { uid: '${Account}' },
+  return createDrilldownTableLayout({
     queries: [chassisIntakeTemperatureQuery, chassisExhaustTemperatureQuery],
-  });
-
-  const dataTransformer = new LoggingDataTransformer({
-    $data: queryRunner,
+    title: 'Chassis Temperature (Avg) - Click row to drill down',
+    unit: 'celsius',
     transformations: [
       {
         id: 'renameByRegex',
@@ -1328,55 +1252,31 @@ function createChassisTemperatureTableView(scene: DynamicChassisTemperatureScene
         },
       },
     ],
-  });
-
-  const tablePanel = PanelBuilders.table()
-    .setTitle('Chassis Temperature (Avg) - Click row to drill down')
-    .setData(dataTransformer)
-    .setUnit('celsius')
-    .setOption('footer' as any, {
-      enablePagination: true,
-      show: false,
-    })
-    .setOption('cellHeight', 'md' as any)
-    .setThresholds({
-      mode: 'absolute' as any as any,
-      steps: [
-        { value: 0, color: 'transparent' },
-        { value: 50, color: 'dark-yellow' },
-        { value: 60, color: 'dark-red' },
-      ],
-    })
-    .setOverrides((builder) => {
-      builder
-        .matchFieldsWithName('Chassis Name')
-        .overrideCustomFieldConfig('width', 240);
-
-      builder
-        .matchFieldsWithName('Intake Temperature')
-        .overrideUnit('celsius');
-
-      builder
-        .matchFieldsWithName('Exhaust Temperature')
-        .overrideUnit('celsius');
-    })
-    .build();
-
-  const clickableTable = new ClickableTableWrapper({
-    tablePanel: tablePanel,
     onRowClick: (chassisName: string) => {
       scene.drillToChassis(chassisName);
     },
-  });
-
-  return new SceneFlexLayout({
-    direction: 'column',
-    children: [
-      new SceneFlexItem({
-        ySizing: 'fill',
-        body: clickableTable,
-      }),
-    ],
+    options: {
+      cellHeight: 'md',
+      thresholds: {
+        mode: 'absolute' as any,
+        steps: [
+          { value: 0, color: 'transparent' },
+          { value: 50, color: 'dark-yellow' },
+          { value: 60, color: 'dark-red' },
+        ],
+      },
+    },
+    overrides: (builder) => {
+      builder
+        .matchFieldsWithName('Chassis Name')
+        .overrideCustomFieldConfig('width', 240);
+      builder
+        .matchFieldsWithName('Intake Temperature')
+        .overrideUnit('celsius');
+      builder
+        .matchFieldsWithName('Exhaust Temperature')
+        .overrideUnit('celsius');
+    },
   });
 }
 
