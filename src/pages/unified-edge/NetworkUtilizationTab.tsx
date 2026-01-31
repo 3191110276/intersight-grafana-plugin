@@ -27,7 +27,7 @@ import { ClickableTableWrapper } from '../../components/ClickableTableWrapper';
 import { SharedDrilldownState, findSharedDrilldownState } from '../../utils/drilldownState';
 import { getChassisCount, createDrilldownQuery } from '../../utils/drilldownHelpers';
 import { DrilldownDetailsContainer, DrilldownDetailsContainerState, DrilldownDetailsContainerRenderer } from '../../utils/DrilldownDetailsContainer';
-import { createInfinityPostQuery } from '../../utils/infinityQueryHelpers';
+import { createTimeseriesQuery } from '../../utils/infinityQueryHelpers';
 import { API_ENDPOINTS, COLUMN_WIDTHS } from './constants';
 
 // ============================================================================
@@ -343,10 +343,56 @@ function createUnifiedTableQuery(tabType: string, aggregation: string) {
     ]`;
   }
 
-  return createInfinityPostQuery({
+  return createTimeseriesQuery({
     refId: 'A',
     format: 'table',
-    url: '/api/v1/telemetry/TimeSeries',
+    dataSource: 'NetworkInterfaces',
+    dimensions: ['domain_name', 'host_name', 'port_role'],
+    virtualColumns: [
+      {
+        type: 'nested-field',
+        columnName: 'intersight.domain.name',
+        outputName: 'domain_name',
+        expectedType: 'STRING',
+        path: '$',
+      },
+      {
+        type: 'nested-field',
+        columnName: 'host.name',
+        outputName: 'host_name',
+        expectedType: 'STRING',
+        path: '$',
+      },
+      {
+        type: 'nested-field',
+        columnName: 'hw.network.port.role',
+        outputName: 'port_role',
+        expectedType: 'STRING',
+        path: '$',
+      },
+    ],
+    filter: {
+      type: 'and',
+      fields: [
+        {
+          type: 'in',
+          dimension: 'intersight.domain.name',
+          values: '[\${ChassisName:doublequote}]',
+        },
+        {
+          type: 'in',
+          dimension: 'hw.network.port.role',
+          values: ['eth_uplink', 'eth_uplink_pc'],
+        },
+        {
+          type: 'selector',
+          dimension: 'instrument.name',
+          value: 'hw.network',
+        },
+      ],
+    },
+    aggregations: JSON.parse(aggregationsJson),
+    postAggregations: JSON.parse(postAggregationsJson),
     columns: [
       { selector: 'timestamp', text: 'Time', type: 'timestamp' },
       { selector: 'event.domain_name', text: 'Chassis', type: 'string' },
@@ -355,62 +401,6 @@ function createUnifiedTableQuery(tabType: string, aggregation: string) {
       { selector: `event.${txMetric}`, text: 'TX', type: 'number' },
       { selector: `event.${rxMetric}`, text: 'RX', type: 'number' },
     ],
-    body: `  {
-    "queryType": "groupBy",
-    "dataSource": "NetworkInterfaces",
-    "granularity": {
-       "type": "duration",
-       "duration": $__interval_ms,
-       "timeZone": "$__timezone"
-    },
-    "intervals": ["\${__from:date}/\${__to:date}"],
-    "dimensions": ["domain_name", "host_name", "port_role"],
-    "virtualColumns": [
-      {
-        "type": "nested-field",
-        "columnName": "intersight.domain.name",
-        "outputName": "domain_name",
-        "expectedType": "STRING",
-        "path": "$"
-      },
-      {
-        "type": "nested-field",
-        "columnName": "host.name",
-        "outputName": "host_name",
-        "expectedType": "STRING",
-        "path": "$"
-      },
-      {
-        "type": "nested-field",
-        "columnName": "hw.network.port.role",
-        "outputName": "port_role",
-        "expectedType": "STRING",
-        "path": "$"
-      }
-    ],
-    "filter": {
-      "type": "and",
-      "fields": [
-        {
-          "type": "in",
-          "dimension": "intersight.domain.name",
-          "values": [\${ChassisName:doublequote}]
-        },
-        {
-          "type": "in",
-          "dimension": "hw.network.port.role",
-          "values": ["eth_uplink", "eth_uplink_pc"]
-        },
-        {
-          "type": "selector",
-          "dimension": "instrument.name",
-          "value": "hw.network"
-        }
-      ]
-    },
-    "aggregations": ${aggregationsJson},
-    "postAggregations": ${postAggregationsJson}
-  }`,
   });
 }
 
@@ -574,10 +564,56 @@ function createUnifiedDownlinksTableQuery(tabType: string, aggregation: string) 
     ]`;
   }
 
-  return createInfinityPostQuery({
+  return createTimeseriesQuery({
     refId: 'A',
     format: 'table',
-    url: '/api/v1/telemetry/TimeSeries',
+    dataSource: 'NetworkInterfaces',
+    dimensions: ['domain_name', 'port_name', 'port_role'],
+    virtualColumns: [
+      {
+        type: 'nested-field',
+        columnName: 'intersight.domain.name',
+        outputName: 'domain_name',
+        expectedType: 'STRING',
+        path: '$',
+      },
+      {
+        type: 'nested-field',
+        columnName: 'name',
+        outputName: 'port_name',
+        expectedType: 'STRING',
+        path: '$',
+      },
+      {
+        type: 'nested-field',
+        columnName: 'hw.network.port.role',
+        outputName: 'port_role',
+        expectedType: 'STRING',
+        path: '$',
+      },
+    ],
+    filter: {
+      type: 'and',
+      fields: [
+        {
+          type: 'in',
+          dimension: 'intersight.domain.name',
+          values: '[\${ChassisName:doublequote}]',
+        },
+        {
+          type: 'selector',
+          dimension: 'hw.network.port.role',
+          value: 'host_port',
+        },
+        {
+          type: 'selector',
+          dimension: 'instrument.name',
+          value: 'hw.network',
+        },
+      ],
+    },
+    aggregations: JSON.parse(aggregationsJson),
+    postAggregations: JSON.parse(postAggregationsJson),
     columns: [
       { selector: 'timestamp', text: 'Time', type: 'timestamp' },
       { selector: 'event.domain_name', text: 'Chassis', type: 'string' },
@@ -586,62 +622,6 @@ function createUnifiedDownlinksTableQuery(tabType: string, aggregation: string) 
       { selector: `event.${txMetric}`, text: 'TX', type: 'number' },
       { selector: `event.${rxMetric}`, text: 'RX', type: 'number' },
     ],
-    body: `  {
-    "queryType": "groupBy",
-    "dataSource": "NetworkInterfaces",
-    "granularity": {
-       "type": "duration",
-       "duration": $__interval_ms,
-       "timeZone": "$__timezone"
-    },
-    "intervals": ["\${__from:date}/\${__to:date}"],
-    "dimensions": ["domain_name", "port_name", "port_role"],
-    "virtualColumns": [
-      {
-        "type": "nested-field",
-        "columnName": "intersight.domain.name",
-        "outputName": "domain_name",
-        "expectedType": "STRING",
-        "path": "$"
-      },
-      {
-        "type": "nested-field",
-        "columnName": "name",
-        "outputName": "port_name",
-        "expectedType": "STRING",
-        "path": "$"
-      },
-      {
-        "type": "nested-field",
-        "columnName": "hw.network.port.role",
-        "outputName": "port_role",
-        "expectedType": "STRING",
-        "path": "$"
-      }
-    ],
-    "filter": {
-      "type": "and",
-      "fields": [
-        {
-          "type": "in",
-          "dimension": "intersight.domain.name",
-          "values": [\${ChassisName:doublequote}]
-        },
-        {
-          "type": "selector",
-          "dimension": "hw.network.port.role",
-          "value": "host_port"
-        },
-        {
-          "type": "selector",
-          "dimension": "instrument.name",
-          "value": "hw.network"
-        }
-      ]
-    },
-    "aggregations": ${aggregationsJson},
-    "postAggregations": ${postAggregationsJson}
-  }`,
   });
 }
 
@@ -1072,199 +1052,189 @@ function createPanel_eCMC_A_TX(portRole: string, tabType: string, isDrilldown: b
   const metricSuffix = tabType === 'percentage' ? '_pct' : '';
   const metricName = `transmit_${agg}${metricSuffix}`;
 
-  let aggregationsJson;
-  let postAggregationsJson;
+  let aggregations;
+  let postAggregations;
 
   if (tabType === 'percentage') {
-    aggregationsJson = `[
+    aggregations = [
       {
-        "type": "doubleMax",
-        "name": "receive_max",
-        "fieldName": "hw.network.bandwidth.utilization_receive_max"
+        type: 'doubleMax',
+        name: 'receive_max',
+        fieldName: 'hw.network.bandwidth.utilization_receive_max',
       },
       {
-        "type": "doubleMax",
-        "name": "transmit_max",
-        "fieldName": "hw.network.bandwidth.utilization_transmit_max"
+        type: 'doubleMax',
+        name: 'transmit_max',
+        fieldName: 'hw.network.bandwidth.utilization_transmit_max',
       },
       {
-        "type": "doubleMin",
-        "name": "receive_min",
-        "fieldName": "hw.network.bandwidth.utilization_receive_min"
+        type: 'doubleMin',
+        name: 'receive_min',
+        fieldName: 'hw.network.bandwidth.utilization_receive_min',
       },
       {
-        "type": "doubleMin",
-        "name": "transmit_min",
-        "fieldName": "hw.network.bandwidth.utilization_transmit_min"
-      }
-    ]`;
+        type: 'doubleMin',
+        name: 'transmit_min',
+        fieldName: 'hw.network.bandwidth.utilization_transmit_min',
+      },
+    ];
 
-    postAggregationsJson = `[
+    postAggregations = [
       {
-        "type": "expression",
-        "name": "receive_avg",
-        "expression": "\\"receive_max\\""
+        type: 'expression',
+        name: 'receive_avg',
+        expression: '"receive_max"',
       },
       {
-        "type": "expression",
-        "name": "transmit_avg",
-        "expression": "\\"transmit_max\\""
+        type: 'expression',
+        name: 'transmit_avg',
+        expression: '"transmit_max"',
       },
       {
-        "type": "expression",
-        "name": "receive_max_pct",
-        "expression": "\\"receive_max\\" * 100"
+        type: 'expression',
+        name: 'receive_max_pct',
+        expression: '"receive_max" * 100',
       },
       {
-        "type": "expression",
-        "name": "transmit_max_pct",
-        "expression": "\\"transmit_max\\" * 100"
+        type: 'expression',
+        name: 'transmit_max_pct',
+        expression: '"transmit_max" * 100',
       },
       {
-        "type": "expression",
-        "name": "receive_min_pct",
-        "expression": "\\"receive_min\\" * 100"
+        type: 'expression',
+        name: 'receive_min_pct',
+        expression: '"receive_min" * 100',
       },
       {
-        "type": "expression",
-        "name": "transmit_min_pct",
-        "expression": "\\"transmit_min\\" * 100"
+        type: 'expression',
+        name: 'transmit_min_pct',
+        expression: '"transmit_min" * 100',
       },
       {
-        "type": "expression",
-        "name": "receive_avg_pct",
-        "expression": "\\"receive_avg\\" * 100"
+        type: 'expression',
+        name: 'receive_avg_pct',
+        expression: '"receive_avg" * 100',
       },
       {
-        "type": "expression",
-        "name": "transmit_avg_pct",
-        "expression": "\\"transmit_avg\\" * 100"
-      }
-    ]`;
+        type: 'expression',
+        name: 'transmit_avg_pct',
+        expression: '"transmit_avg" * 100',
+      },
+    ];
   } else {
-    aggregationsJson = `[
+    aggregations = [
       {
-        "type": "doubleMax",
-        "name": "base_transmit_max",
-        "fieldName": "hw.network.io_transmit_max"
+        type: 'doubleMax',
+        name: 'base_transmit_max',
+        fieldName: 'hw.network.io_transmit_max',
       },
       {
-        "type": "doubleMin",
-        "name": "base_transmit_min",
-        "fieldName": "hw.network.io_transmit_min"
+        type: 'doubleMin',
+        name: 'base_transmit_min',
+        fieldName: 'hw.network.io_transmit_min',
       },
       {
-        "type": "doubleSum",
-        "name": "transmit_duration",
-        "fieldName": "hw.network.io_transmit_duration"
+        type: 'doubleSum',
+        name: 'transmit_duration',
+        fieldName: 'hw.network.io_transmit_duration',
       },
       {
-        "type": "longSum",
-        "name": "transmit_sum",
-        "fieldName": "hw.network.io_transmit"
-      }
-    ]`;
+        type: 'longSum',
+        name: 'transmit_sum',
+        fieldName: 'hw.network.io_transmit',
+      },
+    ];
 
-    postAggregationsJson = `[
+    postAggregations = [
       {
-        "type": "expression",
-        "name": "transmit_max",
-        "expression": "(base_transmit_max * 8)"
+        type: 'expression',
+        name: 'transmit_max',
+        expression: '(base_transmit_max * 8)',
       },
       {
-        "type": "expression",
-        "name": "transmit_min",
-        "expression": "(base_transmit_min * 8)"
+        type: 'expression',
+        name: 'transmit_min',
+        expression: '(base_transmit_min * 8)',
       },
       {
-        "type": "expression",
-        "name": "transmit_avg",
-        "expression": "(\\"transmit_sum\\" / \\"transmit_duration\\") * 8"
-      }
-    ]`;
+        type: 'expression',
+        name: 'transmit_avg',
+        expression: '("transmit_sum" / "transmit_duration") * 8',
+      },
+    ];
   }
 
-  const baseQuery = createInfinityPostQuery({
+  const baseQuery = createTimeseriesQuery({
     refId: 'A',
     format: 'timeseries',
-    url: '/api/v1/telemetry/TimeSeries',
+    dataSource: 'NetworkInterfaces',
+    dimensions: ['domain_name', 'host_name', 'port_name', 'port_role'],
+    virtualColumns: [
+      {
+        type: 'nested-field',
+        columnName: 'intersight.domain.name',
+        outputName: 'domain_name',
+        expectedType: 'STRING',
+        path: '$',
+      },
+      {
+        type: 'nested-field',
+        columnName: 'host.name',
+        outputName: 'host_name',
+        expectedType: 'STRING',
+        path: '$',
+      },
+      {
+        type: 'nested-field',
+        columnName: 'name',
+        outputName: 'port_name',
+        expectedType: 'STRING',
+        path: '$',
+      },
+      {
+        type: 'nested-field',
+        columnName: 'hw.network.port.role',
+        outputName: 'port_role',
+        expectedType: 'STRING',
+        path: '$',
+      },
+    ],
+    filter: {
+      type: 'and',
+      fields: [
+        {
+          type: 'in',
+          dimension: 'intersight.domain.name',
+          values: '[\${ChassisName:doublequote}]',
+        },
+        {
+          type: 'search',
+          dimension: 'host.name',
+          query: {
+            type: 'insensitive_contains',
+            value: ' eCMC-A',
+          },
+        },
+        {
+          type: 'selector',
+          dimension: 'hw.network.port.role',
+          value: portRole,
+        },
+        {
+          type: 'selector',
+          dimension: 'instrument.name',
+          value: 'hw.network',
+        },
+      ],
+    },
+    aggregations: aggregations,
+    postAggregations: postAggregations,
     columns: [
       { selector: 'timestamp', text: 'Time', type: 'timestamp' },
       { selector: 'event.domain_name', text: 'Chassis', type: 'string' },
       { selector: 'event.port_name', text: 'Port', type: 'string' },
       { selector: `event.${metricName}`, text: 'Utilization', type: 'number' },
     ],
-    body: `  {
-    "queryType": "groupBy",
-    "dataSource": "NetworkInterfaces",
-    "granularity": {
-       "type": "duration",
-       "duration": $__interval_ms,
-       "timeZone": "$__timezone"
-    },
-    "intervals": ["\${__from:date}/\${__to:date}"],
-    "dimensions": ["domain_name", "host_name", "port_name", "port_role"],
-    "virtualColumns": [
-      {
-        "type": "nested-field",
-        "columnName": "intersight.domain.name",
-        "outputName": "domain_name",
-        "expectedType": "STRING",
-        "path": "$"
-      },
-      {
-        "type": "nested-field",
-        "columnName": "host.name",
-        "outputName": "host_name",
-        "expectedType": "STRING",
-        "path": "$"
-      },
-      {
-        "type": "nested-field",
-        "columnName": "name",
-        "outputName": "port_name",
-        "expectedType": "STRING",
-        "path": "$"
-      },
-      {
-        "type": "nested-field",
-        "columnName": "hw.network.port.role",
-        "outputName": "port_role",
-        "expectedType": "STRING",
-        "path": "$"
-      }
-    ],
-    "filter": {
-      "type": "and",
-      "fields": [
-        {
-          "type": "in",
-          "dimension": "intersight.domain.name",
-          "values": [\${ChassisName:doublequote}]
-        },
-        {
-          "type": "search",
-          "dimension": "host.name",
-          "query": {
-            "type": "insensitive_contains",
-            "value": " eCMC-A"
-          }
-        },
-        {
-          "type": "selector",
-          "dimension": "hw.network.port.role",
-          "value": "${portRole}"
-        },
-        {
-          "type": "selector",
-          "dimension": "instrument.name",
-          "value": "hw.network"
-        }
-      ]
-    },
-    "aggregations": ${aggregationsJson},
-    "postAggregations": ${postAggregationsJson}
-  }`,
   });
 
   const query = isDrilldown && chassisName
@@ -1352,199 +1322,189 @@ function createPanel_eCMC_A_RX(portRole: string, tabType: string, isDrilldown: b
   const metricSuffix = tabType === 'percentage' ? '_pct' : '';
   const metricName = `receive_${agg}${metricSuffix}`;
 
-  let aggregationsJson;
-  let postAggregationsJson;
+  let aggregations;
+  let postAggregations;
 
   if (tabType === 'percentage') {
-    aggregationsJson = `[
+    aggregations = [
       {
-        "type": "doubleMax",
-        "name": "receive_max",
-        "fieldName": "hw.network.bandwidth.utilization_receive_max"
+        type: 'doubleMax',
+        name: 'receive_max',
+        fieldName: 'hw.network.bandwidth.utilization_receive_max',
       },
       {
-        "type": "doubleMax",
-        "name": "transmit_max",
-        "fieldName": "hw.network.bandwidth.utilization_transmit_max"
+        type: 'doubleMax',
+        name: 'transmit_max',
+        fieldName: 'hw.network.bandwidth.utilization_transmit_max',
       },
       {
-        "type": "doubleMin",
-        "name": "receive_min",
-        "fieldName": "hw.network.bandwidth.utilization_receive_min"
+        type: 'doubleMin',
+        name: 'receive_min',
+        fieldName: 'hw.network.bandwidth.utilization_receive_min',
       },
       {
-        "type": "doubleMin",
-        "name": "transmit_min",
-        "fieldName": "hw.network.bandwidth.utilization_transmit_min"
-      }
-    ]`;
+        type: 'doubleMin',
+        name: 'transmit_min',
+        fieldName: 'hw.network.bandwidth.utilization_transmit_min',
+      },
+    ];
 
-    postAggregationsJson = `[
+    postAggregations = [
       {
-        "type": "expression",
-        "name": "receive_avg",
-        "expression": "\\"receive_max\\""
+        type: 'expression',
+        name: 'receive_avg',
+        expression: '"receive_max"',
       },
       {
-        "type": "expression",
-        "name": "transmit_avg",
-        "expression": "\\"transmit_max\\""
+        type: 'expression',
+        name: 'transmit_avg',
+        expression: '"transmit_max"',
       },
       {
-        "type": "expression",
-        "name": "receive_max_pct",
-        "expression": "\\"receive_max\\" * 100"
+        type: 'expression',
+        name: 'receive_max_pct',
+        expression: '"receive_max" * 100',
       },
       {
-        "type": "expression",
-        "name": "transmit_max_pct",
-        "expression": "\\"transmit_max\\" * 100"
+        type: 'expression',
+        name: 'transmit_max_pct',
+        expression: '"transmit_max" * 100',
       },
       {
-        "type": "expression",
-        "name": "receive_min_pct",
-        "expression": "\\"receive_min\\" * 100"
+        type: 'expression',
+        name: 'receive_min_pct',
+        expression: '"receive_min" * 100',
       },
       {
-        "type": "expression",
-        "name": "transmit_min_pct",
-        "expression": "\\"transmit_min\\" * 100"
+        type: 'expression',
+        name: 'transmit_min_pct',
+        expression: '"transmit_min" * 100',
       },
       {
-        "type": "expression",
-        "name": "receive_avg_pct",
-        "expression": "\\"receive_avg\\" * 100"
+        type: 'expression',
+        name: 'receive_avg_pct',
+        expression: '"receive_avg" * 100',
       },
       {
-        "type": "expression",
-        "name": "transmit_avg_pct",
-        "expression": "\\"transmit_avg\\" * 100"
-      }
-    ]`;
+        type: 'expression',
+        name: 'transmit_avg_pct',
+        expression: '"transmit_avg" * 100',
+      },
+    ];
   } else {
-    aggregationsJson = `[
+    aggregations = [
       {
-        "type": "doubleMax",
-        "name": "base_receive_max",
-        "fieldName": "hw.network.io_receive_max"
+        type: 'doubleMax',
+        name: 'base_receive_max',
+        fieldName: 'hw.network.io_receive_max',
       },
       {
-        "type": "doubleMin",
-        "name": "base_receive_min",
-        "fieldName": "hw.network.io_receive_min"
+        type: 'doubleMin',
+        name: 'base_receive_min',
+        fieldName: 'hw.network.io_receive_min',
       },
       {
-        "type": "doubleSum",
-        "name": "receive_duration",
-        "fieldName": "hw.network.io_receive_duration"
+        type: 'doubleSum',
+        name: 'receive_duration',
+        fieldName: 'hw.network.io_receive_duration',
       },
       {
-        "type": "longSum",
-        "name": "receive_sum",
-        "fieldName": "hw.network.io_receive"
-      }
-    ]`;
+        type: 'longSum',
+        name: 'receive_sum',
+        fieldName: 'hw.network.io_receive',
+      },
+    ];
 
-    postAggregationsJson = `[
+    postAggregations = [
       {
-        "type": "expression",
-        "name": "receive_max",
-        "expression": "(base_receive_max * 8)"
+        type: 'expression',
+        name: 'receive_max',
+        expression: '(base_receive_max * 8)',
       },
       {
-        "type": "expression",
-        "name": "receive_min",
-        "expression": "(base_receive_min * 8)"
+        type: 'expression',
+        name: 'receive_min',
+        expression: '(base_receive_min * 8)',
       },
       {
-        "type": "expression",
-        "name": "receive_avg",
-        "expression": "(\\"receive_sum\\" / \\"receive_duration\\") * 8"
-      }
-    ]`;
+        type: 'expression',
+        name: 'receive_avg',
+        expression: '("receive_sum" / "receive_duration") * 8',
+      },
+    ];
   }
 
-  const baseQuery = createInfinityPostQuery({
+  const baseQuery = createTimeseriesQuery({
     refId: 'A',
     format: 'timeseries',
-    url: '/api/v1/telemetry/TimeSeries',
+    dataSource: 'NetworkInterfaces',
+    dimensions: ['domain_name', 'host_name', 'port_name', 'port_role'],
+    virtualColumns: [
+      {
+        type: 'nested-field',
+        columnName: 'intersight.domain.name',
+        outputName: 'domain_name',
+        expectedType: 'STRING',
+        path: '$',
+      },
+      {
+        type: 'nested-field',
+        columnName: 'host.name',
+        outputName: 'host_name',
+        expectedType: 'STRING',
+        path: '$',
+      },
+      {
+        type: 'nested-field',
+        columnName: 'name',
+        outputName: 'port_name',
+        expectedType: 'STRING',
+        path: '$',
+      },
+      {
+        type: 'nested-field',
+        columnName: 'hw.network.port.role',
+        outputName: 'port_role',
+        expectedType: 'STRING',
+        path: '$',
+      },
+    ],
+    filter: {
+      type: 'and',
+      fields: [
+        {
+          type: 'in',
+          dimension: 'intersight.domain.name',
+          values: '[\${ChassisName:doublequote}]',
+        },
+        {
+          type: 'search',
+          dimension: 'host.name',
+          query: {
+            type: 'insensitive_contains',
+            value: ' eCMC-A',
+          },
+        },
+        {
+          type: 'selector',
+          dimension: 'hw.network.port.role',
+          value: portRole,
+        },
+        {
+          type: 'selector',
+          dimension: 'instrument.name',
+          value: 'hw.network',
+        },
+      ],
+    },
+    aggregations: aggregations,
+    postAggregations: postAggregations,
     columns: [
       { selector: 'timestamp', text: 'Time', type: 'timestamp' },
       { selector: 'event.domain_name', text: 'Chassis', type: 'string' },
       { selector: 'event.port_name', text: 'Port', type: 'string' },
       { selector: `event.${metricName}`, text: 'Utilization', type: 'number' },
     ],
-    body: `  {
-    "queryType": "groupBy",
-    "dataSource": "NetworkInterfaces",
-    "granularity": {
-       "type": "duration",
-       "duration": $__interval_ms,
-       "timeZone": "$__timezone"
-    },
-    "intervals": ["\${__from:date}/\${__to:date}"],
-    "dimensions": ["domain_name", "host_name", "port_name", "port_role"],
-    "virtualColumns": [
-      {
-        "type": "nested-field",
-        "columnName": "intersight.domain.name",
-        "outputName": "domain_name",
-        "expectedType": "STRING",
-        "path": "$"
-      },
-      {
-        "type": "nested-field",
-        "columnName": "host.name",
-        "outputName": "host_name",
-        "expectedType": "STRING",
-        "path": "$"
-      },
-      {
-        "type": "nested-field",
-        "columnName": "name",
-        "outputName": "port_name",
-        "expectedType": "STRING",
-        "path": "$"
-      },
-      {
-        "type": "nested-field",
-        "columnName": "hw.network.port.role",
-        "outputName": "port_role",
-        "expectedType": "STRING",
-        "path": "$"
-      }
-    ],
-    "filter": {
-      "type": "and",
-      "fields": [
-        {
-          "type": "in",
-          "dimension": "intersight.domain.name",
-          "values": [\${ChassisName:doublequote}]
-        },
-        {
-          "type": "search",
-          "dimension": "host.name",
-          "query": {
-            "type": "insensitive_contains",
-            "value": " eCMC-A"
-          }
-        },
-        {
-          "type": "selector",
-          "dimension": "hw.network.port.role",
-          "value": "${portRole}"
-        },
-        {
-          "type": "selector",
-          "dimension": "instrument.name",
-          "value": "hw.network"
-        }
-      ]
-    },
-    "aggregations": ${aggregationsJson},
-    "postAggregations": ${postAggregationsJson}
-  }`,
   });
 
   const query = isDrilldown && chassisName
@@ -1632,199 +1592,189 @@ function createPanel_eCMC_B_TX(portRole: string, tabType: string, isDrilldown: b
   const metricSuffix = tabType === 'percentage' ? '_pct' : '';
   const metricName = `transmit_${agg}${metricSuffix}`;
 
-  let aggregationsJson;
-  let postAggregationsJson;
+  let aggregations;
+  let postAggregations;
 
   if (tabType === 'percentage') {
-    aggregationsJson = `[
+    aggregations = [
       {
-        "type": "doubleMax",
-        "name": "receive_max",
-        "fieldName": "hw.network.bandwidth.utilization_receive_max"
+        type: 'doubleMax',
+        name: 'receive_max',
+        fieldName: 'hw.network.bandwidth.utilization_receive_max',
       },
       {
-        "type": "doubleMax",
-        "name": "transmit_max",
-        "fieldName": "hw.network.bandwidth.utilization_transmit_max"
+        type: 'doubleMax',
+        name: 'transmit_max',
+        fieldName: 'hw.network.bandwidth.utilization_transmit_max',
       },
       {
-        "type": "doubleMin",
-        "name": "receive_min",
-        "fieldName": "hw.network.bandwidth.utilization_receive_min"
+        type: 'doubleMin',
+        name: 'receive_min',
+        fieldName: 'hw.network.bandwidth.utilization_receive_min',
       },
       {
-        "type": "doubleMin",
-        "name": "transmit_min",
-        "fieldName": "hw.network.bandwidth.utilization_transmit_min"
-      }
-    ]`;
+        type: 'doubleMin',
+        name: 'transmit_min',
+        fieldName: 'hw.network.bandwidth.utilization_transmit_min',
+      },
+    ];
 
-    postAggregationsJson = `[
+    postAggregations = [
       {
-        "type": "expression",
-        "name": "receive_avg",
-        "expression": "\\"receive_max\\""
+        type: 'expression',
+        name: 'receive_avg',
+        expression: '"receive_max"',
       },
       {
-        "type": "expression",
-        "name": "transmit_avg",
-        "expression": "\\"transmit_max\\""
+        type: 'expression',
+        name: 'transmit_avg',
+        expression: '"transmit_max"',
       },
       {
-        "type": "expression",
-        "name": "receive_max_pct",
-        "expression": "\\"receive_max\\" * 100"
+        type: 'expression',
+        name: 'receive_max_pct',
+        expression: '"receive_max" * 100',
       },
       {
-        "type": "expression",
-        "name": "transmit_max_pct",
-        "expression": "\\"transmit_max\\" * 100"
+        type: 'expression',
+        name: 'transmit_max_pct',
+        expression: '"transmit_max" * 100',
       },
       {
-        "type": "expression",
-        "name": "receive_min_pct",
-        "expression": "\\"receive_min\\" * 100"
+        type: 'expression',
+        name: 'receive_min_pct',
+        expression: '"receive_min" * 100',
       },
       {
-        "type": "expression",
-        "name": "transmit_min_pct",
-        "expression": "\\"transmit_min\\" * 100"
+        type: 'expression',
+        name: 'transmit_min_pct',
+        expression: '"transmit_min" * 100',
       },
       {
-        "type": "expression",
-        "name": "receive_avg_pct",
-        "expression": "\\"receive_avg\\" * 100"
+        type: 'expression',
+        name: 'receive_avg_pct',
+        expression: '"receive_avg" * 100',
       },
       {
-        "type": "expression",
-        "name": "transmit_avg_pct",
-        "expression": "\\"transmit_avg\\" * 100"
-      }
-    ]`;
+        type: 'expression',
+        name: 'transmit_avg_pct',
+        expression: '"transmit_avg" * 100',
+      },
+    ];
   } else {
-    aggregationsJson = `[
+    aggregations = [
       {
-        "type": "doubleMax",
-        "name": "base_transmit_max",
-        "fieldName": "hw.network.io_transmit_max"
+        type: 'doubleMax',
+        name: 'base_transmit_max',
+        fieldName: 'hw.network.io_transmit_max',
       },
       {
-        "type": "doubleMin",
-        "name": "base_transmit_min",
-        "fieldName": "hw.network.io_transmit_min"
+        type: 'doubleMin',
+        name: 'base_transmit_min',
+        fieldName: 'hw.network.io_transmit_min',
       },
       {
-        "type": "doubleSum",
-        "name": "transmit_duration",
-        "fieldName": "hw.network.io_transmit_duration"
+        type: 'doubleSum',
+        name: 'transmit_duration',
+        fieldName: 'hw.network.io_transmit_duration',
       },
       {
-        "type": "longSum",
-        "name": "transmit_sum",
-        "fieldName": "hw.network.io_transmit"
-      }
-    ]`;
+        type: 'longSum',
+        name: 'transmit_sum',
+        fieldName: 'hw.network.io_transmit',
+      },
+    ];
 
-    postAggregationsJson = `[
+    postAggregations = [
       {
-        "type": "expression",
-        "name": "transmit_max",
-        "expression": "(base_transmit_max * 8)"
+        type: 'expression',
+        name: 'transmit_max',
+        expression: '(base_transmit_max * 8)',
       },
       {
-        "type": "expression",
-        "name": "transmit_min",
-        "expression": "(base_transmit_min * 8)"
+        type: 'expression',
+        name: 'transmit_min',
+        expression: '(base_transmit_min * 8)',
       },
       {
-        "type": "expression",
-        "name": "transmit_avg",
-        "expression": "(\\"transmit_sum\\" / \\"transmit_duration\\") * 8"
-      }
-    ]`;
+        type: 'expression',
+        name: 'transmit_avg',
+        expression: '("transmit_sum" / "transmit_duration") * 8',
+      },
+    ];
   }
 
-  const baseQuery = createInfinityPostQuery({
+  const baseQuery = createTimeseriesQuery({
     refId: 'A',
     format: 'timeseries',
-    url: '/api/v1/telemetry/TimeSeries',
+    dataSource: 'NetworkInterfaces',
+    dimensions: ['domain_name', 'host_name', 'port_name', 'port_role'],
+    virtualColumns: [
+      {
+        type: 'nested-field',
+        columnName: 'intersight.domain.name',
+        outputName: 'domain_name',
+        expectedType: 'STRING',
+        path: '$',
+      },
+      {
+        type: 'nested-field',
+        columnName: 'host.name',
+        outputName: 'host_name',
+        expectedType: 'STRING',
+        path: '$',
+      },
+      {
+        type: 'nested-field',
+        columnName: 'name',
+        outputName: 'port_name',
+        expectedType: 'STRING',
+        path: '$',
+      },
+      {
+        type: 'nested-field',
+        columnName: 'hw.network.port.role',
+        outputName: 'port_role',
+        expectedType: 'STRING',
+        path: '$',
+      },
+    ],
+    filter: {
+      type: 'and',
+      fields: [
+        {
+          type: 'in',
+          dimension: 'intersight.domain.name',
+          values: '[\${ChassisName:doublequote}]',
+        },
+        {
+          type: 'search',
+          dimension: 'host.name',
+          query: {
+            type: 'insensitive_contains',
+            value: ' eCMC-B',
+          },
+        },
+        {
+          type: 'selector',
+          dimension: 'hw.network.port.role',
+          value: portRole,
+        },
+        {
+          type: 'selector',
+          dimension: 'instrument.name',
+          value: 'hw.network',
+        },
+      ],
+    },
+    aggregations: aggregations,
+    postAggregations: postAggregations,
     columns: [
       { selector: 'timestamp', text: 'Time', type: 'timestamp' },
       { selector: 'event.domain_name', text: 'Chassis', type: 'string' },
       { selector: 'event.port_name', text: 'Port', type: 'string' },
       { selector: `event.${metricName}`, text: 'Utilization', type: 'number' },
     ],
-    body: `  {
-    "queryType": "groupBy",
-    "dataSource": "NetworkInterfaces",
-    "granularity": {
-       "type": "duration",
-       "duration": $__interval_ms,
-       "timeZone": "$__timezone"
-    },
-    "intervals": ["\${__from:date}/\${__to:date}"],
-    "dimensions": ["domain_name", "host_name", "port_name", "port_role"],
-    "virtualColumns": [
-      {
-        "type": "nested-field",
-        "columnName": "intersight.domain.name",
-        "outputName": "domain_name",
-        "expectedType": "STRING",
-        "path": "$"
-      },
-      {
-        "type": "nested-field",
-        "columnName": "host.name",
-        "outputName": "host_name",
-        "expectedType": "STRING",
-        "path": "$"
-      },
-      {
-        "type": "nested-field",
-        "columnName": "name",
-        "outputName": "port_name",
-        "expectedType": "STRING",
-        "path": "$"
-      },
-      {
-        "type": "nested-field",
-        "columnName": "hw.network.port.role",
-        "outputName": "port_role",
-        "expectedType": "STRING",
-        "path": "$"
-      }
-    ],
-    "filter": {
-      "type": "and",
-      "fields": [
-        {
-          "type": "in",
-          "dimension": "intersight.domain.name",
-          "values": [\${ChassisName:doublequote}]
-        },
-        {
-          "type": "search",
-          "dimension": "host.name",
-          "query": {
-            "type": "insensitive_contains",
-            "value": " eCMC-B"
-          }
-        },
-        {
-          "type": "selector",
-          "dimension": "hw.network.port.role",
-          "value": "${portRole}"
-        },
-        {
-          "type": "selector",
-          "dimension": "instrument.name",
-          "value": "hw.network"
-        }
-      ]
-    },
-    "aggregations": ${aggregationsJson},
-    "postAggregations": ${postAggregationsJson}
-  }`,
   });
 
   const query = isDrilldown && chassisName
@@ -1912,199 +1862,189 @@ function createPanel_eCMC_B_RX(portRole: string, tabType: string, isDrilldown: b
   const metricSuffix = tabType === 'percentage' ? '_pct' : '';
   const metricName = `receive_${agg}${metricSuffix}`;
 
-  let aggregationsJson;
-  let postAggregationsJson;
+  let aggregations;
+  let postAggregations;
 
   if (tabType === 'percentage') {
-    aggregationsJson = `[
+    aggregations = [
       {
-        "type": "doubleMax",
-        "name": "receive_max",
-        "fieldName": "hw.network.bandwidth.utilization_receive_max"
+        type: 'doubleMax',
+        name: 'receive_max',
+        fieldName: 'hw.network.bandwidth.utilization_receive_max',
       },
       {
-        "type": "doubleMax",
-        "name": "transmit_max",
-        "fieldName": "hw.network.bandwidth.utilization_transmit_max"
+        type: 'doubleMax',
+        name: 'transmit_max',
+        fieldName: 'hw.network.bandwidth.utilization_transmit_max',
       },
       {
-        "type": "doubleMin",
-        "name": "receive_min",
-        "fieldName": "hw.network.bandwidth.utilization_receive_min"
+        type: 'doubleMin',
+        name: 'receive_min',
+        fieldName: 'hw.network.bandwidth.utilization_receive_min',
       },
       {
-        "type": "doubleMin",
-        "name": "transmit_min",
-        "fieldName": "hw.network.bandwidth.utilization_transmit_min"
-      }
-    ]`;
+        type: 'doubleMin',
+        name: 'transmit_min',
+        fieldName: 'hw.network.bandwidth.utilization_transmit_min',
+      },
+    ];
 
-    postAggregationsJson = `[
+    postAggregations = [
       {
-        "type": "expression",
-        "name": "receive_avg",
-        "expression": "\\"receive_max\\""
+        type: 'expression',
+        name: 'receive_avg',
+        expression: '"receive_max"',
       },
       {
-        "type": "expression",
-        "name": "transmit_avg",
-        "expression": "\\"transmit_max\\""
+        type: 'expression',
+        name: 'transmit_avg',
+        expression: '"transmit_max"',
       },
       {
-        "type": "expression",
-        "name": "receive_max_pct",
-        "expression": "\\"receive_max\\" * 100"
+        type: 'expression',
+        name: 'receive_max_pct',
+        expression: '"receive_max" * 100',
       },
       {
-        "type": "expression",
-        "name": "transmit_max_pct",
-        "expression": "\\"transmit_max\\" * 100"
+        type: 'expression',
+        name: 'transmit_max_pct',
+        expression: '"transmit_max" * 100',
       },
       {
-        "type": "expression",
-        "name": "receive_min_pct",
-        "expression": "\\"receive_min\\" * 100"
+        type: 'expression',
+        name: 'receive_min_pct',
+        expression: '"receive_min" * 100',
       },
       {
-        "type": "expression",
-        "name": "transmit_min_pct",
-        "expression": "\\"transmit_min\\" * 100"
+        type: 'expression',
+        name: 'transmit_min_pct',
+        expression: '"transmit_min" * 100',
       },
       {
-        "type": "expression",
-        "name": "receive_avg_pct",
-        "expression": "\\"receive_avg\\" * 100"
+        type: 'expression',
+        name: 'receive_avg_pct',
+        expression: '"receive_avg" * 100',
       },
       {
-        "type": "expression",
-        "name": "transmit_avg_pct",
-        "expression": "\\"transmit_avg\\" * 100"
-      }
-    ]`;
+        type: 'expression',
+        name: 'transmit_avg_pct',
+        expression: '"transmit_avg" * 100',
+      },
+    ];
   } else {
-    aggregationsJson = `[
+    aggregations = [
       {
-        "type": "doubleMax",
-        "name": "base_receive_max",
-        "fieldName": "hw.network.io_receive_max"
+        type: 'doubleMax',
+        name: 'base_receive_max',
+        fieldName: 'hw.network.io_receive_max',
       },
       {
-        "type": "doubleMin",
-        "name": "base_receive_min",
-        "fieldName": "hw.network.io_receive_min"
+        type: 'doubleMin',
+        name: 'base_receive_min',
+        fieldName: 'hw.network.io_receive_min',
       },
       {
-        "type": "doubleSum",
-        "name": "receive_duration",
-        "fieldName": "hw.network.io_receive_duration"
+        type: 'doubleSum',
+        name: 'receive_duration',
+        fieldName: 'hw.network.io_receive_duration',
       },
       {
-        "type": "longSum",
-        "name": "receive_sum",
-        "fieldName": "hw.network.io_receive"
-      }
-    ]`;
+        type: 'longSum',
+        name: 'receive_sum',
+        fieldName: 'hw.network.io_receive',
+      },
+    ];
 
-    postAggregationsJson = `[
+    postAggregations = [
       {
-        "type": "expression",
-        "name": "receive_max",
-        "expression": "(base_receive_max * 8)"
+        type: 'expression',
+        name: 'receive_max',
+        expression: '(base_receive_max * 8)',
       },
       {
-        "type": "expression",
-        "name": "receive_min",
-        "expression": "(base_receive_min * 8)"
+        type: 'expression',
+        name: 'receive_min',
+        expression: '(base_receive_min * 8)',
       },
       {
-        "type": "expression",
-        "name": "receive_avg",
-        "expression": "(\\"receive_sum\\" / \\"receive_duration\\") * 8"
-      }
-    ]`;
+        type: 'expression',
+        name: 'receive_avg',
+        expression: '("receive_sum" / "receive_duration") * 8',
+      },
+    ];
   }
 
-  const baseQuery = createInfinityPostQuery({
+  const baseQuery = createTimeseriesQuery({
     refId: 'A',
     format: 'timeseries',
-    url: '/api/v1/telemetry/TimeSeries',
+    dataSource: 'NetworkInterfaces',
+    dimensions: ['domain_name', 'host_name', 'port_name', 'port_role'],
+    virtualColumns: [
+      {
+        type: 'nested-field',
+        columnName: 'intersight.domain.name',
+        outputName: 'domain_name',
+        expectedType: 'STRING',
+        path: '$',
+      },
+      {
+        type: 'nested-field',
+        columnName: 'host.name',
+        outputName: 'host_name',
+        expectedType: 'STRING',
+        path: '$',
+      },
+      {
+        type: 'nested-field',
+        columnName: 'name',
+        outputName: 'port_name',
+        expectedType: 'STRING',
+        path: '$',
+      },
+      {
+        type: 'nested-field',
+        columnName: 'hw.network.port.role',
+        outputName: 'port_role',
+        expectedType: 'STRING',
+        path: '$',
+      },
+    ],
+    filter: {
+      type: 'and',
+      fields: [
+        {
+          type: 'in',
+          dimension: 'intersight.domain.name',
+          values: '[\${ChassisName:doublequote}]',
+        },
+        {
+          type: 'search',
+          dimension: 'host.name',
+          query: {
+            type: 'insensitive_contains',
+            value: ' eCMC-B',
+          },
+        },
+        {
+          type: 'selector',
+          dimension: 'hw.network.port.role',
+          value: portRole,
+        },
+        {
+          type: 'selector',
+          dimension: 'instrument.name',
+          value: 'hw.network',
+        },
+      ],
+    },
+    aggregations: aggregations,
+    postAggregations: postAggregations,
     columns: [
       { selector: 'timestamp', text: 'Time', type: 'timestamp' },
       { selector: 'event.domain_name', text: 'Chassis', type: 'string' },
       { selector: 'event.port_name', text: 'Port', type: 'string' },
       { selector: `event.${metricName}`, text: 'Utilization', type: 'number' },
     ],
-    body: `  {
-    "queryType": "groupBy",
-    "dataSource": "NetworkInterfaces",
-    "granularity": {
-       "type": "duration",
-       "duration": $__interval_ms,
-       "timeZone": "$__timezone"
-    },
-    "intervals": ["\${__from:date}/\${__to:date}"],
-    "dimensions": ["domain_name", "host_name", "port_name", "port_role"],
-    "virtualColumns": [
-      {
-        "type": "nested-field",
-        "columnName": "intersight.domain.name",
-        "outputName": "domain_name",
-        "expectedType": "STRING",
-        "path": "$"
-      },
-      {
-        "type": "nested-field",
-        "columnName": "host.name",
-        "outputName": "host_name",
-        "expectedType": "STRING",
-        "path": "$"
-      },
-      {
-        "type": "nested-field",
-        "columnName": "name",
-        "outputName": "port_name",
-        "expectedType": "STRING",
-        "path": "$"
-      },
-      {
-        "type": "nested-field",
-        "columnName": "hw.network.port.role",
-        "outputName": "port_role",
-        "expectedType": "STRING",
-        "path": "$"
-      }
-    ],
-    "filter": {
-      "type": "and",
-      "fields": [
-        {
-          "type": "in",
-          "dimension": "intersight.domain.name",
-          "values": [\${ChassisName:doublequote}]
-        },
-        {
-          "type": "search",
-          "dimension": "host.name",
-          "query": {
-            "type": "insensitive_contains",
-            "value": " eCMC-B"
-          }
-        },
-        {
-          "type": "selector",
-          "dimension": "hw.network.port.role",
-          "value": "${portRole}"
-        },
-        {
-          "type": "selector",
-          "dimension": "instrument.name",
-          "value": "hw.network"
-        }
-      ]
-    },
-    "aggregations": ${aggregationsJson},
-    "postAggregations": ${postAggregationsJson}
-  }`,
   });
 
   const query = isDrilldown && chassisName

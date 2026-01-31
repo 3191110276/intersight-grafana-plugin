@@ -29,7 +29,7 @@ import { ClickableTableWrapper } from '../../components/ClickableTableWrapper';
 import { SharedDrilldownState, findSharedDrilldownState } from '../../utils/drilldownState';
 import { getChassisCount, createDrilldownQuery } from '../../utils/drilldownHelpers';
 import { DrilldownDetailsContainer, DrilldownDetailsContainerState, DrilldownDetailsContainerRenderer } from '../../utils/DrilldownDetailsContainer';
-import { createInfinityPostQuery } from '../../utils/infinityQueryHelpers';
+import { createTimeseriesQuery } from '../../utils/infinityQueryHelpers';
 import { NETWORK_ERROR_LABELS } from '../../utils/constants';
 import { API_ENDPOINTS, COLUMN_WIDTHS } from './constants';
 
@@ -48,10 +48,92 @@ import { API_ENDPOINTS, COLUMN_WIDTHS } from './constants';
  * Filters: backplane_port + host_port
  */
 function createDownlinkPortsQuery() {
-  return createInfinityPostQuery({
+  return createTimeseriesQuery({
     refId: 'A',
     format: 'table',
-    url: API_ENDPOINTS.TELEMETRY_TIMESERIES, // '/api/v1/telemetry/TimeSeries'
+    dataSource: 'NetworkInterfaces',
+    dimensions: [
+      'name',
+      'host_name'
+    ],
+    virtualColumns: [
+      {
+        type: 'nested-field',
+        columnName: 'host.name',
+        outputName: 'host_name',
+        expectedType: 'STRING',
+        path: '$'
+      }
+    ],
+    filter: {
+      type: 'and',
+      fields: [
+        {
+          type: 'in',
+          dimension: 'intersight.domain.name',
+          values: ['${ChassisName:doublequote}']
+        },
+        {
+          type: 'selector',
+          dimension: 'hw.network.port.type',
+          value: 'backplane_port'
+        },
+        {
+          type: 'selector',
+          dimension: 'hw.network.port.role',
+          value: 'host_port'
+        },
+        {
+          type: 'selector',
+          dimension: 'instrument.name',
+          value: 'hw.network'
+        }
+      ]
+    },
+    aggregations: [
+      {
+        type: 'longSum',
+        name: 'too_long',
+        fieldName: 'hw.errors_network_receive_too_long'
+      },
+      {
+        type: 'longSum',
+        name: 'crc',
+        fieldName: 'hw.errors_network_receive_crc'
+      },
+      {
+        type: 'longSum',
+        name: 'too_short',
+        fieldName: 'hw.errors_network_receive_too_short'
+      },
+      {
+        type: 'longSum',
+        name: 'late_collisions',
+        fieldName: 'hw.errors_network_late_collisions'
+      },
+      {
+        type: 'longSum',
+        name: 'jabber',
+        fieldName: 'hw.errors_network_transmit_jabber'
+      }
+    ],
+    postAggregations: [
+      {
+        type: 'expression',
+        name: 'rx_sum',
+        expression: '"too_short" + "crc" + "too_long"'
+      },
+      {
+        type: 'expression',
+        name: 'tx_sum',
+        expression: '"jabber" + "late_collisions"'
+      },
+      {
+        type: 'expression',
+        name: 'total',
+        expression: '"tx_sum" + "rx_sum"'
+      }
+    ],
     columns: [
       { selector: 'timestamp', text: 'Time', type: 'timestamp' },
       { selector: 'event.name', text: 'PortName', type: 'string' },
@@ -67,98 +149,6 @@ function createDownlinkPortsQuery() {
       { selector: 'event.tx_sum', text: 'TX', type: 'number' },
       { selector: 'event.rx_sum', text: 'RX', type: 'number' },
     ],
-    body: `{
-  "queryType": "groupBy",
-  "dataSource": "NetworkInterfaces",
-  "granularity": {
-    "type": "duration",
-    "duration": $__interval_ms,
-    "timeZone": "$__timezone"
-  },
-  "intervals": ["\${__from:date}/\${__to:date}"],
-  "dimensions": [
-    "name",
-    "host_name"
-  ],
-  "virtualColumns": [
-    {
-      "type": "nested-field",
-      "columnName": "host.name",
-      "outputName": "host_name",
-      "expectedType": "STRING",
-      "path": "$"
-    }
-  ],
-  "filter": {
-    "type": "and",
-    "fields": [
-      {
-        "type": "in",
-        "dimension": "intersight.domain.name",
-        "values": [\${ChassisName:doublequote}]
-      },
-      {
-        "type": "selector",
-        "dimension": "hw.network.port.type",
-        "value": "backplane_port"
-      },
-      {
-        "type": "selector",
-        "dimension": "hw.network.port.role",
-        "value": "host_port"
-      },
-      {
-        "type": "selector",
-        "dimension": "instrument.name",
-        "value": "hw.network"
-      }
-    ]
-  },
-  "aggregations": [
-    {
-      "type": "longSum",
-      "name": "too_long",
-      "fieldName": "hw.errors_network_receive_too_long"
-    },
-    {
-      "type": "longSum",
-      "name": "crc",
-      "fieldName": "hw.errors_network_receive_crc"
-    },
-    {
-      "type": "longSum",
-      "name": "too_short",
-      "fieldName": "hw.errors_network_receive_too_short"
-    },
-    {
-      "type": "longSum",
-      "name": "late_collisions",
-      "fieldName": "hw.errors_network_late_collisions"
-    },
-    {
-      "type": "longSum",
-      "name": "jabber",
-      "fieldName": "hw.errors_network_transmit_jabber"
-    }
-  ],
-  "postAggregations": [
-    {
-      "type": "expression",
-      "name": "rx_sum",
-      "expression": "\\"too_short\\" + \\"crc\\" + \\"too_long\\""
-    },
-    {
-      "type": "expression",
-      "name": "tx_sum",
-      "expression": "\\"jabber\\" + \\"late_collisions\\""
-    },
-    {
-      "type": "expression",
-      "name": "total",
-      "expression": "\\"tx_sum\\" + \\"rx_sum\\""
-    }
-  ]
-}`,
   });
 }
 
@@ -167,10 +157,102 @@ function createDownlinkPortsQuery() {
  * Uses "all" granularity for aggregate table view
  */
 function createDownlinkPortsTableQuery() {
-  return createInfinityPostQuery({
+  return createTimeseriesQuery({
     refId: 'A',
     format: 'table',
-    url: API_ENDPOINTS.TELEMETRY_TIMESERIES, // '/api/v1/telemetry/TimeSeries'
+    granularity: { type: 'all' },
+    dataSource: 'NetworkInterfaces',
+    dimensions: ['domain_name'],
+    virtualColumns: [
+      {
+        type: 'nested-field',
+        columnName: 'intersight.domain.name',
+        outputName: 'domain_name',
+        expectedType: 'STRING',
+        path: '$'
+      },
+      {
+        type: 'expression',
+        name: 'Identifier',
+        expression: "concat(domain_name + ' (' + name + ')')"
+      },
+      {
+        type: 'nested-field',
+        columnName: 'host.name',
+        outputName: 'host_name',
+        expectedType: 'STRING',
+        path: '$'
+      }
+    ],
+    filter: {
+      type: 'and',
+      fields: [
+        {
+          type: 'in',
+          dimension: 'intersight.domain.name',
+          values: ['${ChassisName:doublequote}']
+        },
+        {
+          type: 'selector',
+          dimension: 'hw.network.port.type',
+          value: 'backplane_port'
+        },
+        {
+          type: 'selector',
+          dimension: 'hw.network.port.role',
+          value: 'host_port'
+        },
+        {
+          type: 'selector',
+          dimension: 'instrument.name',
+          value: 'hw.network'
+        }
+      ]
+    },
+    aggregations: [
+      {
+        type: 'longSum',
+        name: 'too_long',
+        fieldName: 'hw.errors_network_receive_too_long'
+      },
+      {
+        type: 'longSum',
+        name: 'crc',
+        fieldName: 'hw.errors_network_receive_crc'
+      },
+      {
+        type: 'longSum',
+        name: 'too_short',
+        fieldName: 'hw.errors_network_receive_too_short'
+      },
+      {
+        type: 'longSum',
+        name: 'late_collisions',
+        fieldName: 'hw.errors_network_late_collisions'
+      },
+      {
+        type: 'longSum',
+        name: 'jabber',
+        fieldName: 'hw.errors_network_transmit_jabber'
+      }
+    ],
+    postAggregations: [
+      {
+        type: 'expression',
+        name: 'rx_sum',
+        expression: '"too_short" + "crc" + "too_long"'
+      },
+      {
+        type: 'expression',
+        name: 'tx_sum',
+        expression: '"jabber" + "late_collisions"'
+      },
+      {
+        type: 'expression',
+        name: 'total',
+        expression: '"tx_sum" + "rx_sum"'
+      }
+    ],
     columns: [
       { selector: 'timestamp', text: 'Time', type: 'timestamp' },
       { selector: 'event.domain_name', text: 'Chassis', type: 'string' },
@@ -186,106 +268,6 @@ function createDownlinkPortsTableQuery() {
       { selector: 'event.tx_sum', text: 'TX Sum', type: 'number' },
       { selector: 'event.total', text: 'Total', type: 'number' },
     ],
-    body: `{
-  "queryType": "groupBy",
-  "dataSource": "NetworkInterfaces",
-  "granularity": "all",
-  "intervals": ["\${__from:date}/\${__to:date}"],
-  "dimensions": [
-    "domain_name"
-  ],
-  "virtualColumns": [
-    {
-      "type": "nested-field",
-      "columnName": "intersight.domain.name",
-      "outputName": "domain_name",
-      "expectedType": "STRING",
-      "path": "$"
-    },
-    {
-      "type": "expression",
-      "name": "Identifier",
-      "expression": "concat(domain_name + ' (' + name + ')')",
-      "outputType": "STRING"
-    },
-    {
-      "type": "nested-field",
-      "columnName": "host.name",
-      "outputName": "host_name",
-      "expectedType": "STRING",
-      "path": "$"
-    }
-  ],
-  "filter": {
-    "type": "and",
-    "fields": [
-      {
-        "type": "in",
-        "dimension": "intersight.domain.name",
-        "values": [\${ChassisName:doublequote}]
-      },
-      {
-        "type": "selector",
-        "dimension": "hw.network.port.type",
-        "value": "backplane_port"
-      },
-      {
-        "type": "selector",
-        "dimension": "hw.network.port.role",
-        "value": "host_port"
-      },
-      {
-        "type": "selector",
-        "dimension": "instrument.name",
-        "value": "hw.network"
-      }
-    ]
-  },
-  "aggregations": [
-    {
-      "type": "longSum",
-      "name": "too_long",
-      "fieldName": "hw.errors_network_receive_too_long"
-    },
-    {
-      "type": "longSum",
-      "name": "crc",
-      "fieldName": "hw.errors_network_receive_crc"
-    },
-    {
-      "type": "longSum",
-      "name": "too_short",
-      "fieldName": "hw.errors_network_receive_too_short"
-    },
-    {
-      "type": "longSum",
-      "name": "late_collisions",
-      "fieldName": "hw.errors_network_late_collisions"
-    },
-    {
-      "type": "longSum",
-      "name": "jabber",
-      "fieldName": "hw.errors_network_transmit_jabber"
-    }
-  ],
-  "postAggregations": [
-    {
-      "type": "expression",
-      "name": "rx_sum",
-      "expression": "\\"too_short\\" + \\"crc\\" + \\"too_long\\""
-    },
-    {
-      "type": "expression",
-      "name": "tx_sum",
-      "expression": "\\"jabber\\" + \\"late_collisions\\""
-    },
-    {
-      "type": "expression",
-      "name": "total",
-      "expression": "\\"tx_sum\\" + \\"rx_sum\\""
-    }
-  ]
-}`,
   });
 }
 
@@ -298,10 +280,122 @@ function createDownlinkPortsTableQuery() {
  * Filters: ethernet + eth_uplink
  */
 function createUplinkPortsQuery() {
-  return createInfinityPostQuery({
+  return createTimeseriesQuery({
     refId: 'A',
     format: 'table',
-    url: API_ENDPOINTS.TELEMETRY_TIMESERIES, // '/api/v1/telemetry/TimeSeries'
+    dataSource: 'NetworkInterfaces',
+    dimensions: [
+      'name',
+      'host_name'
+    ],
+    virtualColumns: [
+      {
+        type: 'nested-field',
+        columnName: 'host.name',
+        outputName: 'host_name',
+        expectedType: 'STRING',
+        path: '$'
+      }
+    ],
+    filter: {
+      type: 'and',
+      fields: [
+        {
+          type: 'in',
+          dimension: 'intersight.domain.name',
+          values: ['${ChassisName:doublequote}']
+        },
+        {
+          type: 'selector',
+          dimension: 'hw.network.port.type',
+          value: 'ethernet'
+        },
+        {
+          type: 'selector',
+          dimension: 'hw.network.port.role',
+          value: 'eth_uplink'
+        },
+        {
+          type: 'selector',
+          dimension: 'instrument.name',
+          value: 'hw.network'
+        }
+      ]
+    },
+    aggregations: [
+      {
+        type: 'longSum',
+        name: 'runt',
+        fieldName: 'hw.errors_network_receive_runt'
+      },
+      {
+        type: 'longSum',
+        name: 'too_long',
+        fieldName: 'hw.errors_network_receive_too_long'
+      },
+      {
+        type: 'longSum',
+        name: 'crc',
+        fieldName: 'hw.errors_network_receive_crc'
+      },
+      {
+        type: 'longSum',
+        name: 'no_buffer',
+        fieldName: 'hw.errors_network_receive_no_buffer'
+      },
+      {
+        type: 'longSum',
+        name: 'too_short',
+        fieldName: 'hw.errors_network_receive_too_short'
+      },
+      {
+        type: 'longSum',
+        name: 'rx_discard',
+        fieldName: 'hw.errors_network_receive_discard'
+      },
+      {
+        type: 'longSum',
+        name: 'deferred',
+        fieldName: 'hw.errors_network_transmit_deferred'
+      },
+      {
+        type: 'longSum',
+        name: 'late_collisions',
+        fieldName: 'hw.errors_network_late_collisions'
+      },
+      {
+        type: 'longSum',
+        name: 'carrier_sense',
+        fieldName: 'hw.errors_network_carrier_sense'
+      },
+      {
+        type: 'longSum',
+        name: 'tx_discard',
+        fieldName: 'hw.errors_network_transmit_discard'
+      },
+      {
+        type: 'longSum',
+        name: 'jabber',
+        fieldName: 'hw.errors_network_transmit_jabber'
+      }
+    ],
+    postAggregations: [
+      {
+        type: 'expression',
+        name: 'rx_sum',
+        expression: '"too_short" + "crc" + "too_long"'
+      },
+      {
+        type: 'expression',
+        name: 'tx_sum',
+        expression: '"jabber" + "late_collisions"'
+      },
+      {
+        type: 'expression',
+        name: 'total',
+        expression: '"tx_sum" + "rx_sum"'
+      }
+    ],
     columns: [
       { selector: 'timestamp', text: 'Time', type: 'timestamp' },
       { selector: 'event.name', text: 'PortName', type: 'string' },
@@ -317,128 +411,6 @@ function createUplinkPortsQuery() {
       { selector: 'event.tx_sum', text: 'TX', type: 'number' },
       { selector: 'event.rx_sum', text: 'RX', type: 'number' },
     ],
-    body: `{
-  "queryType": "groupBy",
-  "dataSource": "NetworkInterfaces",
-  "granularity": {
-    "type": "duration",
-    "duration": $__interval_ms,
-    "timeZone": "$__timezone"
-  },
-  "intervals": ["\${__from:date}/\${__to:date}"],
-  "dimensions": [
-    "name",
-    "host_name"
-  ],
-  "virtualColumns": [
-    {
-      "type": "nested-field",
-      "columnName": "host.name",
-      "outputName": "host_name",
-      "expectedType": "STRING",
-      "path": "$"
-    }
-  ],
-  "filter": {
-    "type": "and",
-    "fields": [
-      {
-        "type": "in",
-        "dimension": "intersight.domain.name",
-        "values": [\${ChassisName:doublequote}]
-      },
-      {
-        "type": "selector",
-        "dimension": "hw.network.port.type",
-        "value": "ethernet"
-      },
-      {
-        "type": "selector",
-        "dimension": "hw.network.port.role",
-        "value": "eth_uplink"
-      },
-      {
-        "type": "selector",
-        "dimension": "instrument.name",
-        "value": "hw.network"
-      }
-    ]
-  },
-  "aggregations": [
-    {
-      "type": "longSum",
-      "name": "runt",
-      "fieldName": "hw.errors_network_receive_runt"
-    },
-    {
-      "type": "longSum",
-      "name": "too_long",
-      "fieldName": "hw.errors_network_receive_too_long"
-    },
-    {
-      "type": "longSum",
-      "name": "crc",
-      "fieldName": "hw.errors_network_receive_crc"
-    },
-    {
-      "type": "longSum",
-      "name": "no_buffer",
-      "fieldName": "hw.errors_network_receive_no_buffer"
-    },
-    {
-      "type": "longSum",
-      "name": "too_short",
-      "fieldName": "hw.errors_network_receive_too_short"
-    },
-    {
-      "type": "longSum",
-      "name": "rx_discard",
-      "fieldName": "hw.errors_network_receive_discard"
-    },
-    {
-      "type": "longSum",
-      "name": "deferred",
-      "fieldName": "hw.errors_network_transmit_deferred"
-    },
-    {
-      "type": "longSum",
-      "name": "late_collisions",
-      "fieldName": "hw.errors_network_late_collisions"
-    },
-    {
-      "type": "longSum",
-      "name": "carrier_sense",
-      "fieldName": "hw.errors_network_carrier_sense"
-    },
-    {
-      "type": "longSum",
-      "name": "tx_discard",
-      "fieldName": "hw.errors_network_transmit_discard"
-    },
-    {
-      "type": "longSum",
-      "name": "jabber",
-      "fieldName": "hw.errors_network_transmit_jabber"
-    }
-  ],
-  "postAggregations": [
-    {
-      "type": "expression",
-      "name": "rx_sum",
-      "expression": "\\"too_short\\" + \\"crc\\" + \\"too_long\\""
-    },
-    {
-      "type": "expression",
-      "name": "tx_sum",
-      "expression": "\\"jabber\\" + \\"late_collisions\\""
-    },
-    {
-      "type": "expression",
-      "name": "total",
-      "expression": "\\"tx_sum\\" + \\"rx_sum\\""
-    }
-  ]
-}`,
   });
 }
 
@@ -447,10 +419,122 @@ function createUplinkPortsQuery() {
  * Filters: ethernet_port_channel + eth_uplink_pc
  */
 function createUplinkPortChannelsQuery() {
-  return createInfinityPostQuery({
+  return createTimeseriesQuery({
     refId: 'A',
     format: 'table',
-    url: API_ENDPOINTS.TELEMETRY_TIMESERIES, // '/api/v1/telemetry/TimeSeries'
+    dataSource: 'NetworkInterfaces',
+    dimensions: [
+      'name',
+      'host_name'
+    ],
+    virtualColumns: [
+      {
+        type: 'nested-field',
+        columnName: 'host.name',
+        outputName: 'host_name',
+        expectedType: 'STRING',
+        path: '$'
+      }
+    ],
+    filter: {
+      type: 'and',
+      fields: [
+        {
+          type: 'in',
+          dimension: 'intersight.domain.name',
+          values: ['${ChassisName:doublequote}']
+        },
+        {
+          type: 'selector',
+          dimension: 'hw.network.port.type',
+          value: 'ethernet_port_channel'
+        },
+        {
+          type: 'selector',
+          dimension: 'hw.network.port.role',
+          value: 'eth_uplink_pc'
+        },
+        {
+          type: 'selector',
+          dimension: 'instrument.name',
+          value: 'hw.network'
+        }
+      ]
+    },
+    aggregations: [
+      {
+        type: 'longSum',
+        name: 'runt',
+        fieldName: 'hw.errors_network_receive_runt'
+      },
+      {
+        type: 'longSum',
+        name: 'too_long',
+        fieldName: 'hw.errors_network_receive_too_long'
+      },
+      {
+        type: 'longSum',
+        name: 'crc',
+        fieldName: 'hw.errors_network_receive_crc'
+      },
+      {
+        type: 'longSum',
+        name: 'no_buffer',
+        fieldName: 'hw.errors_network_receive_no_buffer'
+      },
+      {
+        type: 'longSum',
+        name: 'too_short',
+        fieldName: 'hw.errors_network_receive_too_short'
+      },
+      {
+        type: 'longSum',
+        name: 'rx_discard',
+        fieldName: 'hw.errors_network_receive_discard'
+      },
+      {
+        type: 'longSum',
+        name: 'deferred',
+        fieldName: 'hw.errors_network_transmit_deferred'
+      },
+      {
+        type: 'longSum',
+        name: 'late_collisions',
+        fieldName: 'hw.errors_network_late_collisions'
+      },
+      {
+        type: 'longSum',
+        name: 'carrier_sense',
+        fieldName: 'hw.errors_network_carrier_sense'
+      },
+      {
+        type: 'longSum',
+        name: 'tx_discard',
+        fieldName: 'hw.errors_network_transmit_discard'
+      },
+      {
+        type: 'longSum',
+        name: 'jabber',
+        fieldName: 'hw.errors_network_transmit_jabber'
+      }
+    ],
+    postAggregations: [
+      {
+        type: 'expression',
+        name: 'rx_sum',
+        expression: '"rx_discard" + "too_short" + "no_buffer" + "crc" + "too_long" + "runt"'
+      },
+      {
+        type: 'expression',
+        name: 'tx_sum',
+        expression: '"jabber" + "tx_discard" + "carrier_sense" + "late_collisions" + "deferred"'
+      },
+      {
+        type: 'expression',
+        name: 'total',
+        expression: '"tx_sum" + "rx_sum"'
+      }
+    ],
     columns: [
       { selector: 'timestamp', text: 'Time', type: 'timestamp' },
       { selector: 'event.name', text: 'PortName', type: 'string' },
@@ -472,128 +556,6 @@ function createUplinkPortChannelsQuery() {
       { selector: 'event.tx_sum', text: 'TX', type: 'number' },
       { selector: 'event.rx_sum', text: 'RX', type: 'number' },
     ],
-    body: `{
-  "queryType": "groupBy",
-  "dataSource": "NetworkInterfaces",
-  "granularity": {
-    "type": "duration",
-    "duration": $__interval_ms,
-    "timeZone": "$__timezone"
-  },
-  "intervals": ["\${__from:date}/\${__to:date}"],
-  "dimensions": [
-    "name",
-    "host_name"
-  ],
-  "virtualColumns": [
-    {
-      "type": "nested-field",
-      "columnName": "host.name",
-      "outputName": "host_name",
-      "expectedType": "STRING",
-      "path": "$"
-    }
-  ],
-  "filter": {
-    "type": "and",
-    "fields": [
-      {
-        "type": "in",
-        "dimension": "intersight.domain.name",
-        "values": [\${ChassisName:doublequote}]
-      },
-      {
-        "type": "selector",
-        "dimension": "hw.network.port.type",
-        "value": "ethernet_port_channel"
-      },
-      {
-        "type": "selector",
-        "dimension": "hw.network.port.role",
-        "value": "eth_uplink_pc"
-      },
-      {
-        "type": "selector",
-        "dimension": "instrument.name",
-        "value": "hw.network"
-      }
-    ]
-  },
-  "aggregations": [
-    {
-      "type": "longSum",
-      "name": "runt",
-      "fieldName": "hw.errors_network_receive_runt"
-    },
-    {
-      "type": "longSum",
-      "name": "too_long",
-      "fieldName": "hw.errors_network_receive_too_long"
-    },
-    {
-      "type": "longSum",
-      "name": "crc",
-      "fieldName": "hw.errors_network_receive_crc"
-    },
-    {
-      "type": "longSum",
-      "name": "no_buffer",
-      "fieldName": "hw.errors_network_receive_no_buffer"
-    },
-    {
-      "type": "longSum",
-      "name": "too_short",
-      "fieldName": "hw.errors_network_receive_too_short"
-    },
-    {
-      "type": "longSum",
-      "name": "rx_discard",
-      "fieldName": "hw.errors_network_receive_discard"
-    },
-    {
-      "type": "longSum",
-      "name": "deferred",
-      "fieldName": "hw.errors_network_transmit_deferred"
-    },
-    {
-      "type": "longSum",
-      "name": "late_collisions",
-      "fieldName": "hw.errors_network_late_collisions"
-    },
-    {
-      "type": "longSum",
-      "name": "carrier_sense",
-      "fieldName": "hw.errors_network_carrier_sense"
-    },
-    {
-      "type": "longSum",
-      "name": "tx_discard",
-      "fieldName": "hw.errors_network_transmit_discard"
-    },
-    {
-      "type": "longSum",
-      "name": "jabber",
-      "fieldName": "hw.errors_network_transmit_jabber"
-    }
-  ],
-  "postAggregations": [
-    {
-      "type": "expression",
-      "name": "rx_sum",
-      "expression": "\\"rx_discard\\" + \\"too_short\\" + \\"no_buffer\\" + \\"crc\\" + \\"too_long\\" + \\"runt\\""
-    },
-    {
-      "type": "expression",
-      "name": "tx_sum",
-      "expression": "\\"jabber\\" + \\"tx_discard\\" + \\"carrier_sense\\" + \\"late_collisions\\" + \\"deferred\\""
-    },
-    {
-      "type": "expression",
-      "name": "total",
-      "expression": "\\"tx_sum\\" + \\"rx_sum\\""
-    }
-  ]
-}`,
   });
 }
 
@@ -602,10 +564,132 @@ function createUplinkPortChannelsQuery() {
  * Uses "all" granularity for aggregate table view
  */
 function createUplinkPortsTableQuery() {
-  return createInfinityPostQuery({
+  return createTimeseriesQuery({
     refId: 'A',
     format: 'table',
-    url: API_ENDPOINTS.TELEMETRY_TIMESERIES, // '/api/v1/telemetry/TimeSeries'
+    granularity: { type: 'all' },
+    dataSource: 'NetworkInterfaces',
+    dimensions: ['domain_name'],
+    virtualColumns: [
+      {
+        type: 'nested-field',
+        columnName: 'intersight.domain.name',
+        outputName: 'domain_name',
+        expectedType: 'STRING',
+        path: '$'
+      },
+      {
+        type: 'expression',
+        name: 'Identifier',
+        expression: "concat(domain_name + ' (' + name + ')')"
+      },
+      {
+        type: 'nested-field',
+        columnName: 'host.name',
+        outputName: 'host_name',
+        expectedType: 'STRING',
+        path: '$'
+      }
+    ],
+    filter: {
+      type: 'and',
+      fields: [
+        {
+          type: 'in',
+          dimension: 'intersight.domain.name',
+          values: ['${ChassisName:doublequote}']
+        },
+        {
+          type: 'selector',
+          dimension: 'hw.network.port.type',
+          value: 'ethernet'
+        },
+        {
+          type: 'selector',
+          dimension: 'hw.network.port.role',
+          value: 'eth_uplink'
+        },
+        {
+          type: 'selector',
+          dimension: 'instrument.name',
+          value: 'hw.network'
+        }
+      ]
+    },
+    aggregations: [
+      {
+        type: 'longSum',
+        name: 'runt',
+        fieldName: 'hw.errors_network_receive_runt'
+      },
+      {
+        type: 'longSum',
+        name: 'too_long',
+        fieldName: 'hw.errors_network_receive_too_long'
+      },
+      {
+        type: 'longSum',
+        name: 'crc',
+        fieldName: 'hw.errors_network_receive_crc'
+      },
+      {
+        type: 'longSum',
+        name: 'no_buffer',
+        fieldName: 'hw.errors_network_receive_no_buffer'
+      },
+      {
+        type: 'longSum',
+        name: 'too_short',
+        fieldName: 'hw.errors_network_receive_too_short'
+      },
+      {
+        type: 'longSum',
+        name: 'rx_discard',
+        fieldName: 'hw.errors_network_receive_discard'
+      },
+      {
+        type: 'longSum',
+        name: 'deferred',
+        fieldName: 'hw.errors_network_transmit_deferred'
+      },
+      {
+        type: 'longSum',
+        name: 'late_collisions',
+        fieldName: 'hw.errors_network_late_collisions'
+      },
+      {
+        type: 'longSum',
+        name: 'carrier_sense',
+        fieldName: 'hw.errors_network_carrier_sense'
+      },
+      {
+        type: 'longSum',
+        name: 'tx_discard',
+        fieldName: 'hw.errors_network_transmit_discard'
+      },
+      {
+        type: 'longSum',
+        name: 'jabber',
+        fieldName: 'hw.errors_network_transmit_jabber'
+      }
+    ],
+    postAggregations: [
+      {
+        type: 'expression',
+        name: 'rx_sum',
+        expression: '"too_short" + "crc" + "too_long"'
+      },
+      {
+        type: 'expression',
+        name: 'tx_sum',
+        expression: '"jabber" + "late_collisions"'
+      },
+      {
+        type: 'expression',
+        name: 'total',
+        expression: '"tx_sum" + "rx_sum"'
+      }
+    ],
     columns: [
       { selector: 'timestamp', text: 'Time', type: 'timestamp' },
       { selector: 'event.domain_name', text: 'Chassis', type: 'string' },
@@ -621,136 +705,6 @@ function createUplinkPortsTableQuery() {
       { selector: 'event.tx_sum', text: 'TX Sum', type: 'number' },
       { selector: 'event.total', text: 'Total', type: 'number' },
     ],
-    body: `{
-  "queryType": "groupBy",
-  "dataSource": "NetworkInterfaces",
-  "granularity": "all",
-  "intervals": ["\${__from:date}/\${__to:date}"],
-  "dimensions": [
-    "domain_name"
-  ],
-  "virtualColumns": [
-    {
-      "type": "nested-field",
-      "columnName": "intersight.domain.name",
-      "outputName": "domain_name",
-      "expectedType": "STRING",
-      "path": "$"
-    },
-    {
-      "type": "expression",
-      "name": "Identifier",
-      "expression": "concat(domain_name + ' (' + name + ')')",
-      "outputType": "STRING"
-    },
-    {
-      "type": "nested-field",
-      "columnName": "host.name",
-      "outputName": "host_name",
-      "expectedType": "STRING",
-      "path": "$"
-    }
-  ],
-  "filter": {
-    "type": "and",
-    "fields": [
-      {
-        "type": "in",
-        "dimension": "intersight.domain.name",
-        "values": [\${ChassisName:doublequote}]
-      },
-      {
-        "type": "selector",
-        "dimension": "hw.network.port.type",
-        "value": "ethernet"
-      },
-      {
-        "type": "selector",
-        "dimension": "hw.network.port.role",
-        "value": "eth_uplink"
-      },
-      {
-        "type": "selector",
-        "dimension": "instrument.name",
-        "value": "hw.network"
-      }
-    ]
-  },
-  "aggregations": [
-    {
-      "type": "longSum",
-      "name": "runt",
-      "fieldName": "hw.errors_network_receive_runt"
-    },
-    {
-      "type": "longSum",
-      "name": "too_long",
-      "fieldName": "hw.errors_network_receive_too_long"
-    },
-    {
-      "type": "longSum",
-      "name": "crc",
-      "fieldName": "hw.errors_network_receive_crc"
-    },
-    {
-      "type": "longSum",
-      "name": "no_buffer",
-      "fieldName": "hw.errors_network_receive_no_buffer"
-    },
-    {
-      "type": "longSum",
-      "name": "too_short",
-      "fieldName": "hw.errors_network_receive_too_short"
-    },
-    {
-      "type": "longSum",
-      "name": "rx_discard",
-      "fieldName": "hw.errors_network_receive_discard"
-    },
-    {
-      "type": "longSum",
-      "name": "deferred",
-      "fieldName": "hw.errors_network_transmit_deferred"
-    },
-    {
-      "type": "longSum",
-      "name": "late_collisions",
-      "fieldName": "hw.errors_network_late_collisions"
-    },
-    {
-      "type": "longSum",
-      "name": "carrier_sense",
-      "fieldName": "hw.errors_network_carrier_sense"
-    },
-    {
-      "type": "longSum",
-      "name": "tx_discard",
-      "fieldName": "hw.errors_network_transmit_discard"
-    },
-    {
-      "type": "longSum",
-      "name": "jabber",
-      "fieldName": "hw.errors_network_transmit_jabber"
-    }
-  ],
-  "postAggregations": [
-    {
-      "type": "expression",
-      "name": "rx_sum",
-      "expression": "\\"too_short\\" + \\"crc\\" + \\"too_long\\""
-    },
-    {
-      "type": "expression",
-      "name": "tx_sum",
-      "expression": "\\"jabber\\" + \\"late_collisions\\""
-    },
-    {
-      "type": "expression",
-      "name": "total",
-      "expression": "\\"tx_sum\\" + \\"rx_sum\\""
-    }
-  ]
-}`,
   });
 }
 
@@ -759,10 +713,132 @@ function createUplinkPortsTableQuery() {
  * Uses "all" granularity for aggregate table view
  */
 function createUplinkPortChannelsTableQuery() {
-  return createInfinityPostQuery({
+  return createTimeseriesQuery({
     refId: 'A',
     format: 'table',
-    url: API_ENDPOINTS.TELEMETRY_TIMESERIES, // '/api/v1/telemetry/TimeSeries'
+    granularity: { type: 'all' },
+    dataSource: 'NetworkInterfaces',
+    dimensions: ['domain_name'],
+    virtualColumns: [
+      {
+        type: 'nested-field',
+        columnName: 'intersight.domain.name',
+        outputName: 'domain_name',
+        expectedType: 'STRING',
+        path: '$'
+      },
+      {
+        type: 'expression',
+        name: 'Identifier',
+        expression: "concat(domain_name + ' (' + name + ')')"
+      },
+      {
+        type: 'nested-field',
+        columnName: 'host.name',
+        outputName: 'host_name',
+        expectedType: 'STRING',
+        path: '$'
+      }
+    ],
+    filter: {
+      type: 'and',
+      fields: [
+        {
+          type: 'in',
+          dimension: 'intersight.domain.name',
+          values: ['${ChassisName:doublequote}']
+        },
+        {
+          type: 'selector',
+          dimension: 'hw.network.port.type',
+          value: 'ethernet_port_channel'
+        },
+        {
+          type: 'selector',
+          dimension: 'hw.network.port.role',
+          value: 'eth_uplink_pc'
+        },
+        {
+          type: 'selector',
+          dimension: 'instrument.name',
+          value: 'hw.network'
+        }
+      ]
+    },
+    aggregations: [
+      {
+        type: 'longSum',
+        name: 'runt',
+        fieldName: 'hw.errors_network_receive_runt'
+      },
+      {
+        type: 'longSum',
+        name: 'too_long',
+        fieldName: 'hw.errors_network_receive_too_long'
+      },
+      {
+        type: 'longSum',
+        name: 'crc',
+        fieldName: 'hw.errors_network_receive_crc'
+      },
+      {
+        type: 'longSum',
+        name: 'no_buffer',
+        fieldName: 'hw.errors_network_receive_no_buffer'
+      },
+      {
+        type: 'longSum',
+        name: 'too_short',
+        fieldName: 'hw.errors_network_receive_too_short'
+      },
+      {
+        type: 'longSum',
+        name: 'rx_discard',
+        fieldName: 'hw.errors_network_receive_discard'
+      },
+      {
+        type: 'longSum',
+        name: 'deferred',
+        fieldName: 'hw.errors_network_transmit_deferred'
+      },
+      {
+        type: 'longSum',
+        name: 'late_collisions',
+        fieldName: 'hw.errors_network_late_collisions'
+      },
+      {
+        type: 'longSum',
+        name: 'carrier_sense',
+        fieldName: 'hw.errors_network_carrier_sense'
+      },
+      {
+        type: 'longSum',
+        name: 'tx_discard',
+        fieldName: 'hw.errors_network_transmit_discard'
+      },
+      {
+        type: 'longSum',
+        name: 'jabber',
+        fieldName: 'hw.errors_network_transmit_jabber'
+      }
+    ],
+    postAggregations: [
+      {
+        type: 'expression',
+        name: 'rx_sum',
+        expression: '"rx_discard" + "too_short" + "no_buffer" + "crc" + "too_long" + "runt"'
+      },
+      {
+        type: 'expression',
+        name: 'tx_sum',
+        expression: '"jabber" + "tx_discard" + "carrier_sense" + "late_collisions" + "deferred"'
+      },
+      {
+        type: 'expression',
+        name: 'total',
+        expression: '"tx_sum" + "rx_sum"'
+      }
+    ],
     columns: [
       { selector: 'timestamp', text: 'Time', type: 'timestamp' },
       { selector: 'event.domain_name', text: 'Chassis', type: 'string' },
@@ -778,136 +854,6 @@ function createUplinkPortChannelsTableQuery() {
       { selector: 'event.tx_sum', text: 'TX Sum', type: 'number' },
       { selector: 'event.total', text: 'Total', type: 'number' },
     ],
-    body: `{
-  "queryType": "groupBy",
-  "dataSource": "NetworkInterfaces",
-  "granularity": "all",
-  "intervals": ["\${__from:date}/\${__to:date}"],
-  "dimensions": [
-    "domain_name"
-  ],
-  "virtualColumns": [
-    {
-      "type": "nested-field",
-      "columnName": "intersight.domain.name",
-      "outputName": "domain_name",
-      "expectedType": "STRING",
-      "path": "$"
-    },
-    {
-      "type": "expression",
-      "name": "Identifier",
-      "expression": "concat(domain_name + ' (' + name + ')')",
-      "outputType": "STRING"
-    },
-    {
-      "type": "nested-field",
-      "columnName": "host.name",
-      "outputName": "host_name",
-      "expectedType": "STRING",
-      "path": "$"
-    }
-  ],
-  "filter": {
-    "type": "and",
-    "fields": [
-      {
-        "type": "in",
-        "dimension": "intersight.domain.name",
-        "values": [\${ChassisName:doublequote}]
-      },
-      {
-        "type": "selector",
-        "dimension": "hw.network.port.type",
-        "value": "ethernet_port_channel"
-      },
-      {
-        "type": "selector",
-        "dimension": "hw.network.port.role",
-        "value": "eth_uplink_pc"
-      },
-      {
-        "type": "selector",
-        "dimension": "instrument.name",
-        "value": "hw.network"
-      }
-    ]
-  },
-  "aggregations": [
-    {
-      "type": "longSum",
-      "name": "runt",
-      "fieldName": "hw.errors_network_receive_runt"
-    },
-    {
-      "type": "longSum",
-      "name": "too_long",
-      "fieldName": "hw.errors_network_receive_too_long"
-    },
-    {
-      "type": "longSum",
-      "name": "crc",
-      "fieldName": "hw.errors_network_receive_crc"
-    },
-    {
-      "type": "longSum",
-      "name": "no_buffer",
-      "fieldName": "hw.errors_network_receive_no_buffer"
-    },
-    {
-      "type": "longSum",
-      "name": "too_short",
-      "fieldName": "hw.errors_network_receive_too_short"
-    },
-    {
-      "type": "longSum",
-      "name": "rx_discard",
-      "fieldName": "hw.errors_network_receive_discard"
-    },
-    {
-      "type": "longSum",
-      "name": "deferred",
-      "fieldName": "hw.errors_network_transmit_deferred"
-    },
-    {
-      "type": "longSum",
-      "name": "late_collisions",
-      "fieldName": "hw.errors_network_late_collisions"
-    },
-    {
-      "type": "longSum",
-      "name": "carrier_sense",
-      "fieldName": "hw.errors_network_carrier_sense"
-    },
-    {
-      "type": "longSum",
-      "name": "tx_discard",
-      "fieldName": "hw.errors_network_transmit_discard"
-    },
-    {
-      "type": "longSum",
-      "name": "jabber",
-      "fieldName": "hw.errors_network_transmit_jabber"
-    }
-  ],
-  "postAggregations": [
-    {
-      "type": "expression",
-      "name": "rx_sum",
-      "expression": "\\"rx_discard\\" + \\"too_short\\" + \\"no_buffer\\" + \\"crc\\" + \\"too_long\\" + \\"runt\\""
-    },
-    {
-      "type": "expression",
-      "name": "tx_sum",
-      "expression": "\\"jabber\\" + \\"tx_discard\\" + \\"carrier_sense\\" + \\"late_collisions\\" + \\"deferred\\""
-    },
-    {
-      "type": "expression",
-      "name": "total",
-      "expression": "\\"tx_sum\\" + \\"rx_sum\\""
-    }
-  ]
-}`,
   });
 }
 

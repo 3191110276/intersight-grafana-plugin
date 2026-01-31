@@ -18,7 +18,8 @@ import { EmptyStateScene } from '../../components/EmptyStateScene';
 import { getEmptyStateScenario, getSelectedValues } from '../../utils/emptyStateHelpers';
 import { DrilldownHeaderControl } from '../../components/DrilldownHeaderControl';
 import { ClickableTableWrapper } from '../../components/ClickableTableWrapper';
-import { createInfinityPostQuery } from '../../utils/infinityQueryHelpers';
+import { createRegexDrilldownQuery } from '../../utils/drilldownHelpers';
+import { createTimeseriesQuery } from '../../utils/infinityQueryHelpers';
 import { API_ENDPOINTS } from './constants';
 
 // ============================================================================
@@ -26,205 +27,211 @@ import { API_ENDPOINTS } from './constants';
 // ============================================================================
 
 // Query A: CPU Utilization
-const queryA = createInfinityPostQuery({
+const queryA = createTimeseriesQuery({
   refId: 'A',
   format: 'timeseries',
-  url: API_ENDPOINTS.TELEMETRY_TIMESERIES, // '/api/v1/telemetry/TimeSeries'
+  dataSource: 'PhysicalEntities',
+  dimensions: ['host_name'],
+  virtualColumns: [{
+    type: 'nested-field',
+    columnName: 'host.name',
+    outputName: 'host_name',
+    expectedType: 'STRING',
+    path: '$',
+  }],
+  filter: {
+    type: 'and',
+    fields: [
+      {
+        type: 'regex',
+        dimension: 'host.name',
+        pattern: '^${ChassisName:regex}',
+      },
+      {
+        type: 'selector',
+        dimension: 'instrument.name',
+        value: 'hw.cpu',
+      },
+    ],
+  },
+  aggregations: [
+    {
+      type: 'doubleMax',
+      name: 'utilization',
+      fieldName: 'hw.cpu.utilization_c0_max',
+    },
+  ],
   columns: [
     { selector: 'timestamp', text: 'Time', type: 'timestamp' },
     { selector: 'event.host_name', text: 'Host Name', type: 'string' },
     { selector: 'event.utilization', text: 'Utilization', type: 'number' },
   ],
-  body: `  {
-    "queryType": "groupBy",
-    "dataSource": "PhysicalEntities",
-    "granularity": {
-      "type": "duration",
-      "duration": $__interval_ms,
-      "timeZone": "$__timezone"
-    },
-    "intervals": ["\${__from:date}/\${__to:date}"],
-    "dimensions": ["host_name"],
-    "virtualColumns": [{
-      "type": "nested-field",
-      "columnName": "host.name",
-      "outputName": "host_name",
-      "expectedType": "STRING",
-      "path": "$"
-    }],
-    "filter": {
-      "type": "and",
-      "fields": [
-        {
-          "type": "regex",
-          "dimension": "host.name",
-          "pattern": "^\${ChassisName:regex}"
-        },
-        {
-          "type": "selector",
-          "dimension": "instrument.name",
-          "value": "hw.cpu"
-        }
-      ]
-    },
-    "aggregations": [
-      {
-        "type": "doubleMax",
-        "name": "utilization",
-        "fieldName": "hw.cpu.utilization_c0_max"
-      }
-    ]
-  }`,
 });
 
 // Query B: CPU 1 Temperature
-const queryB = createInfinityPostQuery({
+const queryB = createTimeseriesQuery({
   refId: 'B',
   format: 'timeseries',
-  url: API_ENDPOINTS.TELEMETRY_TIMESERIES, // '/api/v1/telemetry/TimeSeries'
+  dataSource: 'PhysicalEntities',
+  dimensions: ['host_name'],
+  virtualColumns: [{
+    type: 'nested-field',
+    columnName: 'host.name',
+    outputName: 'host_name',
+    expectedType: 'STRING',
+    path: '$',
+  }],
+  filter: {
+    type: 'and',
+    fields: [
+      {
+        type: 'regex',
+        dimension: 'host.name',
+        pattern: '^${ChassisName:regex}',
+      },
+      {
+        type: 'in',
+        dimension: 'hw.temperature.sensor.name',
+        values: [
+          'CPU1',
+          'P1_TEMP_SENS',
+        ],
+      },
+      {
+        type: 'selector',
+        dimension: 'instrument.name',
+        value: 'hw.temperature',
+      },
+    ],
+  },
+  aggregations: [
+    {
+      type: 'doubleMax',
+      name: 'temperature',
+      fieldName: 'hw.temperature_max',
+    },
+  ],
   columns: [
     { selector: 'timestamp', text: 'Time', type: 'timestamp' },
     { selector: 'event.host_name', text: 'Host Name', type: 'string' },
     { selector: 'event.temperature', text: 'Temperature', type: 'number' },
   ],
-  body: `  {
-    "queryType": "groupBy",
-    "dataSource": "PhysicalEntities",
-    "granularity": {
-      "type": "duration",
-      "duration": $__interval_ms,
-      "timeZone": "$__timezone"
-    },
-    "intervals": ["\${__from:date}/\${__to:date}"],
-    "dimensions": ["host_name"],
-    "virtualColumns": [{
-      "type": "nested-field",
-      "columnName": "host.name",
-      "outputName": "host_name",
-      "expectedType": "STRING",
-      "path": "$"
-    }],
-    "filter": {
-      "type": "and",
-      "fields": [
-        {
-          "type": "regex",
-          "dimension": "host.name",
-          "pattern": "^\${ChassisName:regex}"
-        },
-        {
-          "type": "in",
-          "dimension": "hw.temperature.sensor.name",
-          "values": [
-            "CPU1",
-            "P1_TEMP_SENS"
-          ]
-        },
-        {
-          "type": "selector",
-          "dimension": "instrument.name",
-          "value": "hw.temperature"
-        }
-      ]
-    },
-    "aggregations": [
-      {
-        "type": "doubleMax",
-        "name": "temperature",
-        "fieldName": "hw.temperature_max"
-      }
-    ]
-  }`,
 });
 
 // Query C: CPU 2 Temperature
-const queryC = createInfinityPostQuery({
+const queryC = createTimeseriesQuery({
   refId: 'C',
   format: 'timeseries',
-  url: API_ENDPOINTS.TELEMETRY_TIMESERIES, // '/api/v1/telemetry/TimeSeries'
+  dataSource: 'PhysicalEntities',
+  dimensions: ['host_name'],
+  virtualColumns: [{
+    type: 'nested-field',
+    columnName: 'host.name',
+    outputName: 'host_name',
+    expectedType: 'STRING',
+    path: '$',
+  }],
+  filter: {
+    type: 'and',
+    fields: [
+      {
+        type: 'regex',
+        dimension: 'host.name',
+        pattern: '^${ChassisName:regex}',
+      },
+      {
+        type: 'in',
+        dimension: 'hw.temperature.sensor.name',
+        values: [
+          'CPU2',
+          'P2_TEMP_SENS',
+        ],
+      },
+      {
+        type: 'selector',
+        dimension: 'instrument.name',
+        value: 'hw.temperature',
+      },
+    ],
+  },
+  aggregations: [
+    {
+      type: 'doubleMax',
+      name: 'temperature',
+      fieldName: 'hw.temperature_max',
+    },
+  ],
   columns: [
     { selector: 'timestamp', text: 'Time', type: 'timestamp' },
     { selector: 'event.host_name', text: 'Host Name', type: 'string' },
     { selector: 'event.temperature', text: 'Temperature', type: 'number' },
   ],
-  body: `  {
-    "queryType": "groupBy",
-    "dataSource": "PhysicalEntities",
-    "granularity": {
-      "type": "duration",
-      "duration": $__interval_ms,
-      "timeZone": "$__timezone"
-    },
-    "intervals": ["\${__from:date}/\${__to:date}"],
-    "dimensions": ["host_name"],
-    "virtualColumns": [{
-      "type": "nested-field",
-      "columnName": "host.name",
-      "outputName": "host_name",
-      "expectedType": "STRING",
-      "path": "$"
-    }],
-    "filter": {
-      "type": "and",
-      "fields": [
-        {
-          "type": "regex",
-          "dimension": "host.name",
-          "pattern": "^\${ChassisName:regex}"
-        },
-        {
-          "type": "in",
-          "dimension": "hw.temperature.sensor.name",
-          "values": [
-            "CPU2",
-            "P2_TEMP_SENS"
-          ]
-        },
-        {
-          "type": "selector",
-          "dimension": "instrument.name",
-          "value": "hw.temperature"
-        }
-      ]
-    },
-    "aggregations": [
-      {
-        "type": "doubleMax",
-        "name": "temperature",
-        "fieldName": "hw.temperature_max"
-      }
-    ]
-  }`,
 });
 
 // ============================================================================
-// DRILLDOWN QUERY HELPER
+// PANEL CREATION HELPERS - Shared between dual graphs and drilldown views
 // ============================================================================
 
 /**
- * Creates a drilldown query by replacing variable interpolation with a hardcoded host name
- * Pattern from Environmental tab's host drilldown
+ * Creates CPU Utilization timeseries panel with standard configuration
  */
-function createDrilldownQuery(baseQuery: any, hostName: string): any {
-  // Deep clone the base query
-  const drilldownQuery = JSON.parse(JSON.stringify(baseQuery));
-
-  // Replace the ChassisName regex pattern with specific hostname pattern
-  // Escape special regex characters in hostname
-  const escapedHostName = hostName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-
-  drilldownQuery.url_options.data = drilldownQuery.url_options.data.replace(
-    /"pattern": "\^\$\{ChassisName:regex\}"/g,
-    `"pattern": "^${escapedHostName}"`
-  );
-
-  return drilldownQuery;
+function createCPUUtilizationPanel(queryRunner: any) {
+  return PanelBuilders.timeseries()
+    .setTitle('CPU Utilization')
+    .setData(queryRunner)
+    .setUnit('percentunit')
+    .setCustomFieldConfig('axisSoftMin', 0)
+    .setCustomFieldConfig('axisSoftMax', 1)
+    .setOverrides((builder) => {
+      // Remove "Utilization " prefix and show just the host name
+      builder
+        .matchFieldsByType('number' as any)
+        .overrideDisplayName('${__field.labels["Host Name"]}')
+        .overrideColor({ fixedColor: 'semi-dark-blue', mode: 'fixed' });
+    })
+    .setOption('tooltip', {
+      mode: 'multi' as any,
+      sort: 'desc' as any,
+    })
+    .build();
 }
 
-// ============================================================================
-// CLICKABLE TABLE WRAPPER COMPONENT
-// ============================================================================
+/**
+ * Creates CPU Temperature timeseries panel with standard configuration
+ * Shows both CPU1 and CPU2 temperature series with color coding
+ */
+function createCPUTemperaturePanel(queryRunner: any) {
+  return PanelBuilders.timeseries()
+    .setTitle('CPU Temperature')
+    .setData(queryRunner)
+    .setUnit('celsius')
+    .setThresholds({
+      mode: 'absolute' as any as any,
+      steps: [
+        { value: 0, color: 'transparent' },
+        { value: 105, color: 'dark-yellow' },
+      ],
+    })
+    .setCustomFieldConfig('axisSoftMin', 0)
+    .setOverrides((builder) => {
+      // CPU 1 series - Orange
+      builder
+        .matchFieldsWithNameByRegex('/^B Temperature/')
+        .overrideDisplayName('${__field.labels["Host Name"]}')
+        .overrideColor({ fixedColor: 'semi-dark-orange', mode: 'fixed' });
 
+      // CPU 2 series - Red
+      builder
+        .matchFieldsWithNameByRegex('/^C Temperature/')
+        .overrideDisplayName('${__field.labels["Host Name"]}')
+        .overrideColor({ fixedColor: 'semi-dark-red', mode: 'fixed' });
+    })
+    .setOption('tooltip', {
+      mode: 'multi' as any,
+      sort: 'desc' as any,
+    })
+    .build();
+}
 
 // ============================================================================
 // DYNAMIC CPU UTILIZATION SCENE - Conditional rendering based on ChassisName
@@ -368,24 +375,7 @@ function createDualGraphsBody() {
     queries: [queryA],
   });
 
-  const cpuUtilizationPanel = PanelBuilders.timeseries()
-    .setTitle('CPU Utilization')
-    .setData(cpuUtilQueryRunner)
-    .setUnit('percentunit')
-    .setCustomFieldConfig('axisSoftMin', 0)
-    .setCustomFieldConfig('axisSoftMax', 1)
-    .setOverrides((builder) => {
-      // Remove "Utilization " prefix and show just the host name
-      builder
-        .matchFieldsByType('number' as any)
-        .overrideDisplayName('${__field.labels["Host Name"]}')
-        .overrideColor({ fixedColor: 'semi-dark-blue', mode: 'fixed' });
-    })
-    .setOption('tooltip', {
-      mode: 'multi' as any,
-      sort: 'desc' as any,
-    })
-    .build();
+  const cpuUtilizationPanel = createCPUUtilizationPanel(cpuUtilQueryRunner);
 
   // Combined Temperature Query Runner (CPU 1 + CPU 2)
   const cpuTempQueryRunner = new LoggingQueryRunner({
@@ -393,36 +383,7 @@ function createDualGraphsBody() {
     queries: [queryB, queryC],
   });
 
-  const cpuTemperaturePanel = PanelBuilders.timeseries()
-    .setTitle('CPU Temperature')
-    .setData(cpuTempQueryRunner)
-    .setUnit('celsius')
-    .setThresholds({
-      mode: 'absolute' as any as any,
-      steps: [
-        { value: 0, color: 'transparent' },
-        { value: 105, color: 'dark-yellow' },
-      ],
-    })
-    .setCustomFieldConfig('axisSoftMin', 0)
-    .setOverrides((builder) => {
-      // CPU 1 series - Orange
-      builder
-        .matchFieldsWithNameByRegex('/^B Temperature/')
-        .overrideDisplayName('${__field.labels["Host Name"]}')
-        .overrideColor({ fixedColor: 'semi-dark-orange', mode: 'fixed' });
-
-      // CPU 2 series - Red
-      builder
-        .matchFieldsWithNameByRegex('/^C Temperature/')
-        .overrideDisplayName('${__field.labels["Host Name"]}')
-        .overrideColor({ fixedColor: 'semi-dark-red', mode: 'fixed' });
-    })
-    .setOption('tooltip', {
-      mode: 'multi' as any,
-      sort: 'desc' as any,
-    })
-    .build();
+  const cpuTemperaturePanel = createCPUTemperaturePanel(cpuTempQueryRunner);
 
   // Return vertical layout with 2 graphs (combined temperature)
   return new SceneFlexLayout({
@@ -450,9 +411,9 @@ function createDrilldownView(hostName: string, scene: DynamicCPUUtilizationScene
   });
 
   // Create queries with hardcoded host filter (bypass variable)
-  const drilldownQueryA = createDrilldownQuery(queryA, hostName);
-  const drilldownQueryB = createDrilldownQuery(queryB, hostName);
-  const drilldownQueryC = createDrilldownQuery(queryC, hostName);
+  const drilldownQueryA = createRegexDrilldownQuery(queryA, hostName);
+  const drilldownQueryB = createRegexDrilldownQuery(queryB, hostName);
+  const drilldownQueryC = createRegexDrilldownQuery(queryC, hostName);
 
   // Create query runners with drilldown queries
   const cpuUtilQueryRunner = new LoggingQueryRunner({
@@ -467,56 +428,10 @@ function createDrilldownView(hostName: string, scene: DynamicCPUUtilizationScene
   });
 
   // Create panels (matching dual graphs view)
-  const cpuUtilizationPanel = PanelBuilders.timeseries()
-    .setTitle('CPU Utilization')
-    .setData(cpuUtilQueryRunner)
-    .setUnit('percentunit')
-    .setCustomFieldConfig('axisSoftMin', 0)
-    .setCustomFieldConfig('axisSoftMax', 1)
-    .setOverrides((builder) => {
-      // Remove "Utilization " prefix and show just the host name
-      builder
-        .matchFieldsByType('number' as any)
-        .overrideDisplayName('${__field.labels["Host Name"]}')
-        .overrideColor({ fixedColor: 'semi-dark-blue', mode: 'fixed' });
-    })
-    .setOption('tooltip', {
-      mode: 'multi' as any,
-      sort: 'desc' as any,
-    })
-    .build();
+  const cpuUtilizationPanel = createCPUUtilizationPanel(cpuUtilQueryRunner);
 
   // Combined CPU Temperature panel - matching dual graphs view
-  const cpuTemperaturePanel = PanelBuilders.timeseries()
-    .setTitle('CPU Temperature')
-    .setData(cpuTempQueryRunner)
-    .setUnit('celsius')
-    .setThresholds({
-      mode: 'absolute' as any as any,
-      steps: [
-        { value: 0, color: 'transparent' },
-        { value: 105, color: 'dark-yellow' },
-      ],
-    })
-    .setCustomFieldConfig('axisSoftMin', 0)
-    .setOverrides((builder) => {
-      // CPU 1 series - Orange
-      builder
-        .matchFieldsWithNameByRegex('/^B Temperature/')
-        .overrideDisplayName('${__field.labels["Host Name"]}')
-        .overrideColor({ fixedColor: 'semi-dark-orange', mode: 'fixed' });
-
-      // CPU 2 series - Red
-      builder
-        .matchFieldsWithNameByRegex('/^C Temperature/')
-        .overrideDisplayName('${__field.labels["Host Name"]}')
-        .overrideColor({ fixedColor: 'semi-dark-red', mode: 'fixed' });
-    })
-    .setOption('tooltip', {
-      mode: 'multi' as any,
-      sort: 'desc' as any,
-    })
-    .build();
+  const cpuTemperaturePanel = createCPUTemperaturePanel(cpuTempQueryRunner);
 
   // Layout with combined header/back button + graphs
   return new SceneFlexLayout({

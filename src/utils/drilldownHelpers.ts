@@ -82,3 +82,43 @@ export function createDrilldownQuery(baseQuery: any, chassisName: string): any {
 
   return drilldownQuery;
 }
+
+/**
+ * Create a drilldown query by replacing the ChassisName regex pattern with a hardcoded value.
+ *
+ * This function deep clones the base query and replaces all occurrences of the
+ * `"pattern": "^${ChassisName:regex}"` pattern with a regex-escaped hardcoded name,
+ * effectively filtering Druid regex queries to a specific chassis or host.
+ *
+ * The function uses regex escaping to ensure special characters in the name are
+ * properly escaped for use in regex patterns.
+ *
+ * @param baseQuery - The base query object containing the variable interpolation
+ * @param name - The chassis or host name to hardcode in the query
+ * @returns A new query object with the hardcoded name filter
+ *
+ * @example
+ * ```typescript
+ * const baseQuery = {
+ *   // ... query config with "pattern": "^${ChassisName:regex}" in the filter
+ * };
+ * const drilldownQuery = createRegexDrilldownQuery(baseQuery, 'CH-A-01');
+ * // Result: Query with filter using "pattern": "^CH-A-01" instead of "pattern": "^${ChassisName:regex}"
+ * ```
+ */
+export function createRegexDrilldownQuery(baseQuery: any, name: string): any {
+  // Deep clone the base query to avoid mutating the original
+  const drilldownQuery = JSON.parse(JSON.stringify(baseQuery));
+
+  // Escape special regex characters in the name
+  const escapedName = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+  // Replace the ChassisName regex pattern with the hardcoded value
+  // Pattern: "pattern": "^${ChassisName:regex}" -> "pattern": "^escapedName"
+  drilldownQuery.url_options.data = drilldownQuery.url_options.data.replace(
+    /"pattern": "\^\$\{ChassisName:regex\}"/g,
+    `"pattern": "^${escapedName}"`
+  );
+
+  return drilldownQuery;
+}

@@ -20,8 +20,8 @@ import { EmptyStateScene } from '../../components/EmptyStateScene';
 import { getEmptyStateScenario, getSelectedValues } from '../../utils/emptyStateHelpers';
 import { DrilldownHeaderControl } from '../../components/DrilldownHeaderControl';
 import { ClickableTableWrapper } from '../../components/ClickableTableWrapper';
-import { getChassisCount, createDrilldownQuery } from '../../utils/drilldownHelpers';
-import { createInfinityPostQuery } from '../../utils/infinityQueryHelpers';
+import { getChassisCount, createDrilldownQuery, createRegexDrilldownQuery } from '../../utils/drilldownHelpers';
+import { createInfinityPostQuery, createTimeseriesQuery } from '../../utils/infinityQueryHelpers';
 import { API_ENDPOINTS } from './constants';
 
 // ============================================================================
@@ -61,23 +61,6 @@ function createDrilldownQueryExtended(baseQuery: any, chassisName: string): any 
   drilldownQuery.url_options.data = drilldownQuery.url_options.data.replace(
     /\^\$\{ChassisName:regex\}/g,
     `^${chassisName}`
-  );
-
-  return drilldownQuery;
-}
-
-/**
- * Create host drilldown query by replacing ChassisName variable with specific hostname
- * Pattern from host power consumption drilldown (lines 727-735)
- */
-function createHostDrilldownQuery(baseQuery: any, hostName: string): any {
-  const drilldownQuery = JSON.parse(JSON.stringify(baseQuery));
-
-  // Replace the ChassisName regex pattern with specific hostname pattern
-  // Escape special regex characters in hostname
-  drilldownQuery.url_options.data = drilldownQuery.url_options.data.replace(
-    /"pattern": "\^\$\{ChassisName:regex\}"/g,
-    `"pattern": "^${hostName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}"`
   );
 
   return drilldownQuery;
@@ -285,75 +268,75 @@ function createChassisLineGraph(scene: SceneObjectBase, isDrilldown: boolean, ch
   const baseQuery = createInfinityPostQuery({
     refId: 'A',
     format: 'timeseries',
-    url: API_ENDPOINTS.TELEMETRY_TIMESERIES, // '/api/v1/telemetry/TimeSeries'
+    url: API_ENDPOINTS.TELEMETRY_TIMESERIES,
+    body: {
+      queryType: 'groupBy',
+      dataSource: {
+        type: 'query',
+        query: {
+          queryType: 'groupBy',
+          dataSource: 'PhysicalEntities',
+          granularity: {
+            type: 'duration',
+            duration: '$__interval_ms',
+            timeZone: '$__timezone',
+          },
+          intervals: ['${__from:date}/${__to:date}'],
+          dimensions: [
+            'host_name',
+            'name'
+          ],
+          virtualColumns: [{
+            type: 'nested-field',
+            columnName: 'host.name',
+            outputName: 'host_name',
+            expectedType: 'STRING',
+            path: '$',
+          }],
+          filter: {
+            type: 'and',
+            fields: [
+              {
+                type: 'in',
+                dimension: 'host.name',
+                values: ['${ChassisName:doublequote}'],
+              },
+              {
+                type: 'selector',
+                dimension: 'instrument.name',
+                value: 'hw.power_supply',
+              }
+            ],
+          },
+          aggregations: [
+            {
+              type: 'doubleMax',
+              name: 'hw-power_max-Max',
+              fieldName: 'hw.power_max',
+            }
+          ],
+        }
+      },
+      granularity: {
+        type: 'duration',
+        duration: '$__interval_ms',
+        timeZone: '$__timezone',
+      },
+      intervals: ['${__from:date}/${__to:date}'],
+      dimensions: ['host_name'],
+      aggregations: [
+        {
+          type: 'doubleSum',
+          name: 'power_sum',
+          fieldName: 'hw-power_max-Max',
+        }
+      ],
+    },
     columns: [
       { selector: 'timestamp', text: 'Time', type: 'timestamp' },
       { selector: 'event.host_name', text: 'Chassis Name', type: 'string' },
       { selector: 'event.power_sum', text: 'Power', type: 'number' },
     ],
-    body: `  {
-    "queryType": "groupBy",
-    "dataSource": {
-      "type": "query",
-      "query": {
-        "queryType": "groupBy",
-        "dataSource": "PhysicalEntities",
-        "granularity": {
-          "type": "duration",
-          "duration": $__interval_ms,
-          "timeZone": "$__timezone"
-        },
-        "intervals": ["\${__from:date}/\${__to:date}"],
-        "dimensions": [
-          "host_name",
-          "name"
-        ],
-        "virtualColumns": [{
-          "type": "nested-field",
-          "columnName": "host.name",
-          "outputName": "host_name",
-          "expectedType": "STRING",
-          "path": "$"
-        }],
-        "filter": {
-          "type": "and",
-          "fields": [
-          {
-            "type": "in",
-            "dimension": "host.name",
-            "values": [\${ChassisName:doublequote}]
-          },
-          {
-            "type": "selector",
-            "dimension": "instrument.name",
-            "value": "hw.power_supply"
-          }
-          ]
-        },
-        "aggregations": [
-          {
-            "type": "doubleMax",
-            "name": "hw-power_max-Max",
-            "fieldName": "hw.power_max"
-          }
-        ]
-      }
-    },
-    "granularity": {
-      "type": "duration",
-      "duration": $__interval_ms,
-      "timeZone": "$__timezone"
-    },
-    "intervals": ["\${__from:date}/\${__to:date}"],
-    "dimensions": ["host_name"],
-    "aggregations": [
-      {
-        "type": "doubleSum",
-        "name": "power_sum",
-        "fieldName": "hw-power_max-Max"
-      }
-    ]
-  }`,
   });
 
   const query = isDrilldown && chassisName
@@ -397,75 +380,75 @@ function createChassisTable(scene: SceneObjectBase, parent: SynchronizedPowerCon
   const baseQuery = createInfinityPostQuery({
     refId: 'A',
     format: 'timeseries',
-    url: API_ENDPOINTS.TELEMETRY_TIMESERIES, // '/api/v1/telemetry/TimeSeries'
+    url: API_ENDPOINTS.TELEMETRY_TIMESERIES,
+    body: {
+      queryType: 'groupBy',
+      dataSource: {
+        type: 'query',
+        query: {
+          queryType: 'groupBy',
+          dataSource: 'PhysicalEntities',
+          granularity: {
+            type: 'duration',
+            duration: '$__interval_ms',
+            timeZone: '$__timezone',
+          },
+          intervals: ['${__from:date}/${__to:date}'],
+          dimensions: [
+            'host_name',
+            'name'
+          ],
+          virtualColumns: [{
+            type: 'nested-field',
+            columnName: 'host.name',
+            outputName: 'host_name',
+            expectedType: 'STRING',
+            path: '$',
+          }],
+          filter: {
+            type: 'and',
+            fields: [
+              {
+                type: 'in',
+                dimension: 'host.name',
+                values: ['${ChassisName:doublequote}'],
+              },
+              {
+                type: 'selector',
+                dimension: 'instrument.name',
+                value: 'hw.power_supply',
+              }
+            ],
+          },
+          aggregations: [
+            {
+              type: 'doubleMax',
+              name: 'hw-power_max-Max',
+              fieldName: 'hw.power_max',
+            }
+          ],
+        }
+      },
+      granularity: {
+        type: 'duration',
+        duration: '$__interval_ms',
+        timeZone: '$__timezone',
+      },
+      intervals: ['${__from:date}/${__to:date}'],
+      dimensions: ['host_name'],
+      aggregations: [
+        {
+          type: 'doubleSum',
+          name: 'power_sum',
+          fieldName: 'hw-power_max-Max',
+        }
+      ],
+    },
     columns: [
       { selector: 'timestamp', text: 'Time', type: 'timestamp' },
       { selector: 'event.host_name', text: 'Chassis Name', type: 'string' },
       { selector: 'event.power_sum', text: 'Power', type: 'number' },
     ],
-    body: `  {
-    "queryType": "groupBy",
-    "dataSource": {
-      "type": "query",
-      "query": {
-        "queryType": "groupBy",
-        "dataSource": "PhysicalEntities",
-        "granularity": {
-          "type": "duration",
-          "duration": $__interval_ms,
-          "timeZone": "$__timezone"
-        },
-        "intervals": ["\${__from:date}/\${__to:date}"],
-        "dimensions": [
-          "host_name",
-          "name"
-        ],
-        "virtualColumns": [{
-          "type": "nested-field",
-          "columnName": "host.name",
-          "outputName": "host_name",
-          "expectedType": "STRING",
-          "path": "$"
-        }],
-        "filter": {
-          "type": "and",
-          "fields": [
-          {
-            "type": "in",
-            "dimension": "host.name",
-            "values": [\${ChassisName:doublequote}]
-          },
-          {
-            "type": "selector",
-            "dimension": "instrument.name",
-            "value": "hw.power_supply"
-          }
-          ]
-        },
-        "aggregations": [
-          {
-            "type": "doubleMax",
-            "name": "hw-power_max-Max",
-            "fieldName": "hw.power_max"
-          }
-        ]
-      }
-    },
-    "granularity": {
-      "type": "duration",
-      "duration": $__interval_ms,
-      "timeZone": "$__timezone"
-    },
-    "intervals": ["\${__from:date}/\${__to:date}"],
-    "dimensions": ["host_name"],
-    "aggregations": [
-      {
-        "type": "doubleSum",
-        "name": "power_sum",
-        "fieldName": "hw-power_max-Max"
-      }
-    ]
-  }`,
   });
 
   const queryRunner = new LoggingQueryRunner({
@@ -538,60 +521,52 @@ function createHostLineGraph(
   hostName?: string,
   chassisName?: string
 ) {
-  const baseQuery = createInfinityPostQuery({
+  const baseQuery = createTimeseriesQuery({
     refId: 'A',
     format: 'timeseries',
-    url: API_ENDPOINTS.TELEMETRY_TIMESERIES, // '/api/v1/telemetry/TimeSeries'
+    dataSource: 'PhysicalEntities',
+    dimensions: ['hostname'],
+    virtualColumns: [
+      {
+        type: 'nested-field',
+        columnName: 'host.name',
+        outputName: 'hostname',
+        expectedType: 'STRING',
+        path: '$',
+      },
+    ],
+    filter: {
+      type: 'and',
+      fields: [
+        {
+          type: 'selector',
+          dimension: 'host.type',
+          value: 'compute.Blade',
+        },
+        {
+          type: 'regex',
+          dimension: 'host.name',
+          pattern: '^${ChassisName:regex}',
+        },
+        {
+          type: 'selector',
+          dimension: 'instrument.name',
+          value: 'hw.host',
+        },
+      ],
+    },
+    aggregations: [
+      {
+        type: 'doubleMax',
+        name: 'max-power',
+        fieldName: 'hw.host.power_max',
+      },
+    ],
     columns: [
       { selector: 'timestamp', text: 'Time', type: 'timestamp' },
       { selector: 'event.hostname', text: 'Hostname', type: 'string' },
       { selector: 'event.max-power', text: 'Power', type: 'number' },
     ],
-    body: `  {
-    "queryType": "groupBy",
-    "dataSource": "PhysicalEntities",
-        "granularity": {
-          "type": "duration",
-          "duration": $__interval_ms,
-          "timeZone": "$__timezone"
-        },
-        "intervals": ["\${__from:date}/\${__to:date}"],
-    "dimensions": ["hostname"],
-    "virtualColumns": [{
-      "type": "nested-field",
-      "columnName": "host.name",
-      "outputName": "hostname",
-      "expectedType": "STRING",
-      "path": "$"
-    }],
-    "filter": {
-      "type": "and",
-      "fields": [
-        {
-          "type": "selector",
-          "dimension": "host.type",
-          "value": "compute.Blade"
-        },
-        {
-          "type": "regex",
-          "dimension": "host.name",
-          "pattern": "^$\{ChassisName:regex}"
-        },
-        {
-          "type": "selector",
-          "dimension": "instrument.name",
-          "value": "hw.host"
-        }
-      ]
-    },
-    "aggregations": [
-      {
-        "type": "doubleMax",
-        "name": "max-power",
-        "fieldName": "hw.host.power_max"
-      }
-    ]
-  }`,
   });
 
   let query = baseQuery;
@@ -642,60 +617,52 @@ function createHostLineGraph(
 }
 
 function createHostTable(scene: SceneObjectBase, parent: SynchronizedPowerConsumptionContainer) {
-  const baseQuery = createInfinityPostQuery({
+  const baseQuery = createTimeseriesQuery({
     refId: 'A',
     format: 'timeseries',
-    url: API_ENDPOINTS.TELEMETRY_TIMESERIES, // '/api/v1/telemetry/TimeSeries'
+    dataSource: 'PhysicalEntities',
+    dimensions: ['hostname'],
+    virtualColumns: [
+      {
+        type: 'nested-field',
+        columnName: 'host.name',
+        outputName: 'hostname',
+        expectedType: 'STRING',
+        path: '$',
+      },
+    ],
+    filter: {
+      type: 'and',
+      fields: [
+        {
+          type: 'selector',
+          dimension: 'host.type',
+          value: 'compute.Blade',
+        },
+        {
+          type: 'regex',
+          dimension: 'host.name',
+          pattern: '^${ChassisName:regex}',
+        },
+        {
+          type: 'selector',
+          dimension: 'instrument.name',
+          value: 'hw.host',
+        },
+      ],
+    },
+    aggregations: [
+      {
+        type: 'doubleMax',
+        name: 'max-power',
+        fieldName: 'hw.host.power_max',
+      },
+    ],
     columns: [
       { selector: 'timestamp', text: 'Time', type: 'timestamp' },
       { selector: 'event.hostname', text: 'Hostname', type: 'string' },
       { selector: 'event.max-power', text: 'Power', type: 'number' },
     ],
-    body: `  {
-    "queryType": "groupBy",
-    "dataSource": "PhysicalEntities",
-        "granularity": {
-          "type": "duration",
-          "duration": $__interval_ms,
-          "timeZone": "$__timezone"
-        },
-        "intervals": ["\${__from:date}/\${__to:date}"],
-    "dimensions": ["hostname"],
-    "virtualColumns": [{
-      "type": "nested-field",
-      "columnName": "host.name",
-      "outputName": "hostname",
-      "expectedType": "STRING",
-      "path": "$"
-    }],
-    "filter": {
-      "type": "and",
-      "fields": [
-        {
-          "type": "selector",
-          "dimension": "host.type",
-          "value": "compute.Blade"
-        },
-        {
-          "type": "regex",
-          "dimension": "host.name",
-          "pattern": "^$\{ChassisName:regex}"
-        },
-        {
-          "type": "selector",
-          "dimension": "instrument.name",
-          "value": "hw.host"
-        }
-      ]
-    },
-    "aggregations": [
-      {
-        "type": "doubleMax",
-        "name": "max-power",
-        "fieldName": "hw.host.power_max"
-      }
-    ]
-  }`,
   });
 
   const queryRunner = new LoggingQueryRunner({
@@ -760,83 +727,76 @@ function createHostTable(scene: SceneObjectBase, parent: SynchronizedPowerConsum
 // CHASSIS FAN SPEED QUERY
 // ============================================================================
 
-const chassisFanSpeedQuery = createInfinityPostQuery({
+const chassisFanSpeedQuery = createTimeseriesQuery({
   refId: 'A',
   format: 'timeseries',
-  url: '/api/v1/telemetry/TimeSeries',
+  dataSource: 'PhysicalEntities',
+  dimensions: ['domain_name', 'host_name'],
+  virtualColumns: [
+    {
+      type: 'nested-field',
+      columnName: 'intersight.domain.name',
+      outputName: 'domain_name',
+      expectedType: 'STRING',
+      path: '$',
+    },
+    {
+      type: 'nested-field',
+      columnName: 'host.name',
+      outputName: 'host_name',
+      expectedType: 'STRING',
+      path: '$',
+    },
+  ],
+  filter: {
+    type: 'and',
+    fields: [
+      {
+        type: 'in',
+        dimension: 'host.name',
+        values: ['${ChassisName:doublequote}'],
+      },
+      {
+        type: 'selector',
+        dimension: 'host.type',
+        value: 'equipment.Chassis',
+      },
+      {
+        type: 'selector',
+        dimension: 'parent.type',
+        value: 'equipment.Chassis',
+      },
+      {
+        type: 'selector',
+        dimension: 'instrument.name',
+        value: 'hw.fan',
+      },
+    ],
+  },
+  aggregations: [
+    {
+      type: 'longSum',
+      name: 'count',
+      fieldName: 'hw.fan.speed_count',
+    },
+    {
+      type: 'longSum',
+      name: 'hw.fan.speed-Sum',
+      fieldName: 'hw.fan.speed',
+    },
+  ],
+  postAggregations: [
+    {
+      type: 'expression',
+      name: 'fan_speed',
+      expression: '("hw.fan.speed-Sum" / "count")',
+    },
+  ],
   columns: [
     { selector: 'timestamp', text: 'Time', type: 'timestamp' },
     { selector: 'event.host_name', text: 'Chassis Name', type: 'string' },
     { selector: 'event.fan_speed', text: 'Fan Speed', type: 'number' },
   ],
-  body: `  {
-    "queryType": "groupBy",
-    "dataSource": "PhysicalEntities",
-    "granularity": {
-      "type": "duration",
-      "duration": $__interval_ms,
-      "timeZone": "$__timezone"
-    },
-    "intervals": ["\${__from:date}/\${__to:date}"],
-    "dimensions": ["domain_name", "host_name"],
-    "virtualColumns": [{
-          "type": "nested-field",
-          "columnName": "intersight.domain.name",
-          "outputName": "domain_name",
-          "expectedType": "STRING",
-          "path": "$"
-        },{
-          "type": "nested-field",
-          "columnName": "host.name",
-          "outputName": "host_name",
-          "expectedType": "STRING",
-          "path": "$"
-        }],
-    "filter": {
-      "type": "and",
-      "fields": [
-        {
-          "type": "in",
-          "dimension": "host.name",
-          "values": [\${ChassisName:doublequote}]
-        },
-        {
-          "type": "selector",
-          "dimension": "host.type",
-          "value": "equipment.Chassis"
-        },
-        {
-          "type": "selector",
-          "dimension": "parent.type",
-          "value": "equipment.Chassis"
-        },
-        {
-          "type": "selector",
-          "dimension": "instrument.name",
-          "value": "hw.fan"
-        }
-      ]
-    },
-        "aggregations": [
-          {
-            "type": "longSum",
-            "name": "count",
-            "fieldName": "hw.fan.speed_count"
-          },
-          {
-            "type": "longSum",
-            "name": "hw.fan.speed-Sum",
-            "fieldName": "hw.fan.speed"
-          }
-        ],
-        "postAggregations": [
-          {
-            "type": "expression",
-            "name": "fan_speed",
-            "expression": "(\\"hw.fan.speed-Sum\\" / \\"count\\")"
-          }
-        ]
-  }`,
 });
 
 // ============================================================================
@@ -1118,161 +1078,147 @@ function createChassisFanSpeedDrilldownView(chassisName: string, scene: DynamicC
 // ============================================================================
 
 // Intake temperature query (TEMP_FRONT sensor)
-const chassisIntakeTemperatureQuery = createInfinityPostQuery({
+const chassisIntakeTemperatureQuery = createTimeseriesQuery({
   refId: 'A',
   format: 'timeseries',
-  url: '/api/v1/telemetry/TimeSeries',
+  dataSource: 'PhysicalEntities',
+  dimensions: ['domain_name', 'chassis_name'],
+  virtualColumns: [
+    {
+      type: 'nested-field',
+      columnName: 'intersight.domain.name',
+      outputName: 'domain_name',
+      expectedType: 'STRING',
+      path: '$',
+    },
+    {
+      type: 'expression',
+      name: 'chassis_name',
+      expression: 'substring("host.name",0,strlen("host.name")-2)',
+      expectedType: 'STRING',
+    },
+  ],
+  filter: {
+    type: 'and',
+    fields: [
+      {
+        type: 'regex',
+        dimension: 'host.name',
+        pattern: '^${ChassisName:regex}',
+      },
+      {
+        type: 'selector',
+        dimension: 'instrument.name',
+        value: 'hw.temperature',
+      },
+      {
+        type: 'selector',
+        dimension: 'host.type',
+        value: 'compute.Blade',
+      },
+      {
+        type: 'selector',
+        dimension: 'name',
+        value: 'TEMP_FRONT',
+      },
+    ],
+  },
+  aggregations: [
+    {
+      type: 'longSum',
+      name: 'count',
+      fieldName: 'hw.temperature_count',
+    },
+    {
+      type: 'doubleSum',
+      name: 'hw.temperature-Sum',
+      fieldName: 'hw.temperature',
+    },
+  ],
+  postAggregations: [
+    {
+      type: 'expression',
+      name: 'hw-temperature-Avg',
+      expression: '("hw.temperature-Sum" / "count")',
+    },
+  ],
   columns: [
     { selector: 'timestamp', text: 'Time', type: 'timestamp' },
     { selector: 'event.chassis_name', text: 'Chassis Name', type: 'string' },
     { selector: 'event.hw-temperature-Avg', text: 'Temperature', type: 'number' },
   ],
-  body: `  {
-    "queryType": "groupBy",
-    "dataSource": "PhysicalEntities",
-    "granularity": {
-      "type": "duration",
-      "duration": $__interval_ms,
-      "timeZone": "$__timezone"
-    },
-    "intervals": ["\${__from:date}/\${__to:date}"],
-    "dimensions": ["domain_name","chassis_name"],
-    "virtualColumns": [{
-          "type": "nested-field",
-          "columnName": "intersight.domain.name",
-          "outputName": "domain_name",
-          "expectedType": "STRING",
-          "path": "$"
-        },{
-          "type": "expression",
-          "name": "chassis_name",
-          "expression": "substring(\\"host.name\\",0,strlen(\\"host.name\\")-2)",
-          "expectedType": "STRING"
-        }],
-    "filter": {
-      "type": "and",
-      "fields": [
-        {
-          "type": "regex",
-          "dimension": "host.name",
-          "pattern": "^$\{ChassisName:regex}"
-        },
-        {
-          "type": "selector",
-          "dimension": "instrument.name",
-          "value": "hw.temperature"
-        },
-        {
-          "type": "selector",
-          "dimension": "host.type",
-          "value": "compute.Blade"
-        },
-        {
-          "type": "selector",
-          "dimension": "name",
-          "value": "TEMP_FRONT"
-        }
-      ]
-    },
-    "aggregations": [
-      {
-        "type": "longSum",
-        "name": "count",
-        "fieldName": "hw.temperature_count"
-      },
-      {
-        "type": "doubleSum",
-        "name": "hw.temperature-Sum",
-        "fieldName": "hw.temperature"
-      }
-    ],
-    "postAggregations": [
-      {
-        "type": "expression",
-        "name": "hw-temperature-Avg",
-        "expression": "(\\"hw.temperature-Sum\\" / \\"count\\")"
-      }
-    ]
-  }`,
 });
 
 // Exhaust temperature query (server_back sensor)
-const chassisExhaustTemperatureQuery = createInfinityPostQuery({
+const chassisExhaustTemperatureQuery = createTimeseriesQuery({
   refId: 'B',
   format: 'timeseries',
-  url: '/api/v1/telemetry/TimeSeries',
+  dataSource: 'PhysicalEntities',
+  dimensions: ['domain_name', 'chassis_name'],
+  virtualColumns: [
+    {
+      type: 'nested-field',
+      columnName: 'intersight.domain.name',
+      outputName: 'domain_name',
+      expectedType: 'STRING',
+      path: '$',
+    },
+    {
+      type: 'expression',
+      name: 'chassis_name',
+      expression: 'substring("host.name",0,strlen("host.name")-2)',
+      expectedType: 'STRING',
+    },
+  ],
+  filter: {
+    type: 'and',
+    fields: [
+      {
+        type: 'regex',
+        dimension: 'host.name',
+        pattern: '^${ChassisName:regex}',
+      },
+      {
+        type: 'selector',
+        dimension: 'instrument.name',
+        value: 'hw.temperature',
+      },
+      {
+        type: 'selector',
+        dimension: 'host.type',
+        value: 'compute.Blade',
+      },
+      {
+        type: 'selector',
+        dimension: 'sensor_location',
+        value: 'server_back',
+      },
+    ],
+  },
+  aggregations: [
+    {
+      type: 'longSum',
+      name: 'count',
+      fieldName: 'hw.temperature_count',
+    },
+    {
+      type: 'doubleSum',
+      name: 'hw.temperature-Sum',
+      fieldName: 'hw.temperature',
+    },
+  ],
+  postAggregations: [
+    {
+      type: 'expression',
+      name: 'hw-temperature-Avg',
+      expression: '("hw.temperature-Sum" / "count")',
+    },
+  ],
   columns: [
     { selector: 'timestamp', text: 'Time', type: 'timestamp' },
     { selector: 'event.chassis_name', text: 'Chassis Name', type: 'string' },
     { selector: 'event.hw-temperature-Avg', text: 'Temperature', type: 'number' },
   ],
-  body: `  {
-    "queryType": "groupBy",
-    "dataSource": "PhysicalEntities",
-    "granularity": {
-      "type": "duration",
-      "duration": $__interval_ms,
-      "timeZone": "$__timezone"
-    },
-    "intervals": ["\${__from:date}/\${__to:date}"],
-    "dimensions": ["domain_name","chassis_name"],
-    "virtualColumns": [{
-          "type": "nested-field",
-          "columnName": "intersight.domain.name",
-          "outputName": "domain_name",
-          "expectedType": "STRING",
-          "path": "$"
-        },{
-          "type": "expression",
-          "name": "chassis_name",
-          "expression": "substring(\\"host.name\\",0,strlen(\\"host.name\\")-2)",
-          "expectedType": "STRING"
-        }],
-    "filter": {
-      "type": "and",
-      "fields": [
-        {
-          "type": "regex",
-          "dimension": "host.name",
-          "pattern": "^$\{ChassisName:regex}"
-        },
-        {
-          "type": "selector",
-          "dimension": "instrument.name",
-          "value": "hw.temperature"
-        },
-        {
-          "type": "selector",
-          "dimension": "host.type",
-          "value": "compute.Blade"
-        },
-        {
-          "type": "selector",
-          "dimension": "sensor_location",
-          "value": "server_back"
-        }
-      ]
-    },
-    "aggregations": [
-      {
-        "type": "longSum",
-        "name": "count",
-        "fieldName": "hw.temperature_count"
-      },
-      {
-        "type": "doubleSum",
-        "name": "hw.temperature-Sum",
-        "fieldName": "hw.temperature"
-      }
-    ],
-    "postAggregations": [
-      {
-        "type": "expression",
-        "name": "hw-temperature-Avg",
-        "expression": "(\\"hw.temperature-Sum\\" / \\"count\\")"
-      }
-    ]
-  }`,
 });
 
 // ============================================================================
@@ -1687,197 +1633,165 @@ function createChassisTemperatureDrilldownView(chassisName: string, scene: Dynam
 // ============================================================================
 
 // Query A: Intake Temperature (server_front sensor)
-const intakeTemperatureQuery = createInfinityPostQuery({
+const intakeTemperatureQuery = createTimeseriesQuery({
   refId: 'A',
   format: 'timeseries',
-  url: '/api/v1/telemetry/TimeSeries',
+  dataSource: 'PhysicalEntities',
+  dimensions: ['hostname'],
+  virtualColumns: [
+    {
+      type: 'nested-field',
+      columnName: 'host.name',
+      outputName: 'hostname',
+      expectedType: 'STRING',
+      path: '$',
+    },
+  ],
+  filter: {
+    type: 'and',
+    fields: [
+      {
+        type: 'regex',
+        dimension: 'host.name',
+        pattern: '^${ChassisName:regex}',
+      },
+      {
+        type: 'selector',
+        dimension: 'instrument.name',
+        value: 'hw.temperature',
+      },
+      {
+        type: 'in',
+        dimension: 'host.type',
+        values: ['compute.Blade'],
+      },
+      {
+        type: 'selector',
+        dimension: 'sensor_location',
+        value: 'server_front',
+      },
+    ],
+  },
+  aggregations: [
+    {
+      type: 'doubleMax',
+      name: 'max_temp',
+      fieldName: 'hw.temperature_max',
+    },
+  ],
   columns: [
     { selector: 'timestamp', text: 'Time', type: 'timestamp' },
     { selector: 'event.hostname', text: 'Hostname', type: 'string' },
     { selector: 'event.max_temp', text: 'Temperature', type: 'number' },
   ],
-  body: `  {
-    "queryType": "groupBy",
-    "dataSource": "PhysicalEntities",
-        "granularity": {
-          "type": "duration",
-          "duration": $__interval_ms,
-          "timeZone": "$__timezone"
-        },
-        "intervals": ["\${__from:date}/\${__to:date}"],
-    "dimensions": ["hostname"],
-    "virtualColumns": [{
-      "type": "nested-field",
-      "columnName": "host.name",
-      "outputName": "hostname",
-      "expectedType": "STRING",
-      "path": "$"
-    }],
-    "filter": {
-      "type": "and",
-      "fields": [
-        {
-          "type": "regex",
-          "dimension": "host.name",
-          "pattern": "^$\{ChassisName:regex}"
-        },
-        {
-          "type": "selector",
-          "dimension": "instrument.name",
-          "value": "hw.temperature"
-        },
-        {
-          "type": "in",
-          "dimension": "host.type",
-          "values": [
-            "compute.Blade"
-          ]
-        },
-        {
-          "type": "selector",
-          "dimension": "sensor_location",
-          "value": "server_front"
-        }
-      ]
-    },
-    "aggregations": [
-      {
-        "type": "doubleMax",
-        "name": "max_temp",
-        "fieldName": "hw.temperature_max"
-      }
-    ]
-  }`,
 });
 
 // Query B: CPU Temperature (P1_TEMP_SENS)
-const cpuTemperatureQuery = createInfinityPostQuery({
+const cpuTemperatureQuery = createTimeseriesQuery({
   refId: 'B',
   format: 'timeseries',
-  url: '/api/v1/telemetry/TimeSeries',
+  dataSource: 'PhysicalEntities',
+  dimensions: ['hostname'],
+  virtualColumns: [
+    {
+      type: 'nested-field',
+      columnName: 'host.name',
+      outputName: 'hostname',
+      expectedType: 'STRING',
+      path: '$',
+    },
+  ],
+  filter: {
+    type: 'and',
+    fields: [
+      {
+        type: 'regex',
+        dimension: 'host.name',
+        pattern: '^${ChassisName:regex}',
+      },
+      {
+        type: 'selector',
+        dimension: 'instrument.name',
+        value: 'hw.temperature',
+      },
+      {
+        type: 'in',
+        dimension: 'host.type',
+        values: ['compute.Blade'],
+      },
+      {
+        type: 'in',
+        dimension: 'name',
+        values: ['P1_TEMP_SENS'],
+      },
+    ],
+  },
+  aggregations: [
+    {
+      type: 'doubleMax',
+      name: 'max_temp',
+      fieldName: 'hw.temperature_max',
+    },
+  ],
   columns: [
     { selector: 'timestamp', text: 'Time', type: 'timestamp' },
     { selector: 'event.hostname', text: 'Hostname', type: 'string' },
     { selector: 'event.max_temp', text: 'Temperature', type: 'number' },
   ],
-  body: `  {
-    "queryType": "groupBy",
-    "dataSource": "PhysicalEntities",
-        "granularity": {
-          "type": "duration",
-          "duration": $__interval_ms,
-          "timeZone": "$__timezone"
-        },
-        "intervals": ["\${__from:date}/\${__to:date}"],
-    "dimensions": ["hostname"],
-    "virtualColumns": [{
-      "type": "nested-field",
-      "columnName": "host.name",
-      "outputName": "hostname",
-      "expectedType": "STRING",
-      "path": "$"
-    }],
-    "filter": {
-      "type": "and",
-      "fields": [
-        {
-          "type": "regex",
-          "dimension": "host.name",
-          "pattern": "^$\{ChassisName:regex}"
-        },
-        {
-          "type": "selector",
-          "dimension": "instrument.name",
-          "value": "hw.temperature"
-        },
-        {
-          "type": "in",
-          "dimension": "host.type",
-          "values": [
-            "compute.Blade"
-          ]
-        },
-        {
-          "type": "in",
-          "dimension": "name",
-          "values": [
-            "P1_TEMP_SENS"
-          ]
-        }
-      ]
-    },
-    "aggregations": [
-      {
-        "type": "doubleMax",
-        "name": "max_temp",
-        "fieldName": "hw.temperature_max"
-      }
-    ]
-  }`,
 });
 
 // Query D: Exhaust Temperature (server_back sensor)
-const exhaustTemperatureQuery = createInfinityPostQuery({
+const exhaustTemperatureQuery = createTimeseriesQuery({
   refId: 'D',
   format: 'timeseries',
-  url: '/api/v1/telemetry/TimeSeries',
+  dataSource: 'PhysicalEntities',
+  dimensions: ['hostname'],
+  virtualColumns: [
+    {
+      type: 'nested-field',
+      columnName: 'host.name',
+      outputName: 'hostname',
+      expectedType: 'STRING',
+      path: '$',
+    },
+  ],
+  filter: {
+    type: 'and',
+    fields: [
+      {
+        type: 'regex',
+        dimension: 'host.name',
+        pattern: '^${ChassisName:regex}',
+      },
+      {
+        type: 'selector',
+        dimension: 'instrument.name',
+        value: 'hw.temperature',
+      },
+      {
+        type: 'in',
+        dimension: 'host.type',
+        values: ['compute.Blade'],
+      },
+      {
+        type: 'selector',
+        dimension: 'sensor_location',
+        value: 'server_back',
+      },
+    ],
+  },
+  aggregations: [
+    {
+      type: 'doubleMax',
+      name: 'max_temp',
+      fieldName: 'hw.temperature_max',
+    },
+  ],
   columns: [
     { selector: 'timestamp', text: 'Time', type: 'timestamp' },
     { selector: 'event.hostname', text: 'Hostname', type: 'string' },
     { selector: 'event.max_temp', text: 'Temperature', type: 'number' },
   ],
-  body: `  {
-    "queryType": "groupBy",
-    "dataSource": "PhysicalEntities",
-        "granularity": {
-          "type": "duration",
-          "duration": $__interval_ms,
-          "timeZone": "$__timezone"
-        },
-        "intervals": ["\${__from:date}/\${__to:date}"],
-    "dimensions": ["hostname"],
-    "virtualColumns": [{
-      "type": "nested-field",
-      "columnName": "host.name",
-      "outputName": "hostname",
-      "expectedType": "STRING",
-      "path": "$"
-    }],
-    "filter": {
-      "type": "and",
-      "fields": [
-        {
-          "type": "regex",
-          "dimension": "host.name",
-          "pattern": "^$\{ChassisName:regex}"
-        },
-        {
-          "type": "selector",
-          "dimension": "instrument.name",
-          "value": "hw.temperature"
-        },
-        {
-          "type": "in",
-          "dimension": "host.type",
-          "values": [
-            "compute.Blade"
-          ]
-        },
-        {
-          "type": "selector",
-          "dimension": "sensor_location",
-          "value": "server_back"
-        }
-      ]
-    },
-    "aggregations": [
-      {
-        "type": "doubleMax",
-        "name": "max_temp",
-        "fieldName": "hw.temperature_max"
-      }
-    ]
-  }`,
 });
 
 // ============================================================================
@@ -2189,9 +2103,9 @@ function createHostTemperatureDrilldownView(hostName: string, scene: DynamicHost
   });
 
   // Create drilldown queries for each temperature type
-  const drilldownIntakeQuery = createHostDrilldownQuery(intakeTemperatureQuery, hostName);
-  const drilldownCpuQuery = createHostDrilldownQuery(cpuTemperatureQuery, hostName);
-  const drilldownExhaustQuery = createHostDrilldownQuery(exhaustTemperatureQuery, hostName);
+  const drilldownIntakeQuery = createRegexDrilldownQuery(intakeTemperatureQuery, hostName);
+  const drilldownCpuQuery = createRegexDrilldownQuery(cpuTemperatureQuery, hostName);
+  const drilldownExhaustQuery = createRegexDrilldownQuery(exhaustTemperatureQuery, hostName);
 
   // Intake Temperature Panel
   const intakeQueryRunner = new LoggingQueryRunner({
@@ -2348,75 +2262,75 @@ function createEnvironmentalTabContent() {
       createInfinityPostQuery({
         refId: 'A',
         format: 'table',
-        url: API_ENDPOINTS.TELEMETRY_TIMESERIES, // '/api/v1/telemetry/TimeSeries'
+        url: API_ENDPOINTS.TELEMETRY_TIMESERIES,
+        body: {
+          queryType: 'groupBy',
+          dataSource: {
+            type: 'query',
+            query: {
+              queryType: 'groupBy',
+              dataSource: 'PhysicalEntities',
+              granularity: {
+                type: 'duration',
+                duration: '$__interval_ms',
+                timeZone: '$__timezone',
+              },
+              intervals: ['${__from:date}/${__to:date}'],
+              dimensions: [
+                'host_name',
+                'name'
+              ],
+              virtualColumns: [{
+                type: 'nested-field',
+                columnName: 'host.name',
+                outputName: 'host_name',
+                expectedType: 'STRING',
+                path: '$',
+              }],
+              filter: {
+                type: 'and',
+                fields: [
+                  {
+                    type: 'selector',
+                    dimension: 'instrument.name',
+                    value: 'hw.power_supply',
+                  },
+                  {
+                    type: 'in',
+                    dimension: 'host.name',
+                    values: ['${ChassisName:doublequote}'],
+                  }
+                ],
+              },
+              aggregations: [
+                {
+                  type: 'longMin',
+                  name: 'hw-status_min-Min',
+                  fieldName: 'hw.status_min',
+                }
+              ],
+            }
+          },
+          granularity: {
+            type: 'duration',
+            duration: '$__interval_ms',
+            timeZone: '$__timezone',
+          },
+          intervals: ['${__from:date}/${__to:date}'],
+          dimensions: ['domain_name', 'host_name'],
+          aggregations: [
+            {
+              type: 'longSum',
+              name: 'status_sum',
+              fieldName: 'hw-status_min-Min',
+            }
+          ],
+        },
         columns: [
           { selector: 'timestamp', text: 'Time', type: 'timestamp' },
           { selector: 'event.host_name', text: 'Hostname', type: 'string' },
           { selector: 'event.status_sum', text: 'Status', type: 'number' },
         ],
-        body: `  {
-    "queryType": "groupBy",
-    "dataSource": {
-      "type": "query",
-      "query": {
-        "queryType": "groupBy",
-        "dataSource": "PhysicalEntities",
-        "granularity": {
-          "type": "duration",
-          "duration": $__interval_ms,
-          "timeZone": "$__timezone"
-        },
-        "intervals": ["\${__from:date}/\${__to:date}"],
-        "dimensions": [
-          "host_name",
-          "name"
-        ],
-        "virtualColumns": [{
-          "type": "nested-field",
-          "columnName": "host.name",
-          "outputName": "host_name",
-          "expectedType": "STRING",
-          "path": "$"
-        }],
-        "filter": {
-          "type": "and",
-          "fields": [
-            {
-              "type": "selector",
-              "dimension": "instrument.name",
-              "value": "hw.power_supply"
-            },
-            {
-              "type": "in",
-              "dimension": "host.name",
-              "values": [\${ChassisName:doublequote}]
-            }
-          ]
-        },
-        "aggregations": [
-          {
-            "type": "longMin",
-            "name": "hw-status_min-Min",
-            "fieldName": "hw.status_min"
-          }
-        ]
-      }
-    },
-    "granularity": {
-      "type": "duration",
-      "duration": $__interval_ms,
-      "timeZone": "$__timezone"
-    },
-    "intervals": ["\${__from:date}/\${__to:date}"],
-    "dimensions": ["domain_name", "host_name"],
-    "aggregations": [
-      {
-        "type": "longSum",
-        "name": "status_sum",
-        "fieldName": "hw-status_min-Min"
-      }
-    ]
-  }`,
       }),
     ],
   });

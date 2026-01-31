@@ -19,7 +19,7 @@ import { LoggingDataTransformer } from '../../utils/LoggingDataTransformer';
 import { DrilldownHeaderControl } from '../../components/DrilldownHeaderControl';
 import { ClickableTableWrapper } from '../../components/ClickableTableWrapper';
 import { getChassisCount, createDrilldownQuery } from '../../utils/drilldownHelpers';
-import { createInfinityPostQuery } from '../../utils/infinityQueryHelpers';
+import { createInfinityPostQuery, createTimeseriesQuery } from '../../utils/infinityQueryHelpers';
 import { API_ENDPOINTS, COLUMN_WIDTHS } from './constants';
 
 // ============================================================================
@@ -279,73 +279,63 @@ function createDrilldownView(chassisName: string, parent: TrafficBalanceDetailsC
 
 // Panel 189: A: Eth uplink transmit utilization per chassis (Sum)
 function createPanel189_LineChart(isDrilldown: boolean, chassisName?: string) {
-  const baseQuery = createInfinityPostQuery({
+  const baseQuery = createTimeseriesQuery({
     refId: 'A',
     format: 'timeseries',
-    url: API_ENDPOINTS.TELEMETRY_TIMESERIES, // '/api/v1/telemetry/TimeSeries'
+    dataSource: 'NetworkInterfaces',
+    dimensions: ['domain_name'],
+    virtualColumns: [{
+      type: 'nested-field',
+      columnName: 'intersight.domain.name',
+      outputName: 'domain_name',
+      expectedType: 'STRING',
+      path: '$',
+    }],
+    filter: {
+      type: 'and',
+      fields: [
+        {
+          type: 'in',
+          dimension: 'intersight.domain.name',
+          values: '[\${ChassisName:doublequote}]',
+        },
+        {
+          type: 'search',
+          dimension: 'host.name',
+          query: {
+            type: 'insensitive_contains',
+            value: ' eCMC-A',
+          },
+        },
+        {
+          type: 'selector',
+          dimension: 'hw.network.port.type',
+          value: 'ethernet',
+        },
+        {
+          type: 'selector',
+          dimension: 'hw.network.port.role',
+          value: 'eth_uplink',
+        },
+        {
+          type: 'selector',
+          dimension: 'instrument.name',
+          value: 'hw.network',
+        },
+      ],
+    },
+    aggregations: [
+      {
+        type: 'doubleSum',
+        name: 'sum',
+        fieldName: 'hw.network.io_transmit',
+      },
+    ],
     columns: [
       { selector: 'timestamp', text: 'Time', type: 'timestamp' },
       { selector: 'event.domain_name', text: 'Domain Name', type: 'string' },
       { selector: 'event.sum', text: 'Utilization', type: 'number' },
     ],
-    body: `  {
-    "queryType": "groupBy",
-    "dataSource": "NetworkInterfaces",
-    "granularity": {
-       "type": "duration",
-       "duration": $__interval_ms,
-       "timeZone": "$__timezone"
-    },
-    "intervals": ["\${__from:date}/\${__to:date}"],
-    "dimensions": ["domain_name"],
-    "virtualColumns": [{
-      "type": "nested-field",
-      "columnName": "intersight.domain.name",
-      "outputName": "domain_name",
-      "expectedType": "STRING",
-      "path": "$"
-    }],
-    "filter": {
-      "type": "and",
-      "fields": [
-        {
-          "type": "in",
-          "dimension": "intersight.domain.name",
-          "values": [\${ChassisName:doublequote}]
-        },
-        {
-          "type": "search",
-          "dimension": "host.name",
-          "query": {
-            "type": "insensitive_contains",
-            "value": " eCMC-A"
-          }
-        },
-        {
-          "type": "selector",
-          "dimension": "hw.network.port.type",
-          "value": "ethernet"
-        },
-        {
-          "type": "selector",
-          "dimension": "hw.network.port.role",
-          "value": "eth_uplink"
-        },
-        {
-          "type": "selector",
-          "dimension": "instrument.name",
-          "value": "hw.network"
-        }
-      ]
-    },
-    "aggregations": [
-      {
-        "type": "doubleSum",
-        "name": "sum",
-        "fieldName": "hw.network.io_transmit"
-      }
-    ]
-  }`,
   });
 
   const query = isDrilldown && chassisName
@@ -387,73 +377,63 @@ function createPanel189_LineChart(isDrilldown: boolean, chassisName?: string) {
 
 // Panel 190: B: Eth uplink transmit utilization per chassis (Sum)
 function createPanel190_LineChart(isDrilldown: boolean, chassisName?: string) {
-  const baseQuery = createInfinityPostQuery({
+  const baseQuery = createTimeseriesQuery({
     refId: 'A',
     format: 'timeseries',
-    url: API_ENDPOINTS.TELEMETRY_TIMESERIES, // '/api/v1/telemetry/TimeSeries'
+    dataSource: 'NetworkInterfaces',
+    dimensions: ['domain_name'],
+    virtualColumns: [{
+      type: 'nested-field',
+      columnName: 'intersight.domain.name',
+      outputName: 'domain_name',
+      expectedType: 'STRING',
+      path: '$',
+    }],
+    filter: {
+      type: 'and',
+      fields: [
+        {
+          type: 'in',
+          dimension: 'intersight.domain.name',
+          values: '[\${ChassisName:doublequote}]',
+        },
+        {
+          type: 'search',
+          dimension: 'host.name',
+          query: {
+            type: 'insensitive_contains',
+            value: ' eCMC-B',
+          },
+        },
+        {
+          type: 'selector',
+          dimension: 'hw.network.port.type',
+          value: 'ethernet',
+        },
+        {
+          type: 'selector',
+          dimension: 'hw.network.port.role',
+          value: 'eth_uplink',
+        },
+        {
+          type: 'selector',
+          dimension: 'instrument.name',
+          value: 'hw.network',
+        },
+      ],
+    },
+    aggregations: [
+      {
+        type: 'doubleSum',
+        name: 'sum',
+        fieldName: 'hw.network.io_transmit',
+      },
+    ],
     columns: [
       { selector: 'timestamp', text: 'Time', type: 'timestamp' },
       { selector: 'event.domain_name', text: 'Domain Name', type: 'string' },
       { selector: 'event.sum', text: 'Utilization', type: 'number' },
     ],
-    body: `  {
-    "queryType": "groupBy",
-    "dataSource": "NetworkInterfaces",
-    "granularity": {
-       "type": "duration",
-       "duration": $__interval_ms,
-       "timeZone": "$__timezone"
-    },
-    "intervals": ["\${__from:date}/\${__to:date}"],
-    "dimensions": ["domain_name"],
-    "virtualColumns": [{
-      "type": "nested-field",
-      "columnName": "intersight.domain.name",
-      "outputName": "domain_name",
-      "expectedType": "STRING",
-      "path": "$"
-    }],
-    "filter": {
-      "type": "and",
-      "fields": [
-        {
-          "type": "in",
-          "dimension": "intersight.domain.name",
-          "values": [\${ChassisName:doublequote}]
-        },
-        {
-          "type": "search",
-          "dimension": "host.name",
-          "query": {
-            "type": "insensitive_contains",
-            "value": " eCMC-B"
-          }
-        },
-        {
-          "type": "selector",
-          "dimension": "hw.network.port.type",
-          "value": "ethernet"
-        },
-        {
-          "type": "selector",
-          "dimension": "hw.network.port.role",
-          "value": "eth_uplink"
-        },
-        {
-          "type": "selector",
-          "dimension": "instrument.name",
-          "value": "hw.network"
-        }
-      ]
-    },
-    "aggregations": [
-      {
-        "type": "doubleSum",
-        "name": "sum",
-        "fieldName": "hw.network.io_transmit"
-      }
-    ]
-  }`,
   });
 
   const query = isDrilldown && chassisName
@@ -495,73 +475,63 @@ function createPanel190_LineChart(isDrilldown: boolean, chassisName?: string) {
 
 // Panel 191: A: Eth uplink receive utilization per chassis (Sum)
 function createPanel191_LineChart(isDrilldown: boolean, chassisName?: string) {
-  const baseQuery = createInfinityPostQuery({
+  const baseQuery = createTimeseriesQuery({
     refId: 'A',
     format: 'timeseries',
-    url: API_ENDPOINTS.TELEMETRY_TIMESERIES, // '/api/v1/telemetry/TimeSeries'
+    dataSource: 'NetworkInterfaces',
+    dimensions: ['domain_name'],
+    virtualColumns: [{
+      type: 'nested-field',
+      columnName: 'intersight.domain.name',
+      outputName: 'domain_name',
+      expectedType: 'STRING',
+      path: '$',
+    }],
+    filter: {
+      type: 'and',
+      fields: [
+        {
+          type: 'in',
+          dimension: 'intersight.domain.name',
+          values: '[\${ChassisName:doublequote}]',
+        },
+        {
+          type: 'search',
+          dimension: 'host.name',
+          query: {
+            type: 'insensitive_contains',
+            value: ' eCMC-A',
+          },
+        },
+        {
+          type: 'selector',
+          dimension: 'hw.network.port.type',
+          value: 'ethernet',
+        },
+        {
+          type: 'selector',
+          dimension: 'hw.network.port.role',
+          value: 'eth_uplink',
+        },
+        {
+          type: 'selector',
+          dimension: 'instrument.name',
+          value: 'hw.network',
+        },
+      ],
+    },
+    aggregations: [
+      {
+        type: 'doubleSum',
+        name: 'sum',
+        fieldName: 'hw.network.io_receive',
+      },
+    ],
     columns: [
       { selector: 'timestamp', text: 'Time', type: 'timestamp' },
       { selector: 'event.domain_name', text: 'Domain Name', type: 'string' },
       { selector: 'event.sum', text: 'Utilization', type: 'number' },
     ],
-    body: `  {
-    "queryType": "groupBy",
-    "dataSource": "NetworkInterfaces",
-    "granularity": {
-       "type": "duration",
-       "duration": $__interval_ms,
-       "timeZone": "$__timezone"
-    },
-    "intervals": ["\${__from:date}/\${__to:date}"],
-    "dimensions": ["domain_name"],
-    "virtualColumns": [{
-      "type": "nested-field",
-      "columnName": "intersight.domain.name",
-      "outputName": "domain_name",
-      "expectedType": "STRING",
-      "path": "$"
-    }],
-    "filter": {
-      "type": "and",
-      "fields": [
-        {
-          "type": "in",
-          "dimension": "intersight.domain.name",
-          "values": [\${ChassisName:doublequote}]
-        },
-        {
-          "type": "search",
-          "dimension": "host.name",
-          "query": {
-            "type": "insensitive_contains",
-            "value": " eCMC-A"
-          }
-        },
-        {
-          "type": "selector",
-          "dimension": "hw.network.port.type",
-          "value": "ethernet"
-        },
-        {
-          "type": "selector",
-          "dimension": "hw.network.port.role",
-          "value": "eth_uplink"
-        },
-        {
-          "type": "selector",
-          "dimension": "instrument.name",
-          "value": "hw.network"
-        }
-      ]
-    },
-    "aggregations": [
-      {
-        "type": "doubleSum",
-        "name": "sum",
-        "fieldName": "hw.network.io_receive"
-      }
-    ]
-  }`,
   });
 
   const query = isDrilldown && chassisName
@@ -603,73 +573,63 @@ function createPanel191_LineChart(isDrilldown: boolean, chassisName?: string) {
 
 // Panel 192: B: Eth uplink receive utilization per chassis (Sum)
 function createPanel192_LineChart(isDrilldown: boolean, chassisName?: string) {
-  const baseQuery = createInfinityPostQuery({
+  const baseQuery = createTimeseriesQuery({
     refId: 'A',
     format: 'timeseries',
-    url: API_ENDPOINTS.TELEMETRY_TIMESERIES, // '/api/v1/telemetry/TimeSeries'
+    dataSource: 'NetworkInterfaces',
+    dimensions: ['domain_name'],
+    virtualColumns: [{
+      type: 'nested-field',
+      columnName: 'intersight.domain.name',
+      outputName: 'domain_name',
+      expectedType: 'STRING',
+      path: '$',
+    }],
+    filter: {
+      type: 'and',
+      fields: [
+        {
+          type: 'in',
+          dimension: 'intersight.domain.name',
+          values: '[\${ChassisName:doublequote}]',
+        },
+        {
+          type: 'search',
+          dimension: 'host.name',
+          query: {
+            type: 'insensitive_contains',
+            value: ' eCMC-B',
+          },
+        },
+        {
+          type: 'selector',
+          dimension: 'hw.network.port.type',
+          value: 'ethernet',
+        },
+        {
+          type: 'selector',
+          dimension: 'hw.network.port.role',
+          value: 'eth_uplink',
+        },
+        {
+          type: 'selector',
+          dimension: 'instrument.name',
+          value: 'hw.network',
+        },
+      ],
+    },
+    aggregations: [
+      {
+        type: 'doubleSum',
+        name: 'sum',
+        fieldName: 'hw.network.io_receive',
+      },
+    ],
     columns: [
       { selector: 'timestamp', text: 'Time', type: 'timestamp' },
       { selector: 'event.domain_name', text: 'Domain Name', type: 'string' },
       { selector: 'event.sum', text: 'Utilization', type: 'number' },
     ],
-    body: `  {
-    "queryType": "groupBy",
-    "dataSource": "NetworkInterfaces",
-    "granularity": {
-       "type": "duration",
-       "duration": $__interval_ms,
-       "timeZone": "$__timezone"
-    },
-    "intervals": ["\${__from:date}/\${__to:date}"],
-    "dimensions": ["domain_name"],
-    "virtualColumns": [{
-      "type": "nested-field",
-      "columnName": "intersight.domain.name",
-      "outputName": "domain_name",
-      "expectedType": "STRING",
-      "path": "$"
-    }],
-    "filter": {
-      "type": "and",
-      "fields": [
-        {
-          "type": "in",
-          "dimension": "intersight.domain.name",
-          "values": [\${ChassisName:doublequote}]
-        },
-        {
-          "type": "search",
-          "dimension": "host.name",
-          "query": {
-            "type": "insensitive_contains",
-            "value": " eCMC-B"
-          }
-        },
-        {
-          "type": "selector",
-          "dimension": "hw.network.port.type",
-          "value": "ethernet"
-        },
-        {
-          "type": "selector",
-          "dimension": "hw.network.port.role",
-          "value": "eth_uplink"
-        },
-        {
-          "type": "selector",
-          "dimension": "instrument.name",
-          "value": "hw.network"
-        }
-      ]
-    },
-    "aggregations": [
-      {
-        "type": "doubleSum",
-        "name": "sum",
-        "fieldName": "hw.network.io_receive"
-      }
-    ]
-  }`,
   });
 
   const query = isDrilldown && chassisName
@@ -715,73 +675,63 @@ function createPanel192_LineChart(isDrilldown: boolean, chassisName?: string) {
 
 // Panel 189: A: Eth uplink transmit utilization per chassis (Table)
 function createPanel189_Table(parent: TrafficBalanceDetailsContainer) {
-  const baseQuery = createInfinityPostQuery({
+  const baseQuery = createTimeseriesQuery({
     refId: 'A',
     format: 'timeseries',
-    url: API_ENDPOINTS.TELEMETRY_TIMESERIES, // '/api/v1/telemetry/TimeSeries'
+    dataSource: 'NetworkInterfaces',
+    dimensions: ['domain_name'],
+    virtualColumns: [{
+      type: 'nested-field',
+      columnName: 'intersight.domain.name',
+      outputName: 'domain_name',
+      expectedType: 'STRING',
+      path: '$',
+    }],
+    filter: {
+      type: 'and',
+      fields: [
+        {
+          type: 'in',
+          dimension: 'intersight.domain.name',
+          values: '[\${ChassisName:doublequote}]',
+        },
+        {
+          type: 'search',
+          dimension: 'host.name',
+          query: {
+            type: 'insensitive_contains',
+            value: ' eCMC-A',
+          },
+        },
+        {
+          type: 'selector',
+          dimension: 'hw.network.port.type',
+          value: 'ethernet',
+        },
+        {
+          type: 'selector',
+          dimension: 'hw.network.port.role',
+          value: 'eth_uplink',
+        },
+        {
+          type: 'selector',
+          dimension: 'instrument.name',
+          value: 'hw.network',
+        },
+      ],
+    },
+    aggregations: [
+      {
+        type: 'doubleSum',
+        name: 'sum',
+        fieldName: 'hw.network.io_transmit',
+      },
+    ],
     columns: [
       { selector: 'timestamp', text: 'Time', type: 'timestamp' },
       { selector: 'event.domain_name', text: 'Domain Name', type: 'string' },
       { selector: 'event.sum', text: 'Utilization', type: 'number' },
     ],
-    body: `  {
-    "queryType": "groupBy",
-    "dataSource": "NetworkInterfaces",
-    "granularity": {
-       "type": "duration",
-       "duration": $__interval_ms,
-       "timeZone": "$__timezone"
-    },
-    "intervals": ["\${__from:date}/\${__to:date}"],
-    "dimensions": ["domain_name"],
-    "virtualColumns": [{
-      "type": "nested-field",
-      "columnName": "intersight.domain.name",
-      "outputName": "domain_name",
-      "expectedType": "STRING",
-      "path": "$"
-    }],
-    "filter": {
-      "type": "and",
-      "fields": [
-        {
-          "type": "in",
-          "dimension": "intersight.domain.name",
-          "values": [\${ChassisName:doublequote}]
-        },
-        {
-          "type": "search",
-          "dimension": "host.name",
-          "query": {
-            "type": "insensitive_contains",
-            "value": " eCMC-A"
-          }
-        },
-        {
-          "type": "selector",
-          "dimension": "hw.network.port.type",
-          "value": "ethernet"
-        },
-        {
-          "type": "selector",
-          "dimension": "hw.network.port.role",
-          "value": "eth_uplink"
-        },
-        {
-          "type": "selector",
-          "dimension": "instrument.name",
-          "value": "hw.network"
-        }
-      ]
-    },
-    "aggregations": [
-      {
-        "type": "doubleSum",
-        "name": "sum",
-        "fieldName": "hw.network.io_transmit"
-      }
-    ]
-  }`,
   });
 
   const queryRunner = new LoggingQueryRunner({
@@ -849,73 +799,63 @@ function createPanel189_Table(parent: TrafficBalanceDetailsContainer) {
 
 // Panel 190: B: Eth uplink transmit utilization per chassis (Table)
 function createPanel190_Table(parent: TrafficBalanceDetailsContainer) {
-  const baseQuery = createInfinityPostQuery({
+  const baseQuery = createTimeseriesQuery({
     refId: 'A',
     format: 'timeseries',
-    url: API_ENDPOINTS.TELEMETRY_TIMESERIES, // '/api/v1/telemetry/TimeSeries'
+    dataSource: 'NetworkInterfaces',
+    dimensions: ['domain_name'],
+    virtualColumns: [{
+      type: 'nested-field',
+      columnName: 'intersight.domain.name',
+      outputName: 'domain_name',
+      expectedType: 'STRING',
+      path: '$',
+    }],
+    filter: {
+      type: 'and',
+      fields: [
+        {
+          type: 'in',
+          dimension: 'intersight.domain.name',
+          values: '[\${ChassisName:doublequote}]',
+        },
+        {
+          type: 'search',
+          dimension: 'host.name',
+          query: {
+            type: 'insensitive_contains',
+            value: ' eCMC-B',
+          },
+        },
+        {
+          type: 'selector',
+          dimension: 'hw.network.port.type',
+          value: 'ethernet',
+        },
+        {
+          type: 'selector',
+          dimension: 'hw.network.port.role',
+          value: 'eth_uplink',
+        },
+        {
+          type: 'selector',
+          dimension: 'instrument.name',
+          value: 'hw.network',
+        },
+      ],
+    },
+    aggregations: [
+      {
+        type: 'doubleSum',
+        name: 'sum',
+        fieldName: 'hw.network.io_transmit',
+      },
+    ],
     columns: [
       { selector: 'timestamp', text: 'Time', type: 'timestamp' },
       { selector: 'event.domain_name', text: 'Domain Name', type: 'string' },
       { selector: 'event.sum', text: 'Utilization', type: 'number' },
     ],
-    body: `  {
-    "queryType": "groupBy",
-    "dataSource": "NetworkInterfaces",
-    "granularity": {
-       "type": "duration",
-       "duration": $__interval_ms,
-       "timeZone": "$__timezone"
-    },
-    "intervals": ["\${__from:date}/\${__to:date}"],
-    "dimensions": ["domain_name"],
-    "virtualColumns": [{
-      "type": "nested-field",
-      "columnName": "intersight.domain.name",
-      "outputName": "domain_name",
-      "expectedType": "STRING",
-      "path": "$"
-    }],
-    "filter": {
-      "type": "and",
-      "fields": [
-        {
-          "type": "in",
-          "dimension": "intersight.domain.name",
-          "values": [\${ChassisName:doublequote}]
-        },
-        {
-          "type": "search",
-          "dimension": "host.name",
-          "query": {
-            "type": "insensitive_contains",
-            "value": " eCMC-B"
-          }
-        },
-        {
-          "type": "selector",
-          "dimension": "hw.network.port.type",
-          "value": "ethernet"
-        },
-        {
-          "type": "selector",
-          "dimension": "hw.network.port.role",
-          "value": "eth_uplink"
-        },
-        {
-          "type": "selector",
-          "dimension": "instrument.name",
-          "value": "hw.network"
-        }
-      ]
-    },
-    "aggregations": [
-      {
-        "type": "doubleSum",
-        "name": "sum",
-        "fieldName": "hw.network.io_transmit"
-      }
-    ]
-  }`,
   });
 
   const queryRunner = new LoggingQueryRunner({
@@ -983,73 +923,63 @@ function createPanel190_Table(parent: TrafficBalanceDetailsContainer) {
 
 // Panel 191: A: Eth uplink receive utilization per chassis (Table)
 function createPanel191_Table(parent: TrafficBalanceDetailsContainer) {
-  const baseQuery = createInfinityPostQuery({
+  const baseQuery = createTimeseriesQuery({
     refId: 'A',
     format: 'timeseries',
-    url: API_ENDPOINTS.TELEMETRY_TIMESERIES, // '/api/v1/telemetry/TimeSeries'
+    dataSource: 'NetworkInterfaces',
+    dimensions: ['domain_name'],
+    virtualColumns: [{
+      type: 'nested-field',
+      columnName: 'intersight.domain.name',
+      outputName: 'domain_name',
+      expectedType: 'STRING',
+      path: '$',
+    }],
+    filter: {
+      type: 'and',
+      fields: [
+        {
+          type: 'in',
+          dimension: 'intersight.domain.name',
+          values: '[\${ChassisName:doublequote}]',
+        },
+        {
+          type: 'search',
+          dimension: 'host.name',
+          query: {
+            type: 'insensitive_contains',
+            value: ' eCMC-A',
+          },
+        },
+        {
+          type: 'selector',
+          dimension: 'hw.network.port.type',
+          value: 'ethernet',
+        },
+        {
+          type: 'selector',
+          dimension: 'hw.network.port.role',
+          value: 'eth_uplink',
+        },
+        {
+          type: 'selector',
+          dimension: 'instrument.name',
+          value: 'hw.network',
+        },
+      ],
+    },
+    aggregations: [
+      {
+        type: 'doubleSum',
+        name: 'sum',
+        fieldName: 'hw.network.io_receive',
+      },
+    ],
     columns: [
       { selector: 'timestamp', text: 'Time', type: 'timestamp' },
       { selector: 'event.domain_name', text: 'Domain Name', type: 'string' },
       { selector: 'event.sum', text: 'Utilization', type: 'number' },
     ],
-    body: `  {
-    "queryType": "groupBy",
-    "dataSource": "NetworkInterfaces",
-    "granularity": {
-       "type": "duration",
-       "duration": $__interval_ms,
-       "timeZone": "$__timezone"
-    },
-    "intervals": ["\${__from:date}/\${__to:date}"],
-    "dimensions": ["domain_name"],
-    "virtualColumns": [{
-      "type": "nested-field",
-      "columnName": "intersight.domain.name",
-      "outputName": "domain_name",
-      "expectedType": "STRING",
-      "path": "$"
-    }],
-    "filter": {
-      "type": "and",
-      "fields": [
-        {
-          "type": "in",
-          "dimension": "intersight.domain.name",
-          "values": [\${ChassisName:doublequote}]
-        },
-        {
-          "type": "search",
-          "dimension": "host.name",
-          "query": {
-            "type": "insensitive_contains",
-            "value": " eCMC-A"
-          }
-        },
-        {
-          "type": "selector",
-          "dimension": "hw.network.port.type",
-          "value": "ethernet"
-        },
-        {
-          "type": "selector",
-          "dimension": "hw.network.port.role",
-          "value": "eth_uplink"
-        },
-        {
-          "type": "selector",
-          "dimension": "instrument.name",
-          "value": "hw.network"
-        }
-      ]
-    },
-    "aggregations": [
-      {
-        "type": "doubleSum",
-        "name": "sum",
-        "fieldName": "hw.network.io_receive"
-      }
-    ]
-  }`,
   });
 
   const queryRunner = new LoggingQueryRunner({
@@ -1117,73 +1047,63 @@ function createPanel191_Table(parent: TrafficBalanceDetailsContainer) {
 
 // Panel 192: B: Eth uplink receive utilization per chassis (Table)
 function createPanel192_Table(parent: TrafficBalanceDetailsContainer) {
-  const baseQuery = createInfinityPostQuery({
+  const baseQuery = createTimeseriesQuery({
     refId: 'A',
     format: 'timeseries',
-    url: API_ENDPOINTS.TELEMETRY_TIMESERIES, // '/api/v1/telemetry/TimeSeries'
+    dataSource: 'NetworkInterfaces',
+    dimensions: ['domain_name'],
+    virtualColumns: [{
+      type: 'nested-field',
+      columnName: 'intersight.domain.name',
+      outputName: 'domain_name',
+      expectedType: 'STRING',
+      path: '$',
+    }],
+    filter: {
+      type: 'and',
+      fields: [
+        {
+          type: 'in',
+          dimension: 'intersight.domain.name',
+          values: '[\${ChassisName:doublequote}]',
+        },
+        {
+          type: 'search',
+          dimension: 'host.name',
+          query: {
+            type: 'insensitive_contains',
+            value: ' eCMC-B',
+          },
+        },
+        {
+          type: 'selector',
+          dimension: 'hw.network.port.type',
+          value: 'ethernet',
+        },
+        {
+          type: 'selector',
+          dimension: 'hw.network.port.role',
+          value: 'eth_uplink',
+        },
+        {
+          type: 'selector',
+          dimension: 'instrument.name',
+          value: 'hw.network',
+        },
+      ],
+    },
+    aggregations: [
+      {
+        type: 'doubleSum',
+        name: 'sum',
+        fieldName: 'hw.network.io_receive',
+      },
+    ],
     columns: [
       { selector: 'timestamp', text: 'Time', type: 'timestamp' },
       { selector: 'event.domain_name', text: 'Domain Name', type: 'string' },
       { selector: 'event.sum', text: 'Utilization', type: 'number' },
     ],
-    body: `  {
-    "queryType": "groupBy",
-    "dataSource": "NetworkInterfaces",
-    "granularity": {
-       "type": "duration",
-       "duration": $__interval_ms,
-       "timeZone": "$__timezone"
-    },
-    "intervals": ["\${__from:date}/\${__to:date}"],
-    "dimensions": ["domain_name"],
-    "virtualColumns": [{
-      "type": "nested-field",
-      "columnName": "intersight.domain.name",
-      "outputName": "domain_name",
-      "expectedType": "STRING",
-      "path": "$"
-    }],
-    "filter": {
-      "type": "and",
-      "fields": [
-        {
-          "type": "in",
-          "dimension": "intersight.domain.name",
-          "values": [\${ChassisName:doublequote}]
-        },
-        {
-          "type": "search",
-          "dimension": "host.name",
-          "query": {
-            "type": "insensitive_contains",
-            "value": " eCMC-B"
-          }
-        },
-        {
-          "type": "selector",
-          "dimension": "hw.network.port.type",
-          "value": "ethernet"
-        },
-        {
-          "type": "selector",
-          "dimension": "hw.network.port.role",
-          "value": "eth_uplink"
-        },
-        {
-          "type": "selector",
-          "dimension": "instrument.name",
-          "value": "hw.network"
-        }
-      ]
-    },
-    "aggregations": [
-      {
-        "type": "doubleSum",
-        "name": "sum",
-        "fieldName": "hw.network.io_receive"
-      }
-    ]
-  }`,
   });
 
   const queryRunner = new LoggingQueryRunner({
@@ -1304,66 +1224,57 @@ function getPanel185_EthTransmitTrafficA() {
   const queryRunner = new LoggingQueryRunner({
     datasource: { uid: '${Account}' },
     queries: [
-      createInfinityPostQuery({
+      createTimeseriesQuery({
         refId: 'A',
         format: 'table',
-        url: API_ENDPOINTS.TELEMETRY_TIMESERIES, // '/api/v1/telemetry/TimeSeries'
+        dataSource: 'NetworkInterfaces',
+        dimensions: [],
+        virtualColumns: [],
+        filter: {
+          type: 'and',
+          fields: [
+            {
+              type: 'in',
+              dimension: 'intersight.domain.name',
+              values: '[\${ChassisName:doublequote}]',
+            },
+            {
+              type: 'search',
+              dimension: 'host.name',
+              query: {
+                type: 'insensitive_contains',
+                value: ' eCMC-A',
+              },
+            },
+            {
+              type: 'selector',
+              dimension: 'hw.network.port.type',
+              value: 'ethernet',
+            },
+            {
+              type: 'selector',
+              dimension: 'hw.network.port.role',
+              value: 'eth_uplink',
+            },
+            {
+              type: 'selector',
+              dimension: 'instrument.name',
+              value: 'hw.network',
+            },
+          ],
+        },
+        aggregations: [
+          {
+            type: 'doubleSum',
+            name: 'sum',
+            fieldName: 'hw.network.io_transmit',
+          },
+        ],
         columns: [
           { selector: 'timestamp', text: 'Time', type: 'timestamp' },
           { selector: 'event.domain_name', text: 'Domain Name', type: 'string' },
           { selector: 'event.sum', text: 'Utilization', type: 'number' },
         ],
-        body: `  {
-    "queryType": "groupBy",
-    "dataSource": "NetworkInterfaces",
-    "granularity": {
-       "type": "duration",
-       "duration": $__interval_ms,
-       "timeZone": "$__timezone"
-    },
-    "intervals": ["\${__from:date}/\${__to:date}"],
-    "dimensions": [],
-    "filter": {
-      "type": "and",
-      "fields": [
-        {
-          "type": "in",
-          "dimension": "intersight.domain.name",
-          "values": [\${ChassisName:doublequote}]
-        },
-        {
-          "type": "search",
-          "dimension": "host.name",
-          "query": {
-            "type": "insensitive_contains",
-            "value": " eCMC-A"
-          }
-        },
-        {
-          "type": "selector",
-          "dimension": "hw.network.port.type",
-          "value": "ethernet"
-        },
-        {
-          "type": "selector",
-          "dimension": "hw.network.port.role",
-          "value": "eth_uplink"
-        },
-        {
-          "type": "selector",
-          "dimension": "instrument.name",
-          "value": "hw.network"
-        }
-      ]
-    },
-    "aggregations": [
-      {
-        "type": "doubleSum",
-        "name": "sum",
-        "fieldName": "hw.network.io_transmit"
-      }
-    ]
-  }`,
       }),
     ],
   });
@@ -1403,66 +1314,57 @@ function getPanel186_EthTransmitTrafficB() {
   const queryRunner = new LoggingQueryRunner({
     datasource: { uid: '${Account}' },
     queries: [
-      createInfinityPostQuery({
+      createTimeseriesQuery({
         refId: 'A',
         format: 'table',
-        url: API_ENDPOINTS.TELEMETRY_TIMESERIES, // '/api/v1/telemetry/TimeSeries'
+        dataSource: 'NetworkInterfaces',
+        dimensions: [],
+        virtualColumns: [],
+        filter: {
+          type: 'and',
+          fields: [
+            {
+              type: 'in',
+              dimension: 'intersight.domain.name',
+              values: '[\${ChassisName:doublequote}]',
+            },
+            {
+              type: 'search',
+              dimension: 'host.name',
+              query: {
+                type: 'insensitive_contains',
+                value: ' eCMC-B',
+              },
+            },
+            {
+              type: 'selector',
+              dimension: 'hw.network.port.type',
+              value: 'ethernet',
+            },
+            {
+              type: 'selector',
+              dimension: 'hw.network.port.role',
+              value: 'eth_uplink',
+            },
+            {
+              type: 'selector',
+              dimension: 'instrument.name',
+              value: 'hw.network',
+            },
+          ],
+        },
+        aggregations: [
+          {
+            type: 'doubleSum',
+            name: 'sum',
+            fieldName: 'hw.network.io_transmit',
+          },
+        ],
         columns: [
           { selector: 'timestamp', text: 'Time', type: 'timestamp' },
           { selector: 'event.domain_name', text: 'Domain Name', type: 'string' },
           { selector: 'event.sum', text: 'Utilization', type: 'number' },
         ],
-        body: `  {
-    "queryType": "groupBy",
-    "dataSource": "NetworkInterfaces",
-    "granularity": {
-       "type": "duration",
-       "duration": $__interval_ms,
-       "timeZone": "$__timezone"
-    },
-    "intervals": ["\${__from:date}/\${__to:date}"],
-    "dimensions": [],
-    "filter": {
-      "type": "and",
-      "fields": [
-        {
-          "type": "in",
-          "dimension": "intersight.domain.name",
-          "values": [\${ChassisName:doublequote}]
-        },
-        {
-          "type": "search",
-          "dimension": "host.name",
-          "query": {
-            "type": "insensitive_contains",
-            "value": " eCMC-B"
-          }
-        },
-        {
-          "type": "selector",
-          "dimension": "hw.network.port.type",
-          "value": "ethernet"
-        },
-        {
-          "type": "selector",
-          "dimension": "hw.network.port.role",
-          "value": "eth_uplink"
-        },
-        {
-          "type": "selector",
-          "dimension": "instrument.name",
-          "value": "hw.network"
-        }
-      ]
-    },
-    "aggregations": [
-      {
-        "type": "doubleSum",
-        "name": "sum",
-        "fieldName": "hw.network.io_transmit"
-      }
-    ]
-  }`,
       }),
     ],
   });
@@ -1502,66 +1404,57 @@ function getPanel187_EthReceiveTrafficA() {
   const queryRunner = new LoggingQueryRunner({
     datasource: { uid: '${Account}' },
     queries: [
-      createInfinityPostQuery({
+      createTimeseriesQuery({
         refId: 'A',
         format: 'table',
-        url: API_ENDPOINTS.TELEMETRY_TIMESERIES, // '/api/v1/telemetry/TimeSeries'
+        dataSource: 'NetworkInterfaces',
+        dimensions: [],
+        virtualColumns: [],
+        filter: {
+          type: 'and',
+          fields: [
+            {
+              type: 'in',
+              dimension: 'intersight.domain.name',
+              values: '[\${ChassisName:doublequote}]',
+            },
+            {
+              type: 'search',
+              dimension: 'host.name',
+              query: {
+                type: 'insensitive_contains',
+                value: ' eCMC-A',
+              },
+            },
+            {
+              type: 'selector',
+              dimension: 'hw.network.port.type',
+              value: 'ethernet',
+            },
+            {
+              type: 'selector',
+              dimension: 'hw.network.port.role',
+              value: 'eth_uplink',
+            },
+            {
+              type: 'selector',
+              dimension: 'instrument.name',
+              value: 'hw.network',
+            },
+          ],
+        },
+        aggregations: [
+          {
+            type: 'doubleSum',
+            name: 'sum',
+            fieldName: 'hw.network.io_receive',
+          },
+        ],
         columns: [
           { selector: 'timestamp', text: 'Time', type: 'timestamp' },
           { selector: 'event.domain_name', text: 'Domain Name', type: 'string' },
           { selector: 'event.sum', text: 'Utilization', type: 'number' },
         ],
-        body: `  {
-    "queryType": "groupBy",
-    "dataSource": "NetworkInterfaces",
-    "granularity": {
-       "type": "duration",
-       "duration": $__interval_ms,
-       "timeZone": "$__timezone"
-    },
-    "intervals": ["\${__from:date}/\${__to:date}"],
-    "dimensions": [],
-    "filter": {
-      "type": "and",
-      "fields": [
-        {
-          "type": "in",
-          "dimension": "intersight.domain.name",
-          "values": [\${ChassisName:doublequote}]
-        },
-        {
-          "type": "search",
-          "dimension": "host.name",
-          "query": {
-            "type": "insensitive_contains",
-            "value": " eCMC-A"
-          }
-        },
-        {
-          "type": "selector",
-          "dimension": "hw.network.port.type",
-          "value": "ethernet"
-        },
-        {
-          "type": "selector",
-          "dimension": "hw.network.port.role",
-          "value": "eth_uplink"
-        },
-        {
-          "type": "selector",
-          "dimension": "instrument.name",
-          "value": "hw.network"
-        }
-      ]
-    },
-    "aggregations": [
-      {
-        "type": "doubleSum",
-        "name": "sum",
-        "fieldName": "hw.network.io_receive"
-      }
-    ]
-  }`,
       }),
     ],
   });
@@ -1601,66 +1494,57 @@ function getPanel188_EthReceiveTrafficB() {
   const queryRunner = new LoggingQueryRunner({
     datasource: { uid: '${Account}' },
     queries: [
-      createInfinityPostQuery({
+      createTimeseriesQuery({
         refId: 'A',
         format: 'table',
-        url: API_ENDPOINTS.TELEMETRY_TIMESERIES, // '/api/v1/telemetry/TimeSeries'
+        dataSource: 'NetworkInterfaces',
+        dimensions: [],
+        virtualColumns: [],
+        filter: {
+          type: 'and',
+          fields: [
+            {
+              type: 'in',
+              dimension: 'intersight.domain.name',
+              values: '[\${ChassisName:doublequote}]',
+            },
+            {
+              type: 'search',
+              dimension: 'host.name',
+              query: {
+                type: 'insensitive_contains',
+                value: ' eCMC-B',
+              },
+            },
+            {
+              type: 'selector',
+              dimension: 'hw.network.port.type',
+              value: 'ethernet',
+            },
+            {
+              type: 'selector',
+              dimension: 'hw.network.port.role',
+              value: 'eth_uplink',
+            },
+            {
+              type: 'selector',
+              dimension: 'instrument.name',
+              value: 'hw.network',
+            },
+          ],
+        },
+        aggregations: [
+          {
+            type: 'doubleSum',
+            name: 'sum',
+            fieldName: 'hw.network.io_receive',
+          },
+        ],
         columns: [
           { selector: 'timestamp', text: 'Time', type: 'timestamp' },
           { selector: 'event.domain_name', text: 'Domain Name', type: 'string' },
           { selector: 'event.sum', text: 'Utilization', type: 'number' },
         ],
-        body: `  {
-    "queryType": "groupBy",
-    "dataSource": "NetworkInterfaces",
-    "granularity": {
-       "type": "duration",
-       "duration": $__interval_ms,
-       "timeZone": "$__timezone"
-    },
-    "intervals": ["\${__from:date}/\${__to:date}"],
-    "dimensions": [],
-    "filter": {
-      "type": "and",
-      "fields": [
-        {
-          "type": "in",
-          "dimension": "intersight.domain.name",
-          "values": [\${ChassisName:doublequote}]
-        },
-        {
-          "type": "search",
-          "dimension": "host.name",
-          "query": {
-            "type": "insensitive_contains",
-            "value": " eCMC-B"
-          }
-        },
-        {
-          "type": "selector",
-          "dimension": "hw.network.port.type",
-          "value": "ethernet"
-        },
-        {
-          "type": "selector",
-          "dimension": "hw.network.port.role",
-          "value": "eth_uplink"
-        },
-        {
-          "type": "selector",
-          "dimension": "instrument.name",
-          "value": "hw.network"
-        }
-      ]
-    },
-    "aggregations": [
-      {
-        "type": "doubleSum",
-        "name": "sum",
-        "fieldName": "hw.network.io_receive"
-      }
-    ]
-  }`,
       }),
     ],
   });

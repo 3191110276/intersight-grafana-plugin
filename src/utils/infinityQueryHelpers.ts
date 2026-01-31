@@ -178,9 +178,22 @@ export interface InfinityPostQueryOptions {
  * @returns Infinity query object ready to use in SceneQueryRunner
  */
 export function createInfinityPostQuery(options: InfinityPostQueryOptions): any {
-  const bodyString = typeof options.body === 'string'
+  let bodyString = typeof options.body === 'string'
     ? options.body
     : JSON.stringify(options.body, null, 2);
+
+  // Fix Grafana variable interpolation that was escaped by JSON.stringify
+  // (same logic as in createTimeseriesQuery)
+
+  // Problem 1: Filter values like `values: '[\${ChassisName:doublequote}]'` get stringified
+  // as `"values": "[${ChassisName:doublequote}]"` (a string), but Grafana expects
+  // `"values": [${ChassisName:doublequote}]` (an array with variable interpolation).
+  bodyString = bodyString.replace(/": "(\[[^\]]*\$\{[^\]]*\])"/g, '": $1');
+
+  // Problem 2: Filter values like `values: ['${ChassisName:doublequote}']` get stringified
+  // as `"values": ["${ChassisName:doublequote}"]` (array with quoted string), but Grafana expects
+  // `"values": [${ChassisName:doublequote}]` (array with unquoted variable).
+  bodyString = bodyString.replace(/: \[\s*"\$\{([^}]+)\}"\s*\]/g, ': [${$1}]');
 
   return {
     refId: options.refId || 'A',
@@ -205,11 +218,13 @@ export function createInfinityPostQuery(options: InfinityPostQueryOptions): any 
  * Virtual column definition for Druid queries
  */
 export interface DruidVirtualColumn {
-  type: 'nested-field';
-  columnName: string;
-  outputName: string;
-  expectedType: 'STRING' | 'DOUBLE' | 'LONG';
-  path: string;
+  type: 'nested-field' | 'expression';
+  columnName?: string;
+  outputName?: string;
+  name?: string;
+  expectedType?: 'STRING' | 'DOUBLE' | 'LONG';
+  path?: string;
+  expression?: string;
 }
 
 /**
@@ -389,12 +404,34 @@ export function createTimeseriesQuery(options: TimeseriesQueryOptions): any {
     queryBody.postAggregations = options.postAggregations;
   }
 
+  // Convert to JSON string
+  let bodyString = JSON.stringify(queryBody, null, 2);
+
+  // Fix Grafana variable interpolation that was escaped by JSON.stringify
+  //
+  // Problem 1: Filter values like `values: '[\${ChassisName:doublequote}]'` get stringified
+  // as `"values": "[${ChassisName:doublequote}]"` (a string), but Grafana expects
+  // `"values": [${ChassisName:doublequote}]` (an array with variable interpolation).
+  //
+  // Solution: Replace any array-like string value containing ${...} with the raw JSON syntax.
+  // Pattern: ": "[\${...}]" becomes : [\${...}]
+  bodyString = bodyString.replace(/": "(\[[^\]]*\$\{[^\]]*\])"/g, '": $1');
+
+  // Problem 2: Filter values like `values: ['${ChassisName:doublequote}']` get stringified
+  // as `"values": ["${ChassisName:doublequote}"]` (array with quoted string), but Grafana expects
+  // `"values": [${ChassisName:doublequote}]` (array with unquoted variable).
+  //
+  // Solution: Remove quotes around array elements that are Grafana variables.
+  // This handles both single-line and multi-line array formatting.
+  // Pattern: : ["\${...}"] or : [\n    "\${...}"\n  ] becomes : [\${...}]
+  bodyString = bodyString.replace(/: \[\s*"\$\{([^}]+)\}"\s*\]/g, ': [${$1}]');
+
   // Use createInfinityPostQuery to build the final query
   return createInfinityPostQuery({
     refId: options.refId || 'A',
     format: options.format || 'timeseries',
     url: '/api/v1/telemetry/TimeSeries',
     columns: options.columns,
-    body: JSON.stringify(queryBody, null, 2),
+    body: bodyString,
   });
 }
